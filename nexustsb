@@ -1,0 +1,2637 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local SoundService = game:GetService("SoundService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Eksiksiz ve güvenli Executor Tespiti
+local executorName = "Unknown Executor"
+pcall(function()
+	if identifyexecutor then
+		local name, ver = identifyexecutor()
+		executorName = name .. (ver and (" " .. ver) or "")
+	elseif getexecutorname then
+		executorName = getexecutorname()
+	elseif syn then
+		executorName = "Synapse X"
+	elseif KRNL_LOADED then
+		executorName = "KRNL"
+	elseif fluxus then
+		executorName = "Fluxus"
+	elseif Drift then
+		executorName = "Drift"
+	elseif Hydrogen then
+		executorName = "Hydrogen"
+	elseif JJsploit then
+		executorName = "JJsploit"
+	elseif Solara then
+		executorName = "Solara"
+	elseif Wave then
+		executorName = "Wave"
+	elseif Xeno then
+		executorName = "Xeno"
+	elseif Ronix then
+		executorName = "Ronix"
+	elseif Velocity then
+		executorName = "Velocity"
+	end
+end)
+
+-- Eski GUI'leri ve sesleri temizle
+pcall(function()
+	local old1 = PlayerGui:FindFirstChild("NexusMatrixGUI")
+	if old1 then old1:Destroy() end
+	local old2 = CoreGui:FindFirstChild("NexusMatrixGUI")
+	if old2 then old2:Destroy() end
+	local old3 = PlayerGui:FindFirstChild("NexusAnimGUI")
+	if old3 then old3:Destroy() end
+	local old4 = PlayerGui:FindFirstChild("NexusPremiumFly")
+	if old4 then old4:Destroy() end
+	local old5 = PlayerGui:FindFirstChild("NexusPremium")
+	if old5 then old5:Destroy() end
+	local old6 = CoreGui:FindFirstChild("NexusPremium")
+	if old6 then old6:Destroy() end
+	local old7 = CoreGui:FindFirstChild("NexusFlingUi")
+	if old7 then old7:Destroy() end
+	for _, s in ipairs(SoundService:GetChildren()) do
+		if s.Name == "NexusIntroSound" then s:Destroy() end
+	end
+end)
+
+--==================================================
+-- INTRO AUDIO & ROTATING INTRO
+--==================================================
+
+local introSound = Instance.new("Sound")
+introSound.Name = "NexusIntroSound"
+introSound.SoundId = "rbxassetid://4883181281" 
+introSound.Volume = 2
+introSound.Parent = SoundService
+introSound:Play()
+
+local IntroGui = Instance.new("ScreenGui")
+IntroGui.Name = "NexusGUI"
+IntroGui.ResetOnSpawn = false
+IntroGui.IgnoreGuiInset = true
+IntroGui.Parent = PlayerGui
+
+local OrbitHolder = Instance.new("Frame", IntroGui)
+OrbitHolder.Size = UDim2.fromOffset(0, 0)
+OrbitHolder.Position = UDim2.new(0.5, 0, 0.5, 0)
+OrbitHolder.BackgroundTransparency = 1
+
+local orbitCount = 8
+local orbitRadius = 150
+local textLabels = {}
+
+for i = 1, orbitCount do
+	local angle = (i / orbitCount) * (math.pi * 2)
+	local txt = Instance.new("TextLabel", OrbitHolder)
+	txt.Size = UDim2.fromOffset(140, 30)
+	txt.AnchorPoint = Vector2.new(0.5, 0.5)
+	txt.BackgroundTransparency = 1
+	txt.Text = "NEXUS PREMIUM"
+	txt.TextColor3 = Color3.fromRGB(255, 0, 0)
+	txt.Font = Enum.Font.Code
+	txt.TextSize = 13
+	txt.TextTransparency = 1
+	
+	local x = math.cos(angle) * orbitRadius
+	local y = math.sin(angle) * orbitRadius
+	txt.Position = UDim2.fromOffset(x, y)
+	table.insert(textLabels, txt)
+end
+
+local CenterBox = Instance.new("Frame", IntroGui)
+CenterBox.Size = UDim2.fromOffset(0, 4)
+CenterBox.Position = UDim2.new(0.5, 0, 0.5, 0)
+CenterBox.BackgroundColor3 = Color3.fromRGB(10, 0, 0)
+CenterBox.BorderSizePixel = 0
+Instance.new("UICorner", CenterBox).CornerRadius = UDim.new(0, 8)
+
+local centerStroke = Instance.new("UIStroke", CenterBox)
+centerStroke.Color = Color3.fromRGB(255, 0, 0)
+centerStroke.Thickness = 2
+centerStroke.Transparency = 1
+
+local CenterLogoText = Instance.new("TextLabel", CenterBox)
+CenterLogoText.Size = UDim2.new(1, 0, 1, 0)
+CenterLogoText.BackgroundTransparency = 1
+CenterLogoText.Text = "NEXUS PREMIUM"
+CenterLogoText.TextColor3 = Color3.fromRGB(255, 255, 255)
+CenterLogoText.Font = Enum.Font.Code
+CenterLogoText.TextSize = 20
+CenterLogoText.TextTransparency = 1
+
+TweenService:Create(CenterBox, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+	Size = UDim2.fromOffset(380, 4),
+	Position = UDim2.new(0.5, -190, 0.5, -2)
+}):Play()
+task.wait(0.4)
+
+TweenService:Create(CenterBox, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+	Size = UDim2.fromOffset(380, 100),
+	Position = UDim2.new(0.5, -190, 0.5, -50),
+}):Play()
+TweenService:Create(centerStroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
+
+TweenService:Create(CenterLogoText, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+for _, t in ipairs(textLabels) do
+	TweenService:Create(t, TweenInfo.new(0.3), {TextTransparency = 0.2}):Play()
+end
+
+local rotConn
+local currentAngle = 0
+rotConn = RunService.RenderStepped:Connect(function(dt)
+	currentAngle = currentAngle + (dt * 2.5)
+	for i, t in ipairs(textLabels) do
+		local angle = currentAngle + ((i / orbitCount) * (math.pi * 2))
+		local x = math.cos(angle) * orbitRadius
+		local y = math.sin(angle) * orbitRadius
+		t.Position = UDim2.fromOffset(x, y)
+	end
+end)
+
+task.wait(1.8)
+
+if rotConn then rotConn:Disconnect() end
+
+TweenService:Create(CenterLogoText, TweenInfo.new(0.2), {TextTransparency = 1}):Play()
+for _, t in ipairs(textLabels) do
+	TweenService:Create(t, TweenInfo.new(0.2), {TextTransparency = 1}):Play()
+end
+
+TweenService:Create(centerStroke, TweenInfo.new(0.2), {Transparency = 1}):Play()
+TweenService:Create(CenterBox, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+	Size = UDim2.fromOffset(0, 0),
+	Position = UDim2.new(0.5, 0, 0.5, 0)
+}):Play()
+task.wait(0.3)
+IntroGui:Destroy()
+
+introSound:Stop()
+introSound:Destroy()
+
+--==================================================
+-- CHARACTER & MOMENT CONTROL
+--==================================================
+
+local character
+local humanoid
+local rootPart
+
+local function refreshCharacter()
+	character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	humanoid = character:WaitForChild("Humanoid")
+	rootPart = character:WaitForChild("HumanoidRootPart")
+end
+
+refreshCharacter()
+
+local flying = false
+local flySpeed = 50
+local walkSpeedVal = 16
+local walkSpeedEnabled = false
+local walkSpeedConnection = nil
+
+local flyKey = nil
+local waitingForKey = false
+local flyVelocity = nil
+local flyGyro = nil
+local flyConnection = nil
+
+local noclipActive = false
+local noclipConnection = nil
+
+--==================================================
+-- MAIN CYBER HUB GUI
+--==================================================
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NexusMatrixGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = PlayerGui
+
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(620, 390)
+Main.Position = UDim2.new(0.5, -310, 0.5, -195)
+Main.BackgroundColor3 = Color3.fromRGB(9, 10, 14)
+Main.BackgroundTransparency = 0.1
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Parent = ScreenGui
+
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+
+local mainStroke = Instance.new("UIStroke", Main)
+mainStroke.Color = Color3.fromRGB(255, 0, 0)
+mainStroke.Transparency = 0.3
+mainStroke.Thickness = 1.5
+
+local CyberLine = Instance.new("Frame", Main)
+CyberLine.Size = UDim2.fromOffset(3, 350)
+CyberLine.Position = UDim2.fromOffset(12, 20)
+CyberLine.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+CyberLine.BorderSizePixel = 0
+Instance.new("UICorner", CyberLine).CornerRadius = UDim.new(1, 0)
+
+local Header = Instance.new("Frame", Main)
+Header.Size = UDim2.new(1, -30, 0, 45)
+Header.Position = UDim2.fromOffset(25, 0)
+Header.BackgroundTransparency = 1
+
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(1, -50, 1, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "NEXUS <font color='rgb(255,0,0)'>[NexusPremium Hub]</font>  |  <font color='rgb(0,255,150)'>" .. executorName .. "</font>"
+Title.RichText = true
+Title.TextColor3 = Color3.fromRGB(240, 242, 250)
+Title.Font = Enum.Font.Code
+Title.TextSize = 13
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local Close = Instance.new("TextButton", Header)
+Close.Size = UDim2.fromOffset(28, 28)
+Close.Position = UDim2.new(1, -35, 0, 8)
+Close.BackgroundColor3 = Color3.fromRGB(30, 10, 10)
+Close.BorderSizePixel = 0
+Close.AutoButtonColor = false
+Close.Text = "X"
+Close.TextColor3 = Color3.fromRGB(255, 50, 50)
+Close.Font = Enum.Font.Code
+Close.TextSize = 11
+Instance.new("UICorner", Close).CornerRadius = UDim.new(0, 4)
+
+Close.MouseButton1Click:Connect(function()
+	ScreenGui.Enabled = false
+end)
+
+-- Sidebar Navigation
+local Sidebar = Instance.new("Frame", Main)
+Sidebar.Size = UDim2.fromOffset(140, 315)
+Sidebar.Position = UDim2.fromOffset(25, 50)
+Sidebar.BackgroundTransparency = 1
+
+local SideLayout = Instance.new("UIListLayout", Sidebar)
+SideLayout.Padding = UDim.new(0, 6)
+
+local Content = Instance.new("Frame", Main)
+Content.Size = UDim2.fromOffset(430, 315)
+Content.Position = UDim2.fromOffset(175, 50)
+Content.BackgroundTransparency = 1
+
+local pages = {}
+local tabButtons = {}
+
+local function createSection(name, index)
+	local btn = Instance.new("TextButton", Sidebar)
+	btn.Size = UDim2.new(1, 0, 0, 34)
+	btn.BackgroundColor3 = index == 1 and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(16, 18, 26)
+	btn.BorderSizePixel = 0
+	btn.Text = "  > " .. name
+	btn.TextColor3 = index == 1 and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(130, 135, 150)
+	btn.Font = Enum.Font.Code
+	btn.TextSize = 11
+	btn.TextXAlignment = Enum.TextXAlignment.Left
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+	local page = Instance.new("ScrollingFrame", Content)
+	page.Size = UDim2.new(1, 0, 1, 0)
+	page.BackgroundTransparency = 1
+	page.BorderSizePixel = 0
+	page.ScrollBarThickness = 2
+	page.ScrollBarImageColor3 = Color3.fromRGB(255, 0, 0)
+	page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	page.CanvasSize = UDim2.new()
+	page.Visible = (index == 1)
+
+	local pageLayout = Instance.new("UIListLayout", page)
+	pageLayout.Padding = UDim.new(0, 6)
+
+	pages[index] = page
+	tabButtons[index] = btn
+
+	btn.MouseButton1Click:Connect(function()
+		for i, p in ipairs(pages) do
+			p.Visible = (i == index)
+			tabButtons[i].BackgroundColor3 = (i == index) and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(16, 18, 26)
+			tabButtons[i].TextColor3 = (i == index) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(130, 135, 150)
+		end
+	end)
+
+	return page
+end
+
+local page1 = createSection("MOMENT CONTROL", 1)
+local page2 = createSection("TERMINAL", 2)
+local page3 = createSection("FUN TOOLS", 3)
+local page4 = createSection("VISUALS", 4)
+local page5 = createSection("EXTRA TP", 5)
+local page6 = createSection("SETTINGS", 6)
+
+--==================================================
+-- PAGE 1: MOMENT CONTROL (FLY, SPEED, WALKSPEED, NOCLIP)
+--==================================================
+local speedContainer = Instance.new("Frame", page1)
+speedContainer.Size = UDim2.new(1, 0, 0, 36)
+speedContainer.BackgroundTransparency = 1
+
+local speedBox = Instance.new("TextBox", speedContainer)
+speedBox.Size = UDim2.new(0.55, 0, 1, 0)
+speedBox.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+speedBox.BorderSizePixel = 0
+speedBox.ClearTextOnFocus = false
+speedBox.Text = "50"
+speedBox.PlaceholderText = "Fly Hızı (1-1000)"
+speedBox.TextColor3 = Color3.fromRGB(245, 247, 255)
+speedBox.Font = Enum.Font.Code
+speedBox.TextSize = 10
+Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 4)
+
+local apply = Instance.new("TextButton", speedContainer)
+apply.Size = UDim2.new(0.42, 0, 1, 0)
+apply.Position = UDim2.new(0.58, 0, 0, 0)
+apply.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+apply.BorderSizePixel = 0
+apply.Text = "APPLY FLY"
+apply.TextColor3 = Color3.fromRGB(255, 255, 255)
+apply.Font = Enum.Font.Code
+apply.TextSize = 9
+Instance.new("UICorner", apply).CornerRadius = UDim.new(0, 4)
+
+local function updateSpeed()
+	local value = tonumber(speedBox.Text)
+	if not value then value = 50 end
+	value = math.clamp(math.floor(value), 1, 1000)
+	flySpeed = value
+	speedBox.Text = tostring(value)
+end
+
+apply.MouseButton1Click:Connect(updateSpeed)
+speedBox.FocusLost:Connect(updateSpeed)
+
+local walkSpeedContainer = Instance.new("Frame", page1)
+walkSpeedContainer.Size = UDim2.new(1, 0, 0, 36)
+walkSpeedContainer.BackgroundTransparency = 1
+
+local walkSpeedBox = Instance.new("TextBox", walkSpeedContainer)
+walkSpeedBox.Size = UDim2.new(0.55, 0, 1, 0)
+walkSpeedBox.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+walkSpeedBox.BorderSizePixel = 0
+walkSpeedBox.ClearTextOnFocus = false
+walkSpeedBox.Text = "16"
+walkSpeedBox.PlaceholderText = "Normal Hız (1-500)"
+walkSpeedBox.TextColor3 = Color3.fromRGB(245, 247, 255)
+walkSpeedBox.Font = Enum.Font.Code
+walkSpeedBox.TextSize = 10
+Instance.new("UICorner", walkSpeedBox).CornerRadius = UDim.new(0, 4)
+
+local applyWalkSpeed = Instance.new("TextButton", walkSpeedContainer)
+applyWalkSpeed.Size = UDim2.new(0.42, 0, 1, 0)
+applyWalkSpeed.Position = UDim2.new(0.58, 0, 0, 0)
+applyWalkSpeed.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+applyWalkSpeed.BorderSizePixel = 0
+applyWalkSpeed.Text = "APPLY WALK"
+applyWalkSpeed.TextColor3 = Color3.fromRGB(255, 255, 255)
+applyWalkSpeed.Font = Enum.Font.Code
+applyWalkSpeed.TextSize = 9
+Instance.new("UICorner", applyWalkSpeed).CornerRadius = UDim.new(0, 4)
+
+local function stopWalkSpeedLoop()
+	walkSpeedEnabled = false
+	if walkSpeedConnection then
+		walkSpeedConnection:Disconnect()
+		walkSpeedConnection = nil
+	end
+end
+
+local function startWalkSpeedLoop()
+	stopWalkSpeedLoop()
+	walkSpeedEnabled = true
+	walkSpeedConnection = RunService.RenderStepped:Connect(function()
+		if walkSpeedEnabled and humanoid and humanoid.Parent then
+			if humanoid.WalkSpeed ~= walkSpeedVal then
+				humanoid.WalkSpeed = walkSpeedVal
+			end
+		end
+	end)
+end
+
+local function updateWalkSpeed()
+	local value = tonumber(walkSpeedBox.Text)
+	if not value then value = 16 end
+	value = math.clamp(math.floor(value), 1, 500)
+	walkSpeedVal = value
+	walkSpeedBox.Text = tostring(value)
+	if humanoid and humanoid.Parent then
+		humanoid.WalkSpeed = walkSpeedVal
+	end
+	startWalkSpeedLoop()
+end
+
+applyWalkSpeed.MouseButton1Click:Connect(updateWalkSpeed)
+walkSpeedBox.FocusLost:Connect(updateWalkSpeed)
+
+local flyButton = Instance.new("TextButton", page1)
+flyButton.Size = UDim2.new(1, 0, 0, 36)
+flyButton.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+flyButton.BorderSizePixel = 0
+flyButton.Text = "  FLY • OFF"
+flyButton.TextColor3 = Color3.fromRGB(220, 225, 235)
+flyButton.Font = Enum.Font.Code
+flyButton.TextSize = 10
+flyButton.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", flyButton).CornerRadius = UDim.new(0, 4)
+
+local noclipButton = Instance.new("TextButton", page1)
+noclipButton.Size = UDim2.new(1, 0, 0, 36)
+noclipButton.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+noclipButton.BorderSizePixel = 0
+noclipButton.Text = "  NOCLIP • OFF"
+noclipButton.TextColor3 = Color3.fromRGB(220, 225, 235)
+noclipButton.Font = Enum.Font.Code
+noclipButton.TextSize = 10
+noclipButton.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", noclipButton).CornerRadius = UDim.new(0, 4)
+
+local keyButton = Instance.new("TextButton", page1)
+keyButton.Size = UDim2.new(1, 0, 0, 36)
+keyButton.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+keyButton.BorderSizePixel = 0
+keyButton.Text = "  KEYBIND • NONE"
+keyButton.TextColor3 = Color3.fromRGB(220, 225, 235)
+keyButton.Font = Enum.Font.Code
+keyButton.TextSize = 10
+keyButton.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", keyButton).CornerRadius = UDim.new(0, 4)
+
+local status = Instance.new("TextLabel", page1)
+status.Size = UDim2.new(1, 0, 0, 24)
+status.BackgroundTransparency = 1
+status.Text = "Fly key: NONE"
+status.TextColor3 = Color3.fromRGB(130, 135, 150)
+status.Font = Enum.Font.Code
+status.TextSize = 9
+status.TextXAlignment = Enum.TextXAlignment.Left
+
+local function disableFly()
+	flying = false
+	if flyConnection then
+		flyConnection:Disconnect()
+		flyConnection = nil
+	end
+	if flyVelocity then
+		flyVelocity:Destroy()
+		flyVelocity = nil
+	end
+	if flyGyro then
+		flyGyro:Destroy()
+		flyGyro = nil
+	end
+	if humanoid and humanoid.Parent then
+		humanoid.PlatformStand = false
+	end
+	flyButton.Text = "  FLY • OFF"
+	flyButton.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+end
+
+local function enableFly()
+	if flying then return end
+	if not character or not character.Parent or not humanoid or not humanoid.Parent or not rootPart or not rootPart.Parent then return end
+
+	updateSpeed()
+	flying = true
+	flyButton.Text = "  FLY • ON"
+	flyButton.BackgroundColor3 = Color3.fromRGB(43, 78, 65)
+	humanoid.PlatformStand = true
+
+	flyVelocity = Instance.new("BodyVelocity")
+	flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+	flyVelocity.Velocity = Vector3.zero
+	flyVelocity.Parent = rootPart
+
+	flyGyro = Instance.new("BodyGyro")
+	flyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+	flyGyro.P = 10000
+	flyGyro.D = 500
+	flyGyro.CFrame = rootPart.CFrame
+	flyGyro.Parent = rootPart
+
+	flyConnection = RunService.RenderStepped:Connect(function()
+		if not flying then return end
+		if not rootPart or not rootPart.Parent then disableFly() return end
+		if not flyVelocity or not flyGyro then disableFly() return end
+
+		local camera = workspace.CurrentCamera
+		if not camera then return end
+
+		local direction = Vector3.zero
+		if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction = direction + camera.CFrame.LookVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction = direction - camera.CFrame.LookVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction = direction - camera.CFrame.RightVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction = direction + camera.CFrame.RightVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.Space) then direction = direction + Vector3.new(0, 1, 0) end
+		if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then direction = direction - Vector3.new(0, 1, 0) end
+
+		if direction.Magnitude > 0 then
+			direction = direction.Unit * flySpeed
+		end
+
+		flyVelocity.Velocity = direction
+		flyGyro.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + camera.CFrame.LookVector)
+	end)
+end
+
+local function disableNoclip()
+	noclipActive = false
+	if noclipConnection then
+		noclipConnection:Disconnect()
+		noclipConnection = nil
+	end
+	if character and character.Parent then
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = true
+			end
+		end
+	end
+	noclipButton.Text = "  NOCLIP • OFF"
+	noclipButton.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+end
+
+local function enableNoclip()
+	if noclipActive then return end
+	noclipActive = true
+	noclipButton.Text = "  NOCLIP • ON"
+	noclipButton.BackgroundColor3 = Color3.fromRGB(43, 78, 65)
+
+	noclipConnection = RunService.Stepped:Connect(function()
+		if not noclipActive then return end
+		if character and character.Parent then
+			for _, part in ipairs(character:GetDescendants()) do
+				if part:IsA("BasePart") and part.CanCollide then
+					part.CanCollide = false
+				end
+			end
+		end
+	end)
+end
+
+flyButton.MouseButton1Click:Connect(function()
+	if flying then disableFly() else enableFly() end
+end)
+
+noclipButton.MouseButton1Click:Connect(function()
+	if noclipActive then disableNoclip() else enableNoclip() end
+end)
+
+keyButton.MouseButton1Click:Connect(function()
+	waitingForKey = true
+	keyButton.Text = "  PRESS KEY..."
+	keyButton.BackgroundColor3 = Color3.fromRGB(55, 42, 60)
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if waitingForKey then
+		if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+		if input.KeyCode == Enum.KeyCode.Escape then
+			waitingForKey = false
+			if flyKey then
+				keyButton.Text = "  KEYBIND • " .. flyKey.Name
+				status.Text = "Fly key: " .. flyKey.Name
+			else
+				keyButton.Text = "  KEYBIND • NONE"
+				status.Text = "Fly key: NONE"
+			end
+			keyButton.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+			return
+		end
+		flyKey = input.KeyCode
+		waitingForKey = false
+		keyButton.Text = "  KEYBIND • " .. flyKey.Name
+		keyButton.BackgroundColor3 = Color3.fromRGB(43, 78, 65)
+		status.Text = "Fly key: " .. flyKey.Name
+		return
+	end
+
+	if gameProcessed then return end
+
+	if flyKey and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == flyKey then
+		if flying then disableFly() else enableFly() end
+	end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+	disableFly()
+	disableNoclip()
+	stopWalkSpeedLoop()
+	character = newCharacter
+	humanoid = newCharacter:WaitForChild("Humanoid")
+	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
+	humanoid.WalkSpeed = walkSpeedVal
+	if walkSpeedVal ~= 16 then
+		startWalkSpeedLoop()
+	end
+end)
+
+--==================================================
+-- PAGE 2: TERMINAL / SCRIPT EXECUTOR & LOGS
+--==================================================
+local terminalBox = Instance.new("TextLabel", page2)
+terminalBox.Size = UDim2.new(1, 0, 0, 100)
+terminalBox.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
+terminalBox.BorderSizePixel = 0
+terminalBox.Text = "> System Initialized...\n> User: " .. LocalPlayer.Name .. "\n> Executor: " .. executorName .. "\n> Terminal ready. Paste your script below."
+terminalBox.TextColor3 = Color3.fromRGB(0, 255, 100)
+terminalBox.Font = Enum.Font.Code
+terminalBox.TextSize = 10
+terminalBox.TextXAlignment = Enum.TextXAlignment.Left
+terminalBox.TextYAlignment = Enum.TextYAlignment.Top
+terminalBox.TextWrapped = true
+Instance.new("UICorner", terminalBox).CornerRadius = UDim.new(0, 4)
+
+local inputLabel = Instance.new("TextLabel", page2)
+inputLabel.Size = UDim2.new(1, 0, 0, 16)
+inputLabel.BackgroundTransparency = 1
+inputLabel.Text = "PASTE SCRIPT HERE:"
+inputLabel.TextColor3 = Color3.fromRGB(130, 135, 150)
+inputLabel.Font = Enum.Font.Code
+inputLabel.TextSize = 9
+inputLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local scriptInput = Instance.new("TextBox", page2)
+scriptInput.Size = UDim2.new(1, 0, 0, 95)
+scriptInput.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+scriptInput.BorderSizePixel = 0
+scriptInput.ClearTextOnFocus = false
+scriptInput.MultiLine = true
+scriptInput.TextWrapped = true
+scriptInput.PlaceholderText = "-- Buraya çalıştırmak istediğin kodu yapıştır..."
+scriptInput.Text = ""
+scriptInput.TextColor3 = Color3.fromRGB(240, 242, 250)
+scriptInput.PlaceholderColor3 = Color3.fromRGB(80, 85, 100)
+scriptInput.Font = Enum.Font.Code
+scriptInput.TextSize = 10
+scriptInput.TextXAlignment = Enum.TextXAlignment.Left
+scriptInput.TextYAlignment = Enum.TextYAlignment.Top
+Instance.new("UICorner", scriptInput).CornerRadius = UDim.new(0, 4)
+
+local ExecButtonContainer = Instance.new("Frame", page2)
+ExecButtonContainer.Size = UDim2.new(1, 0, 0, 34)
+ExecButtonContainer.BackgroundTransparency = 1
+
+local runScriptBtn = Instance.new("TextButton", ExecButtonContainer)
+runScriptBtn.Size = UDim2.new(0.68, 0, 1, 0)
+runScriptBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+runScriptBtn.BorderSizePixel = 0
+runScriptBtn.Text = "EXECUTE SCRIPT"
+runScriptBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+runScriptBtn.Font = Enum.Font.Code
+runScriptBtn.TextSize = 10
+Instance.new("UICorner", runScriptBtn).CornerRadius = UDim.new(0, 4)
+
+local clearTermBtn = Instance.new("TextButton", ExecButtonContainer)
+clearTermBtn.Size = UDim2.new(0.3, 0, 1, 0)
+clearTermBtn.Position = UDim2.new(0.7, 0, 0, 0)
+clearTermBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+clearTermBtn.BorderSizePixel = 0
+clearTermBtn.Text = "CLEAR"
+clearTermBtn.TextColor3 = Color3.fromRGB(220, 225, 235)
+clearTermBtn.Font = Enum.Font.Code
+clearTermBtn.TextSize = 10
+Instance.new("UICorner", clearTermBtn).CornerRadius = UDim.new(0, 4)
+
+local function logToTerminal(text)
+	terminalBox.Text = terminalBox.Text .. "\n> " .. text
+end
+
+runScriptBtn.MouseButton1Click:Connect(function()
+	local code = scriptInput.Text
+	if code == "" then
+		logToTerminal("Error: Script box is empty!")
+		return
+	end
+	
+	logToTerminal("Executing script...")
+	
+	local func, err = loadstring(code)
+	if func then
+		local success, runtimeErr = pcall(func)
+		if success then
+			logToTerminal("Script executed successfully!")
+		else
+			logToTerminal("Runtime Error: " .. tostring(runtimeErr))
+		end
+	else
+		logToTerminal("Compile Error: " .. tostring(err))
+	end
+end)
+
+clearTermBtn.MouseButton1Click:Connect(function()
+	terminalBox.Text = "> Console cleared."
+end)
+
+--==================================================
+-- PAGE 3: FUN TOOLS (ANIMATION GUI ENTEGRASYONU)
+--==================================================
+local spinBtn = Instance.new("TextButton", page3)
+spinBtn.Size = UDim2.new(1, 0, 0, 36)
+spinBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+spinBtn.BorderSizePixel = 0
+spinBtn.Text = "  SPIN CHARACTER"
+spinBtn.TextColor3 = Color3.fromRGB(220, 225, 235)
+spinBtn.Font = Enum.Font.Code
+spinBtn.TextSize = 10
+spinBtn.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", spinBtn).CornerRadius = UDim.new(0, 4)
+
+spinBtn.MouseButton1Click:Connect(function()
+	logToTerminal("Executed: Character Spin")
+	if rootPart and rootPart.Parent then
+		for i = 1, 36 do
+			rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(10), 0)
+			task.wait(0.01)
+		end
+	end
+end)
+
+local animGuiBtn = Instance.new("TextButton", page3)
+animGuiBtn.Size = UDim2.new(1, 0, 0, 36)
+animGuiBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+animGuiBtn.BorderSizePixel = 0
+animGuiBtn.Text = "  OPEN ANIMATION GUI"
+animGuiBtn.TextColor3 = Color3.fromRGB(220, 225, 235)
+animGuiBtn.Font = Enum.Font.Code
+animGuiBtn.TextSize = 10
+animGuiBtn.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", animGuiBtn).CornerRadius = UDim.new(0, 4)
+
+animGuiBtn.MouseButton1Click:Connect(function()
+	logToTerminal("Executed: Animation GUI Loaded")
+	
+	pcall(function()
+		local oldAnim = CoreGui:FindFirstChild("NexusPremium")
+		if oldAnim then oldAnim:Destroy() end
+		local oldAnim2 = PlayerGui:FindFirstChild("NexusPremium")
+		if oldAnim2 then oldAnim2:Destroy() end
+	end)
+
+	local Energize = Instance.new("ScreenGui")
+	local SideFrame = Instance.new("Frame")
+	local OpenGUI = Instance.new("TextButton")
+	local SideFrameTitle = Instance.new("TextLabel")
+	local MainFrame = Instance.new("Frame")
+	local GuiBottomFrame = Instance.new("Frame")
+	local Credits = Instance.new("TextLabel")
+	local ScrollingFrame = Instance.new("ScrollingFrame")
+	local CheckR = Instance.new("TextLabel")
+	local ScrollingFrameR15 = Instance.new("ScrollingFrame")
+
+	local CrazySlash = Instance.new("TextButton")
+	local Open = Instance.new("TextButton")
+	local R15Spinner = Instance.new("TextButton")
+	local ArmsOut = Instance.new("TextButton")
+	local FloatSlash = Instance.new("TextButton")
+	local WeirdZombie = Instance.new("TextButton")
+	local DownSlash = Instance.new("TextButton")
+	local Pull = Instance.new("TextButton")
+	local CircleArm = Instance.new("TextButton")
+	local Bend = Instance.new("TextButton")
+	local RotateSlash = Instance.new("TextButton")
+	local FlingArms = Instance.new("TextButton")
+
+	local FullSwing = Instance.new("TextButton")
+	local GlitchLevitate = Instance.new("TextButton")
+	local MoonDance = Instance.new("TextButton")
+	local FullPunch = Instance.new("TextButton")
+	local Crouch = Instance.new("TextButton")
+	local SpinDance = Instance.new("TextButton")
+	local FloorFaint = Instance.new("TextButton")
+	local JumpingJacks = Instance.new("TextButton")
+	local Spinner = Instance.new("TextButton")
+	local MegaInsane = Instance.new("TextButton")
+	local ArmDetach = Instance.new("TextButton")
+	local WeirdMove = Instance.new("TextButton")
+	local Faint = Instance.new("TextButton")
+	local CloneIllusion = Instance.new("TextButton")
+	local Levitate = Instance.new("TextButton")
+	local DinoWalk = Instance.new("TextButton")
+	local FloorCrawl = Instance.new("TextButton")
+	local SwordSlam = Instance.new("TextButton")
+	local LoopHead = Instance.new("TextButton")
+	local HeroJump = Instance.new("TextButton")
+	local Insane = Instance.new("TextButton")
+	local FloatingHead = Instance.new("TextButton")
+	local HeadThrow = Instance.new("TextButton")
+	local MovingDance = Instance.new("TextButton")
+	local SuperPunch = Instance.new("TextButton")
+	local ArmTurbine = Instance.new("TextButton")
+	local Dab = Instance.new("TextButton")
+	local FloatSit = Instance.new("TextButton")
+	local SuperFaint = Instance.new("TextButton")
+	local BarrelRoll = Instance.new("TextButton")
+	local Scared = Instance.new("TextButton")
+	local InsaneArms = Instance.new("TextButton")
+	local SwordSlice = Instance.new("TextButton")
+	local SpinDance2 = Instance.new("TextButton")
+	local BowDown = Instance.new("TextButton")
+	local LoopSlam = Instance.new("TextButton")
+
+	local GuiTopFrame = Instance.new("Frame")
+	local CloseGUI = Instance.new("TextButton")
+	local Title = Instance.new("TextLabel")
+
+	Energize.Name = "NexusPremium"
+	Energize.Parent = CoreGui
+	Energize.ResetOnSpawn = false
+
+	SideFrame.Name = "SideFrame"
+	SideFrame.Parent = Energize
+	SideFrame.Active = true
+	SideFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+	SideFrame.BorderColor3 = Color3.fromRGB(0, 162, 255)
+	SideFrame.Draggable = true
+	SideFrame.Position = UDim2.new(0, 376, 0, 125)
+	SideFrame.Size = UDim2.new(0, 460, 0, 32)
+	SideFrame.Visible = false
+
+	OpenGUI.Name = "OpenGUI"
+	OpenGUI.Parent = SideFrame
+	OpenGUI.BackgroundColor3 = Color3.new(1, 1, 1)
+	OpenGUI.BackgroundTransparency = 1
+	OpenGUI.Position = UDim2.new(0, 426, 0, 0)
+	OpenGUI.Size = UDim2.new(0, 34, 0, 32)
+	OpenGUI.Font = Enum.Font.SourceSansBold
+	OpenGUI.Text = "+"
+	OpenGUI.TextColor3 = Color3.fromRGB(0, 162, 255)
+	OpenGUI.TextSize = 24
+	OpenGUI.TextWrapped = true
+
+	SideFrameTitle.Name = "SideFrameTitle"
+	SideFrameTitle.Parent = SideFrame
+	SideFrameTitle.BackgroundColor3 = Color3.new(1, 1, 1)
+	SideFrameTitle.BackgroundTransparency = 1
+	SideFrameTitle.Position = UDim2.new(0, 10, 0, 0)
+	SideFrameTitle.Size = UDim2.new(0, 200, 0, 31)
+	SideFrameTitle.Font = Enum.Font.SourceSansBold
+	SideFrameTitle.Text = "Nexus Premium"
+	SideFrameTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+	SideFrameTitle.TextSize = 18
+	SideFrameTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+	MainFrame.Name = "MainFrame"
+	MainFrame.Parent = Energize
+	MainFrame.Active = true
+	MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+	MainFrame.BackgroundTransparency = 0.1
+	MainFrame.Draggable = true
+	MainFrame.Position = UDim2.new(0, 376, 0, 125)
+	MainFrame.Size = UDim2.new(0, 444, 0, 280)
+
+	GuiBottomFrame.Name = "Gui BottomFrame"
+	GuiBottomFrame.Parent = MainFrame
+	GuiBottomFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+	GuiBottomFrame.BorderColor3 = Color3.fromRGB(0, 162, 255)
+	GuiBottomFrame.Position = UDim2.new(0, 0, 0, 247)
+	GuiBottomFrame.Size = UDim2.new(0, 460, 0, 32)
+
+	Credits.Name = "Credits"
+	Credits.Parent = GuiBottomFrame
+	Credits.BackgroundColor3 = Color3.new(1, 1, 1)
+	Credits.BackgroundTransparency = 1
+	Credits.Size = UDim2.new(0, 460, 0, 32)
+	Credits.Font = Enum.Font.SourceSans
+	Credits.Text = "Nexus Premium - Fun Tools Entegrasyonu"
+	Credits.TextColor3 = Color3.fromRGB(180, 180, 180)
+	Credits.TextSize = 14
+	Credits.TextWrapped = true
+
+	ScrollingFrame.Parent = MainFrame
+	ScrollingFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+	ScrollingFrame.BorderColor3 = Color3.fromRGB(40, 40, 55)
+	ScrollingFrame.Position = UDim2.new(0, 0, 0, 32)
+	ScrollingFrame.Size = UDim2.new(0, 460, 0, 215)
+	ScrollingFrame.ScrollBarThickness = 10
+
+	local function styleButton(btn, text)
+		btn.Parent = ScrollingFrame
+		btn.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+		btn.BorderColor3 = Color3.fromRGB(0, 162, 255)
+		btn.Font = Enum.Font.SourceSansBold
+		btn.Text = text
+		btn.TextColor3 = Color3.fromRGB(240, 240, 240)
+		btn.TextSize = 15
+		btn.TextWrapped = true
+		btn.Size = UDim2.new(0, 135, 0, 34)
+	end
+
+	local function styleButtonR15(btn, text)
+		btn.Parent = ScrollingFrameR15
+		btn.BackgroundColor3 = Color3.fromRGB(45, 55, 75)
+		btn.BorderColor3 = Color3.fromRGB(0, 200, 255)
+		btn.Font = Enum.Font.SourceSansBold
+		btn.Text = text
+		btn.TextColor3 = Color3.fromRGB(240, 240, 240)
+		btn.TextSize = 15
+		btn.TextWrapped = true
+		btn.Size = UDim2.new(0, 135, 0, 34)
+	end
+
+	FullSwing.Name = "FullSwing" styleButton(FullSwing, "Full Swing") FullSwing.Position = UDim2.new(0, 15, 0, 322)
+	GlitchLevitate.Name = "GlitchLevitate" styleButton(GlitchLevitate, "Glitch Levitate") GlitchLevitate.Position = UDim2.new(0, 310, 0, 322)
+	MoonDance.Name = "MoonDance" styleButton(MoonDance, "Moon Dance") MoonDance.Position = UDim2.new(0, 310, 0, 280)
+	FullPunch.Name = "FullPunch" styleButton(FullPunch, "Full Punch") FullPunch.Position = UDim2.new(0, 15, 0, 280)
+	Crouch.Name = "Crouch" styleButton(Crouch, "Crouch") Crouch.Position = UDim2.new(0, 162, 0, 280)
+	SpinDance.Name = "SpinDance" styleButton(SpinDance, "Spin Dance") SpinDance.Position = UDim2.new(0, 162, 0, 236)
+	FloorFaint.Name = "FloorFaint" styleButton(FloorFaint, "Floor Faint") FloorFaint.Position = UDim2.new(0, 15, 0, 236)
+	JumpingJacks.Name = "JumpingJacks" styleButton(JumpingJacks, "Jumping Jacks") JumpingJacks.Position = UDim2.new(0, 310, 0, 236)
+	Spinner.Name = "Spinner" styleButton(Spinner, "Spinner") Spinner.Position = UDim2.new(0, 15, 0, 192)
+	MegaInsane.Name = "MegaInsane" styleButton(MegaInsane, "Mega Insane") MegaInsane.Position = UDim2.new(0, 162, 0, 192)
+	ArmDetach.Name = "ArmDetach" styleButton(ArmDetach, "Arm Detach") ArmDetach.Position = UDim2.new(0, 310, 0, 192)
+	WeirdMove.Name = "WeirdMove" styleButton(WeirdMove, "Weird Move") WeirdMove.Position = UDim2.new(0, 162, 0, 148)
+	Faint.Name = "Faint" styleButton(Faint, "Faint") Faint.Position = UDim2.new(0, 15, 0, 148)
+	CloneIllusion.Name = "CloneIllusion" styleButton(CloneIllusion, "Clone Illusion") CloneIllusion.Position = UDim2.new(0, 310, 0, 148)
+	Levitate.Name = "Levitate" styleButton(Levitate, "Levitate") Levitate.Position = UDim2.new(0, 15, 0, 104)
+	DinoWalk.Name = "DinoWalk" styleButton(DinoWalk, "Dino Walk") DinoWalk.Position = UDim2.new(0, 162, 0, 104)
+	FloorCrawl.Name = "FloorCrawl" styleButton(FloorCrawl, "Floor Crawl") FloorCrawl.Position = UDim2.new(0, 310, 0, 104)
+	SwordSlam.Name = "SwordSlam" styleButton(SwordSlam, "Sword Slam") SwordSlam.Position = UDim2.new(0, 310, 0, 60)
+	LoopHead.Name = "LoopHead" styleButton(LoopHead, "Loop Head") LoopHead.Position = UDim2.new(0, 162, 0, 60)
+	HeroJump.Name = "HeroJump" styleButton(HeroJump, "Hero Jump") HeroJump.Position = UDim2.new(0, 15, 0, 60)
+	Insane.Name = "Insane" styleButton(Insane, "Insane") Insane.Position = UDim2.new(0, 310, 0, 16)
+	FloatingHead.Name = "FloatingHead" styleButton(FloatingHead, "Floating Head") FloatingHead.Position = UDim2.new(0, 162, 0, 16)
+	HeadThrow.Name = "HeadThrow" styleButton(HeadThrow, "Head Throw") HeadThrow.Position = UDim2.new(0, 15, 0, 16)
+	MovingDance.Name = "MovingDance" styleButton(MovingDance, "Moving Dance") MovingDance.Position = UDim2.new(0, 162, 0, 324)
+	SuperPunch.Name = "SuperPunch" styleButton(SuperPunch, "Super Punch") SuperPunch.Position = UDim2.new(0, 162, 0, 366)
+	ArmTurbine.Name = "ArmTurbine" styleButton(ArmTurbine, "Arm Turbine") ArmTurbine.Position = UDim2.new(0, 310, 0, 366)
+	Dab.Name = "Dab" styleButton(Dab, "Dab") Dab.Position = UDim2.new(0, 15, 0, 366)
+	FloatSit.Name = "FloatSit" styleButton(FloatSit, "Float Sit") FloatSit.Position = UDim2.new(0, 162, 0, 410)
+	SuperFaint.Name = "SuperFaint" styleButton(SuperFaint, "Super Faint") SuperFaint.Position = UDim2.new(0, 15, 0, 498)
+	BarrelRoll.Name = "BarrelRoll" styleButton(BarrelRoll, "Barrel Roll") BarrelRoll.Position = UDim2.new(0, 310, 0, 410)
+	Scared.Name = "Scared" styleButton(Scared, "Scared") Scared.Position = UDim2.new(0, 310, 0, 454)
+	InsaneArms.Name = "InsaneArms" styleButton(InsaneArms, "Insane Arms") InsaneArms.Position = UDim2.new(0, 15, 0, 454)
+	SwordSlice.Name = "SwordSlice" styleButton(SwordSlice, "Sword Slice") SwordSlice.Position = UDim2.new(0, 162, 0, 454)
+	SpinDance2.Name = "SpinDance2" styleButton(SpinDance2, "Spin Dance 2") SpinDance2.Position = UDim2.new(0, 162, 0, 498)
+	BowDown.Name = "BowDown" styleButton(BowDown, "Bow Down") BowDown.Position = UDim2.new(0, 310, 0, 498)
+	LoopSlam.Name = "LoopSlam" styleButton(LoopSlam, "Loop Slam") LoopSlam.Position = UDim2.new(0, 15, 0, 410)
+
+	GuiTopFrame.Name = "Gui TopFrame"
+	GuiTopFrame.Parent = MainFrame
+	GuiTopFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+	GuiTopFrame.BorderColor3 = Color3.fromRGB(0, 162, 255)
+	GuiTopFrame.Size = UDim2.new(0, 460, 0, 32)
+
+	CloseGUI.Name = "CloseGUI"
+	CloseGUI.Parent = GuiTopFrame
+	CloseGUI.BackgroundColor3 = Color3.new(1, 1, 1)
+	CloseGUI.BackgroundTransparency = 1
+	CloseGUI.Position = UDim2.new(0, 426, 0, 0)
+	CloseGUI.Size = UDim2.new(0, 34, 0, 32)
+	CloseGUI.Font = Enum.Font.SourceSansBold
+	CloseGUI.Text = "-"
+	CloseGUI.TextColor3 = Color3.fromRGB(0, 162, 255)
+	CloseGUI.TextSize = 24
+	CloseGUI.TextWrapped = true
+
+	Title.Name = "Title"
+	Title.Parent = GuiTopFrame
+	Title.BackgroundColor3 = Color3.new(1, 1, 1)
+	Title.BackgroundTransparency = 1
+	Title.Position = UDim2.new(0, 10, 0, 0)
+	Title.Size = UDim2.new(0, 250, 0, 32)
+	Title.Font = Enum.Font.SourceSansBold
+	Title.Text = "Nexus Premium"
+	Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	Title.TextSize = 16
+	Title.TextXAlignment = Enum.TextXAlignment.Left
+
+	CheckR.Name = "CheckR"
+	CheckR.Parent = GuiTopFrame
+	CheckR.BackgroundColor3 = Color3.new(1, 1, 1)
+	CheckR.BackgroundTransparency = 1
+	CheckR.Position = UDim2.new(0, 260, 0, 0)
+	CheckR.Size = UDim2.new(0, 160, 0, 32)
+	CheckR.Font = Enum.Font.SourceSans
+	CheckR.Text = "Rig: Checking..."
+	CheckR.TextColor3 = Color3.fromRGB(150, 150, 170)
+	CheckR.TextSize = 13
+	CheckR.TextXAlignment = Enum.TextXAlignment.Right
+
+	ScrollingFrameR15.Parent = MainFrame
+	ScrollingFrameR15.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+	ScrollingFrameR15.BorderColor3 = Color3.fromRGB(40, 40, 55)
+	ScrollingFrameR15.Position = UDim2.new(0, 0, 0, 32)
+	ScrollingFrameR15.Size = UDim2.new(0, 460, 0, 215)
+	ScrollingFrameR15.Visible = false
+	ScrollingFrameR15.ScrollBarThickness = 10
+
+	CrazySlash.Name = "CrazySlash" styleButtonR15(CrazySlash, "CrazySlash") CrazySlash.Position = UDim2.new(0, 15, 0, 16)
+	Open.Name = "Open" styleButtonR15(Open, "Open") Open.Position = UDim2.new(0, 162, 0, 16)
+	R15Spinner.Name = "R15Spinner" styleButtonR15(R15Spinner, "Spinner") R15Spinner.Position = UDim2.new(0, 15, 0, 60)
+	ArmsOut.Name = "ArmsOut" styleButtonR15(ArmsOut, "ArmsOut") ArmsOut.Position = UDim2.new(0, 310, 0, 16)
+	FloatSlash.Name = "FloatSlash" styleButtonR15(FloatSlash, "FloatSlash") FloatSlash.Position = UDim2.new(0, 162, 0, 148)
+	WeirdZombie.Name = "WeirdZombie" styleButtonR15(WeirdZombie, "WeirdZombie") WeirdZombie.Position = UDim2.new(0, 15, 0, 148)
+	DownSlash.Name = "DownSlash" styleButtonR15(DownSlash, "DownSlash") DownSlash.Position = UDim2.new(0, 310, 0, 148)
+	Pull.Name = "Pull" styleButtonR15(Pull, "Pull") Pull.Position = UDim2.new(0, 15, 0, 104)
+	CircleArm.Name = "CircleArm" styleButtonR15(CircleArm, "CircleArm") CircleArm.Position = UDim2.new(0, 162, 0, 104)
+	Bend.Name = "Bend" styleButtonR15(Bend, "Bend") Bend.Position = UDim2.new(0, 310, 0, 104)
+	RotateSlash.Name = "RotateSlash" styleButtonR15(RotateSlash, "RotateSlash") RotateSlash.Position = UDim2.new(0, 310, 0, 60)
+	FlingArms.Name = "FlingArms" styleButtonR15(FlingArms, "FlingArms") FlingArms.Position = UDim2.new(0, 162, 0, 60)
+
+	local col = Color3.fromRGB(45, 45, 60)
+	local loc = Color3.fromRGB(0, 120, 215)
+	local rcol = Color3.fromRGB(45, 55, 75)
+	local rloc = Color3.fromRGB(0, 160, 255)
+
+	CloseGUI.MouseButton1Click:Connect(function()
+		MainFrame.Visible = false
+		SideFrame.Visible = true
+		SideFrame.Position = MainFrame.Position
+	end)
+
+	OpenGUI.MouseButton1Click:Connect(function()
+		MainFrame.Visible = true
+		SideFrame.Visible = false
+		MainFrame.Position = SideFrame.Position
+	end)
+
+	local humCheck = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+	if humCheck then
+		if humCheck.RigType == Enum.HumanoidRigType.R15 then
+			ScrollingFrame.Visible = false
+			ScrollingFrameR15.Visible = true
+			CheckR.Text = "Rig: R15"
+		else
+			ScrollingFrame.Visible = true
+			ScrollingFrameR15.Visible = false
+			CheckR.Text = "Rig: R6"
+		end
+	end
+
+	local function applyAnimation(button, assetId, speedMultiplier, loopMode)
+		local char = LocalPlayer.Character
+		if not char or not char:FindFirstChildOfClass("Humanoid") then return end
+		
+		local Anim = Instance.new("Animation")
+		Anim.AnimationId = "rbxassetid://" .. assetId
+		local track = char:FindFirstChildOfClass("Humanoid"):LoadAnimation(Anim)
+		local active = false
+		
+		button.MouseButton1Click:Connect(function()
+			active = not active
+			if active then
+				button.BackgroundColor3 = button.Parent == ScrollingFrameR15 and rloc or loc
+				if loopMode == "loop_fast" then
+					task.spawn(function()
+						while active do
+							if not track.IsPlaying then
+								track:Play(.1, 1, speedMultiplier)
+							end
+							task.wait()
+						end
+					end)
+				elseif loopMode == "loop_normal" then
+					task.spawn(function()
+						while active do
+							if not track.IsPlaying then
+								track:Play(.1, 1, 1)
+							end
+							task.wait()
+						end
+					end)
+				else
+					track:Play(.1, 1, speedMultiplier or 1)
+				end
+			else
+				track:Stop()
+				button.BackgroundColor3 = button.Parent == ScrollingFrameR15 and rcol or col
+			end
+		end)
+	end
+
+	applyAnimation(HeadThrow, "35154961", 1, "loop_normal")
+	applyAnimation(FloatingHead, "121572214", 1, "normal")
+	applyAnimation(Crouch, "182724289", 1, "normal")
+	applyAnimation(FloorCrawl, "282574440", 1, "normal")
+	applyAnimation(DinoWalk, "204328711", 1, "normal")
+	applyAnimation(JumpingJacks, "429681631", 1, "normal")
+	applyAnimation(LoopHead, "35154961", 1000000, "loop_fast")
+	applyAnimation(HeroJump, "184574340", 1, "loop_normal")
+	applyAnimation(Faint, "181526230", 1, "normal")
+	applyAnimation(FloorFaint, "181525546", 2, "loop_fast")
+	applyAnimation(SuperFaint, "181525546", 40, "loop_fast")
+	applyAnimation(Levitate, "313762630", 1, "normal")
+	applyAnimation(Dab, "183412246", 1, "loop_normal")
+	applyAnimation(Spinner, "188632011", 2, "loop_fast")
+	applyAnimation(FloatSit, "179224234", 1, "normal")
+	applyAnimation(MovingDance, "429703734", 1, "loop_normal")
+	applyAnimation(WeirdMove, "215384594", 1, "normal")
+	applyAnimation(CloneIllusion, "215384594", 10000000, "normal")
+	applyAnimation(GlitchLevitate, "313762630", 10000000, "normal")
+	applyAnimation(SpinDance, "429730430", 1, "loop_normal")
+	applyAnimation(MoonDance, "45834924", 1, "loop_normal")
+	applyAnimation(FullPunch, "204062532", 1, "loop_normal")
+	applyAnimation(SpinDance2, "186934910", 1, "loop_normal")
+	applyAnimation(BowDown, "204292303", 3, "loop_fast")
+	applyAnimation(SwordSlam, "204295235", 1, "loop_normal")
+	applyAnimation(LoopSlam, "204295235", 10000, "loop_fast")
+	applyAnimation(MegaInsane, "184574340", 40, "loop_fast")
+	applyAnimation(SuperPunch, "126753849", 3, "loop_fast")
+	applyAnimation(FullSwing, "218504594", 1, "loop_normal")
+	applyAnimation(ArmTurbine, "259438880", 1000, "normal")
+	applyAnimation(BarrelRoll, "136801964", 1, "loop_normal")
+	applyAnimation(Scared, "180612465", 1, "loop_normal")
+	applyAnimation(Insane, "33796059", 100000000, "normal")
+	applyAnimation(ArmDetach, "33169583", 1000000, "loop_fast")
+	applyAnimation(SwordSlice, "35978879", 1, "normal")
+	applyAnimation(InsaneArms, "27432691", 10000, "loop_fast")
+
+	applyAnimation(CrazySlash, "674871189", 1, "loop_normal")
+	applyAnimation(Open, "582855105", 1, "loop_normal")
+	applyAnimation(R15Spinner, "754658275", 1, "loop_normal")
+	applyAnimation(ArmsOut, "582384156", 1, "loop_normal")
+	applyAnimation(FloatSlash, "717879555", 1, "loop_normal")
+	applyAnimation(WeirdZombie, "708553116", 1, "loop_normal")
+	applyAnimation(DownSlash, "746398327", 1, "loop_normal")
+	applyAnimation(Pull, "675025795", 1, "loop_normal")
+	applyAnimation(CircleArm, "698251653", 1, "loop_normal")
+	applyAnimation(Bend, "696096087", 1, "loop_normal")
+	applyAnimation(RotateSlash, "675025570", 1, "loop_normal")
+	applyAnimation(FlingArms, "754656200", 10, "loop_normal")
+end)
+
+--==================================================
+-- PAGE 4: VISUALS (AIMBOT GUI, INFINITE YIELD, FLING GUI, ESP, DRAMATIC SKY, ETC.)
+--==================================================
+
+-- 1. AIMBOT GUI Butonu
+local aimbotGuiBtn = Instance.new("TextButton", page4)
+aimbotGuiBtn.Size = UDim2.new(1, 0, 0, 36)
+aimbotGuiBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+aimbotGuiBtn.BorderSizePixel = 0
+aimbotGuiBtn.Text = "  AIMBOT GUI"
+aimbotGuiBtn.TextColor3 = Color3.fromRGB(220, 225, 235)
+aimbotGuiBtn.Font = Enum.Font.Code
+aimbotGuiBtn.TextSize = 10
+aimbotGuiBtn.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", aimbotGuiBtn).CornerRadius = UDim.new(0, 4)
+
+local aimbotGuiCreated = false
+local aimbotScreenGui = nil
+
+aimbotGuiBtn.MouseButton1Click:Connect(function()
+	if aimbotGuiCreated and aimbotScreenGui then
+		aimbotScreenGui.Enabled = not aimbotScreenGui.Enabled
+		return
+	end
+	
+	aimbotGuiCreated = true
+	logToTerminal("Executed: Nexus Aimbot GUI Loaded")
+
+	aimbotScreenGui = Instance.new("ScreenGui")
+	aimbotScreenGui.Name = "NexusAimbotGui"
+	aimbotScreenGui.ResetOnSpawn = false
+	aimbotScreenGui.Parent = game:GetService("CoreGui")
+
+	local MainFrame = Instance.new("Frame")
+	MainFrame.Size = UDim2.new(0, 260, 0, 200)
+	MainFrame.Position = UDim2.new(0.5, -130, 0.5, -100)
+	MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+	MainFrame.BorderSizePixel = 0
+	MainFrame.Active = true
+	MainFrame.Draggable = true
+	MainFrame.Parent = aimbotScreenGui
+	Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 6)
+
+	local TitleBar = Instance.new("Frame")
+	TitleBar.Size = UDim2.new(1, 0, 0, 30)
+	TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+	TitleBar.BorderSizePixel = 0
+	TitleBar.Parent = MainFrame
+	Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 6)
+
+	local Title = Instance.new("TextLabel")
+	Title.Size = UDim2.new(1, -30, 1, 0)
+	Title.Position = UDim2.new(0, 10, 0, 0)
+	Title.BackgroundTransparency = 1
+	Title.Text = "Nexus Aimbot Control"
+	Title.TextColor3 = Color3.fromRGB(255, 0, 0)
+	Title.Font = Enum.Font.Code
+	Title.TextSize = 12
+	Title.TextXAlignment = Enum.TextXAlignment.Left
+	Title.Parent = TitleBar
+
+	local CloseBtn = Instance.new("TextButton")
+	CloseBtn.Position = UDim2.new(1, -25, 0, 5)
+	CloseBtn.Size = UDim2.new(0, 20, 0, 20)
+	CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+	CloseBtn.BorderSizePixel = 0
+	CloseBtn.Text = "X"
+	CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	CloseBtn.Font = Enum.Font.Code
+	CloseBtn.TextSize = 10
+	CloseBtn.Parent = TitleBar
+	Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
+
+	local ToggleAim = Instance.new("TextButton")
+	ToggleAim.Size = UDim2.new(1, -20, 0, 40)
+	ToggleAim.Position = UDim2.new(0, 10, 0, 45)
+	ToggleAim.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+	ToggleAim.BorderSizePixel = 0
+	ToggleAim.Text = "AIMBOT (CAMERA LOCK) • OFF"
+	ToggleAim.TextColor3 = Color3.fromRGB(220, 225, 235)
+	ToggleAim.Font = Enum.Font.Code
+	ToggleAim.TextSize = 10
+	ToggleAim.Parent = MainFrame
+	Instance.new("UICorner", ToggleAim).CornerRadius = UDim.new(0, 4)
+
+	local ToggleFOV = Instance.new("TextButton")
+	ToggleFOV.Size = UDim2.new(1, -20, 0, 40)
+	ToggleFOV.Position = UDim2.new(0, 10, 0, 95)
+	ToggleFOV.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+	ToggleFOV.BorderSizePixel = 0
+	ToggleFOV.Text = "FOV CIRCLE • OFF"
+	ToggleFOV.TextColor3 = Color3.fromRGB(220, 225, 235)
+	ToggleFOV.Font = Enum.Font.Code
+	ToggleFOV.TextSize = 10
+	ToggleFOV.Parent = MainFrame
+	Instance.new("UICorner", ToggleFOV).CornerRadius = UDim.new(0, 4)
+
+	local StatusDesc = Instance.new("TextLabel")
+	StatusDesc.Size = UDim2.new(1, -20, 0, 30)
+	StatusDesc.Position = UDim2.new(0, 10, 0, 145)
+	StatusDesc.BackgroundTransparency = 1
+	StatusDesc.Text = "Hold Right-Click to Lock Target"
+	StatusDesc.TextColor3 = Color3.fromRGB(130, 135, 150)
+	StatusDesc.Font = Enum.Font.Code
+	StatusDesc.TextSize = 9
+	StatusDesc.Parent = MainFrame
+
+	local aimEnabled = false
+	local fovEnabled = false
+	local camera = workspace.CurrentCamera
+
+	-- FOV Çemberi çizimi
+	local fovDrawing = Drawing.new("Circle")
+	fovDrawing.Visible = false
+	fovDrawing.Radius = 120
+	fovDrawing.Filled = false
+	fovDrawing.Thickness = 1.5
+	fovDrawing.Transparency = 0.7
+	fovDrawing.Color = Color3.fromRGB(255, 0, 0)
+	fovDrawing.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+
+	ToggleAim.MouseButton1Click:Connect(function()
+		aimEnabled = not aimEnabled
+		if aimEnabled then
+			ToggleAim.Text = "AIMBOT (CAMERA LOCK) • ON"
+			ToggleAim.BackgroundColor3 = Color3.fromRGB(43, 78, 65)
+		else
+			ToggleAim.Text = "AIMBOT (CAMERA LOCK) • OFF"
+			ToggleAim.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+		end
+	end)
+
+	ToggleFOV.MouseButton1Click:Connect(function()
+		fovEnabled = not fovEnabled
+		fovDrawing.Visible = fovEnabled
+		if fovEnabled then
+			ToggleFOV.Text = "FOV CIRCLE • ON"
+			ToggleFOV.BackgroundColor3 = Color3.fromRGB(43, 78, 65)
+		else
+			ToggleFOV.Text = "FOV CIRCLE • OFF"
+			ToggleFOV.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+		end
+	end)
+
+	CloseBtn.MouseButton1Click:Connect(function()
+		aimEnabled = false
+		fovEnabled = false
+		fovDrawing:Remove()
+		aimbotScreenGui:Destroy()
+		aimbotGuiCreated = false
+	end)
+
+	RunService.RenderStepped:Connect(function()
+		fovDrawing.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+		
+		if aimEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+			local closestPlayer = nil
+			local shortestDist = 120 -- FOV yarıçapı sınırı
+			
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+					local humanoid = p.Character:FindFirstChildOfClass("Humanoid")
+					if humanoid and humanoid.Health > 0 then
+						local headPos, onScreen = camera:WorldToViewportPoint(p.Character.Head.Position)
+						if onScreen then
+							local mouseDist = (Vector2.new(headPos.X, headPos.Y) - Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)).Magnitude
+							if mouseDist < shortestDist then
+								shortestDist = mouseDist
+								closestPlayer = p
+							end
+						end
+					end
+				end
+			end
+			
+			if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
+				camera.CFrame = CFrame.new(camera.CFrame.Position, closestPlayer.Character.Head.Position)
+			end
+		end
+	end)
+end)
+
+-- 2. Infinite Yield Butonu
+local infYieldBtn = Instance.new("TextButton", page4)
+infYieldBtn.Size = UDim2.new(1, 0, 0, 36)
+infYieldBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+infYieldBtn.BorderSizePixel = 0
+infYieldBtn.Text = "  LOAD INFINITE YIELD"
+infYieldBtn.TextColor3 = Color3.fromRGB(220, 225, 235)
+infYieldBtn.Font = Enum.Font.Code
+infYieldBtn.TextSize = 10
+infYieldBtn.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", infYieldBtn).CornerRadius = UDim.new(0, 4)
+
+infYieldBtn.MouseButton1Click:Connect(function()
+	logToTerminal("Executed: Infinite Yield Loaded")
+	pcall(function()
+		loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+	end)
+end)
+
+-- 3. Fling GUI Butonu
+local seninButonun = Instance.new("TextButton", page4)
+seninButonun.Size = UDim2.new(1, 0, 0, 36)
+seninButonun.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+seninButonun.BorderSizePixel = 0
+seninButonun.Text = "  Fling GUI"
+seninButonun.TextColor3 = Color3.fromRGB(220, 225, 235)
+seninButonun.Font = Enum.Font.Code
+seninButonun.TextSize = 10
+seninButonun.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", seninButonun).CornerRadius = UDim.new(0, 4)
+
+local flingGuiCreated = false
+local flingScreenGui = nil
+
+seninButonun.MouseButton1Click:Connect(function()
+	if flingGuiCreated and flingScreenGui then
+		flingScreenGui.Enabled = not flingScreenGui.Enabled
+		return
+	end
+	
+	flingGuiCreated = true
+	logToTerminal("Executed: Nexus Fling GUI Loaded")
+
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local Player = Players.LocalPlayer
+
+	flingScreenGui = Instance.new("ScreenGui")
+	flingScreenGui.Name = "NexusFlingUi"
+	flingScreenGui.ResetOnSpawn = false
+	flingScreenGui.Parent = game:GetService("CoreGui")
+
+	local MainFrame = Instance.new("Frame")
+	MainFrame.Size = UDim2.new(0, 300, 0, 350)
+	MainFrame.Position = UDim2.new(0.5, -150, 0.5, -175)
+	MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	MainFrame.BorderSizePixel = 0
+	MainFrame.Active = true
+	MainFrame.Draggable = true
+	MainFrame.Parent = flingScreenGui
+
+	local TitleBar = Instance.new("Frame")
+	TitleBar.Size = UDim2.new(1, 0, 0, 30)
+	TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	TitleBar.BorderSizePixel = 0
+	TitleBar.Parent = MainFrame
+
+	local Title = Instance.new("TextLabel")
+	Title.Size = UDim2.new(1, -30, 1, 0)
+	Title.BackgroundTransparency = 1
+	Title.Text = "Nexus"
+	Title.TextColor3 = Color3.fromRGB(255, 80, 80)
+	Title.Font = Enum.Font.SourceSansBold
+	Title.TextSize = 18
+	Title.Parent = TitleBar
+
+	local CloseButton = Instance.new("TextButton")
+	CloseButton.Position = UDim2.new(1, -30, 0, 0)
+	CloseButton.Size = UDim2.new(0, 30, 0, 30)
+	CloseButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+	CloseButton.BorderSizePixel = 0
+	CloseButton.Text = "X"
+	CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	CloseButton.Font = Enum.Font.SourceSansBold
+	CloseButton.TextSize = 18
+	CloseButton.Parent = TitleBar
+
+	local StatusLabel = Instance.new("TextLabel")
+	StatusLabel.Position = UDim2.new(0, 10, 0, 40)
+	StatusLabel.Size = UDim2.new(1, -20, 0, 25)
+	StatusLabel.BackgroundTransparency = 1
+	StatusLabel.Text = "Select targets to fling"
+	StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	StatusLabel.Font = Enum.Font.SourceSans
+	StatusLabel.TextSize = 16
+	StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+	StatusLabel.Parent = MainFrame
+
+	local SelectionFrame = Instance.new("Frame")
+	SelectionFrame.Position = UDim2.new(0, 10, 0, 70)
+	SelectionFrame.Size = UDim2.new(1, -20, 0, 200)
+	SelectionFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	SelectionFrame.BorderSizePixel = 0
+	SelectionFrame.Parent = MainFrame
+
+	local PlayerScrollFrame = Instance.new("ScrollingFrame")
+	PlayerScrollFrame.Position = UDim2.new(0, 5, 0, 5)
+	PlayerScrollFrame.Size = UDim2.new(1, -10, 1, -10)
+	PlayerScrollFrame.BackgroundTransparency = 1
+	PlayerScrollFrame.BorderSizePixel = 0
+	PlayerScrollFrame.ScrollBarThickness = 6
+	PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+	PlayerScrollFrame.Parent = SelectionFrame
+
+	local StartButton = Instance.new("TextButton")
+	StartButton.Position = UDim2.new(0, 10, 0, 280)
+	StartButton.Size = UDim2.new(0.5, -15, 0, 40)
+	StartButton.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+	StartButton.BorderSizePixel = 0
+	StartButton.Text = "START FLING"
+	StartButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	StartButton.Font = Enum.Font.SourceSansBold
+	StartButton.TextSize = 18
+	StartButton.Parent = MainFrame
+
+	local StopButton = Instance.new("TextButton")
+	StopButton.Position = UDim2.new(0.5, 5, 0, 280)
+	StopButton.Size = UDim2.new(0.5, -15, 0, 40)
+	StopButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+	StopButton.BorderSizePixel = 0
+	StopButton.Text = "STOP FLING"
+	StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	StopButton.Font = Enum.Font.SourceSansBold
+	StopButton.TextSize = 18
+	StopButton.Parent = MainFrame
+
+	local SelectAllButton = Instance.new("TextButton")
+	SelectAllButton.Position = UDim2.new(0, 10, 0, 330)
+	SelectAllButton.Size = UDim2.new(0.5, -15, 0, 30)
+	SelectAllButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	SelectAllButton.BorderSizePixel = 0
+	SelectAllButton.Text = "SELECT ALL"
+	SelectAllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	SelectAllButton.Font = Enum.Font.SourceSans
+	SelectAllButton.TextSize = 14
+	SelectAllButton.Parent = MainFrame
+
+	local DeselectAllButton = Instance.new("TextButton")
+	DeselectAllButton.Position = UDim2.new(0.5, 5, 0, 330)
+	DeselectAllButton.Size = UDim2.new(0.5, -15, 0, 30)
+	DeselectAllButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	DeselectAllButton.BorderSizePixel = 0
+	DeselectAllButton.Text = "DESELECT ALL"
+	DeselectAllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	DeselectAllButton.Font = Enum.Font.SourceSans
+	DeselectAllButton.TextSize = 14
+	DeselectAllButton.Parent = MainFrame
+
+	local SelectedTargets = {}
+	local PlayerCheckboxes = {}
+	local FlingActive = false
+	getgenv().OldPos = nil
+	getgenv().FPDH = workspace.FallenPartsDestroyHeight
+
+	local function RefreshPlayerList()
+		for _, child in pairs(PlayerScrollFrame:GetChildren()) do
+			child:Destroy()
+		end
+		PlayerCheckboxes = {}
+		
+		local PlayerList = Players:GetPlayers()
+		table.sort(PlayerList, function(a, b) return a.Name:lower() < b.Name:lower() end)
+		
+		local yPosition = 5
+		for _, player in ipairs(PlayerList) do
+			if player ~= Player then
+				local PlayerEntry = Instance.new("Frame")
+				PlayerEntry.Size = UDim2.new(1, -10, 0, 30)
+				PlayerEntry.Position = UDim2.new(0, 5, 0, yPosition)
+				PlayerEntry.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+				PlayerEntry.BorderSizePixel = 0
+				PlayerEntry.Parent = PlayerScrollFrame
+				
+				local Checkbox = Instance.new("TextButton")
+				Checkbox.Size = UDim2.new(0, 24, 0, 24)
+				Checkbox.Position = UDim2.new(0, 3, 0.5, -12)
+				Checkbox.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+				Checkbox.BorderSizePixel = 0
+				Checkbox.Text = ""
+				Checkbox.Parent = PlayerEntry
+				
+				local Checkmark = Instance.new("TextLabel")
+				Checkmark.Size = UDim2.new(1, 0, 1, 0)
+				Checkmark.BackgroundTransparency = 1
+				Checkmark.Text = "✓"
+				Checkmark.TextColor3 = Color3.fromRGB(0, 255, 0)
+				Checkmark.TextSize = 18
+				Checkmark.Font = Enum.Font.SourceSansBold
+				Checkmark.Visible = SelectedTargets[player.Name] ~= nil
+				Checkmark.Parent = Checkbox
+				
+				local NameLabel = Instance.new("TextLabel")
+				NameLabel.Size = UDim2.new(1, -35, 1, 0)
+				NameLabel.Position = UDim2.new(0, 30, 0, 0)
+				NameLabel.BackgroundTransparency = 1
+				NameLabel.Text = player.Name
+				NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+				NameLabel.TextSize = 16
+				NameLabel.Font = Enum.Font.SourceSans
+				NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+				NameLabel.Parent = PlayerEntry
+				
+				local ClickArea = Instance.new("TextButton")
+				ClickArea.Size = UDim2.new(1, 0, 1, 0)
+				ClickArea.BackgroundTransparency = 1
+				ClickArea.Text = ""
+				ClickArea.ZIndex = 2
+				ClickArea.Parent = PlayerEntry
+				
+				ClickArea.MouseButton1Click:Connect(function()
+					if SelectedTargets[player.Name] then
+						SelectedTargets[player.Name] = nil
+						Checkmark.Visible = false
+					else
+						SelectedTargets[player.Name] = player
+						Checkmark.Visible = true
+					end
+					UpdateStatus()
+				end)
+				
+				PlayerCheckboxes[player.Name] = {
+					Entry = PlayerEntry,
+					Checkmark = Checkmark
+				}
+				
+				yPosition = yPosition + 35
+			end
+		end
+		PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPosition + 5)
+	end
+
+	local function CountSelectedTargets()
+		local count = 0
+		for _ in pairs(SelectedTargets) do
+			count = count + 1
+		end
+		return count
+	end
+
+	local function UpdateStatus()
+		local count = CountSelectedTargets()
+		if FlingActive then
+			StatusLabel.Text = "Flinging " .. count .. " target(s)"
+			StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+		else
+			StatusLabel.Text = count .. " target(s) selected" 
+			StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		end
+	end
+
+	local function ToggleAllPlayers(select)
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= Player then
+				local checkboxData = PlayerCheckboxes[player.Name]
+				if checkboxData then
+					if select then
+						SelectedTargets[player.Name] = player
+						checkboxData.Checkmark.Visible = true
+					else
+						SelectedTargets[player.Name] = nil
+						checkboxData.Checkmark.Visible = false
+					end
+				end
+			end
+		end
+		UpdateStatus()
+	end
+
+	local function Message(Title, Text, Time)
+		game:GetService("StarterGui"):SetCore("SendNotification", {
+			Title = Title,
+			Text = Text,
+			Duration = Time or 5
+		})
+	end
+
+	local function SkidFling(TargetPlayer)
+		local Character = Player.Character
+		local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+		local RootPart = Humanoid and Humanoid.RootPart
+		local TCharacter = TargetPlayer.Character
+		if not TCharacter then return end
+		
+		local THumanoid, TRootPart, THead, Accessory, Handle
+		if TCharacter:FindFirstChildOfClass("Humanoid") then
+			THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
+		end
+		if THumanoid and THumanoid.RootPart then
+			TRootPart = THumanoid.RootPart
+		end
+		if TCharacter:FindFirstChild("Head") then
+			THead = TCharacter.Head
+		end
+		if TCharacter:FindFirstChildOfClass("Accessory") then
+			Accessory = TCharacter:FindFirstChildOfClass("Accessory")
+		end
+		if Accessory and Accessory:FindFirstChild("Handle") then
+			Handle = Accessory.Handle
+		end
+		if Character and Humanoid and RootPart then
+			if RootPart.Velocity.Magnitude < 50 then
+				getgenv().OldPos = RootPart.CFrame
+			end
+			
+			if THumanoid and THumanoid.Sit then
+				return Message("Error", TargetPlayer.Name .. " is sitting", 2)
+			end
+			
+			if THead then
+				workspace.CurrentCamera.CameraSubject = THead
+			elseif Handle then
+				workspace.CurrentCamera.CameraSubject = Handle
+			elseif THumanoid and TRootPart then
+				workspace.CurrentCamera.CameraSubject = THumanoid
+			end
+			
+			if not TCharacter:FindFirstChildWhichIsA("BasePart") then return end
+			
+			local FPos = function(BasePart, Pos, Ang)
+				RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+				Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+				RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+				RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+			end
+			
+			local SFBasePart = function(BasePart)
+				local TimeToWait = 2
+				local Time = tick()
+				local Angle = 0
+				repeat
+					if RootPart and THumanoid then
+						if BasePart.Velocity.Magnitude < 50 then
+							Angle = Angle + 100
+							FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
+							task.wait()
+							FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+							task.wait()
+							FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
+							task.wait()
+							FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+							task.wait()
+							FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle),0 ,0))
+							task.wait()
+							FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
+							task.wait()
+						else
+							FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+							task.wait()
+							FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
+							task.wait()
+							FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+							task.wait()
+							FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
+							task.wait()
+							FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+							task.wait()
+							FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
+							task.wait()
+							FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+							task.wait()
+						end
+					end
+				until Time + TimeToWait < tick() or not FlingActive
+			end
+			
+			workspace.FallenPartsDestroyHeight = 0/0
+			
+			local BV = Instance.new("BodyVelocity")
+			BV.Parent = RootPart
+			BV.Velocity = Vector3.new(0, 0, 0)
+			BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+			
+			Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+			
+			if TRootPart then
+				SFBasePart(TRootPart)
+			elseif THead then
+				SFBasePart(THead)
+			elseif Handle then
+				SFBasePart(Handle)
+			else
+				return Message("Error", TargetPlayer.Name .. " has no valid parts", 2)
+			end
+			
+			BV:Destroy()
+			Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+			workspace.CurrentCamera.CameraSubject = Humanoid
+			
+			if getgenv().OldPos then
+				repeat
+					RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
+					Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
+					Humanoid:ChangeState("GettingUp")
+					for _, part in pairs(Character:GetChildren()) do
+						if part:IsA("BasePart") then
+							part.Velocity, part.RotVelocity = Vector3.new(), Vector3.new()
+						end
+					end
+					task.wait()
+				until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25
+				workspace.FallenPartsDestroyHeight = getgenv().FPDH
+			end
+		else
+			return Message("Error", "Your character is not ready", 2)
+		end
+	end
+
+	local function StartFling()
+		if FlingActive then return end
+		local count = CountSelectedTargets()
+		if count == 0 then
+			StatusLabel.Text = "No targets selected!"
+			task.wait(1)
+			StatusLabel.Text = "Select targets to fling"
+			return
+		end
+		
+		FlingActive = true
+		UpdateStatus()
+		Message("Started", "Flinging " .. count .. " targets", 2)
+		
+		task.spawn(function()
+			while FlingActive do
+				local validTargets = {}
+				for name, player in pairs(SelectedTargets) do
+					if player and player.Parent then
+						validTargets[name] = player
+					else
+						SelectedTargets[name] = nil
+						local checkbox = PlayerCheckboxes[name]
+						if checkbox then checkbox.Checkmark.Visible = false end
+					end
+				end
+				
+				for _, player in pairs(validTargets) do
+					if FlingActive then
+						SkidFling(player)
+						task.wait(0.1)
+					else
+						break
+					end
+				end
+				UpdateStatus()
+				task.wait(0.5)
+			end
+		end)
+	end
+
+	local function StopFling()
+		if not FlingActive then return end
+		FlingActive = false
+		UpdateStatus()
+		Message("Stopped", "Fling has been stopped", 2)
+	end
+
+	StartButton.MouseButton1Click:Connect(StartFling)
+	StopButton.MouseButton1Click:Connect(StopFling)
+	SelectAllButton.MouseButton1Click:Connect(function() ToggleAllPlayers(true) end)
+	DeselectAllButton.MouseButton1Click:Connect(function() ToggleAllPlayers(false) end)
+	CloseButton.MouseButton1Click:Connect(function()
+		StopFling()
+		flingScreenGui:Destroy()
+		flingGuiCreated = false
+	end)
+
+	Players.PlayerAdded:Connect(RefreshPlayerList)
+	Players.PlayerRemoving:Connect(function(player)
+		if SelectedTargets[player.Name] then SelectedTargets[player.Name] = nil end
+		RefreshPlayerList()
+		UpdateStatus()
+	end)
+
+	RefreshPlayerList()
+	UpdateStatus()
+	Message("Loaded", "Nexus Fling gui", 3)
+end)
+
+-- 4. Click Teleport (Ctrl + Sol Tık) Butonu
+local clickTpBtn = Instance.new("TextButton", page4)
+clickTpBtn.Size = UDim2.new(1, 0, 0, 36)
+clickTpBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+clickTpBtn.BorderSizePixel = 0
+clickTpBtn.Text = "  CLICK TP (CTRL+CLICK) • OFF"
+clickTpBtn.TextColor3 = Color3.fromRGB(220, 225, 235)
+clickTpBtn.Font = Enum.Font.Code
+clickTpBtn.TextSize = 10
+clickTpBtn.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", clickTpBtn).CornerRadius = UDim.new(0, 4)
+
+_G.WRDClickTeleport = false
+local mouse = LocalPlayer:GetMouse()
+
+clickTpBtn.MouseButton1Click:Connect(function()
+	_G.WRDClickTeleport = not _G.WRDClickTeleport
+	if _G.WRDClickTeleport then
+		clickTpBtn.Text = "  CLICK TP (CTRL+CLICK) • ON"
+		clickTpBtn.BackgroundColor3 = Color3.fromRGB(43, 78, 65)
+	else
+		clickTpBtn.Text = "  CLICK TP (CTRL+CLICK) • OFF"
+		clickTpBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+	end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if _G.WRDClickTeleport and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+			if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+				LocalPlayer.Character:MoveTo(Vector3.new(mouse.Hit.x, mouse.Hit.y, mouse.Hit.z))
+			end
+		end
+	end
+end)
+
+-- 5. Rainbow ESP Butonu
+local espBtn = Instance.new("TextButton", page4)
+espBtn.Size = UDim2.new(1, 0, 0, 36)
+espBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+espBtn.BorderSizePixel = 0
+espBtn.Text = "  RAINBOW ESP • OFF"
+espBtn.TextColor3 = Color3.fromRGB(220, 225, 235)
+espBtn.Font = Enum.Font.Code
+espBtn.TextSize = 10
+espBtn.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", espBtn).CornerRadius = UDim.new(0, 4)
+
+local espFolder = Instance.new("Folder")
+espFolder.Name = "XenoRainbowESP_Full"
+espFolder.Parent = nil
+
+local function removeESP(player)
+	if espFolder:FindFirstChild(player.Name) then
+		espFolder[player.Name]:Destroy()
+	end
+end
+
+local function addESP(player)
+	if player == LocalPlayer then return end
+	local function apply(char)
+		removeESP(player)
+		local container = Instance.new("Model")
+		container.Name = player.Name
+		container.Parent = espFolder
+		
+		local highlight = Instance.new("Highlight")
+		highlight.Name = "Highlight"
+		highlight.Adornee = char
+		highlight.Parent = container
+		highlight.FillTransparency = 0.5
+		highlight.OutlineTransparency = 0
+		
+		local head = char:WaitForChild("Head", 5)
+		if head then
+			local billboard = Instance.new("BillboardGui")
+			billboard.Name = "NameTag"
+			billboard.Adornee = head
+			billboard.Size = UDim2.new(0, 200, 0, 50)
+			billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+			billboard.AlwaysOnTop = true
+			billboard.Parent = container
+			
+			local textLabel = Instance.new("TextLabel")
+			textLabel.Name = "Text"
+			textLabel.Size = UDim2.new(1, 0, 1, 0)
+			textLabel.BackgroundTransparency = 1
+			textLabel.Text = player.Name
+			textLabel.TextColor3 = Color3.new(1, 1, 1)
+			textLabel.TextStrokeTransparency = 0
+			textLabel.TextSize = 14
+			textLabel.Font = Enum.Font.SourceSansBold
+			textLabel.Parent = billboard
+		end
+	end
+	player.CharacterAdded:Connect(apply)
+	if player.Character then
+		task.spawn(function() apply(player.Character) end)
+	end
+end
+
+local espEnabled = false
+espBtn.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	if espEnabled then
+		espFolder.Parent = CoreGui
+		espBtn.Text = "  RAINBOW ESP • ON"
+		espBtn.BackgroundColor3 = Color3.fromRGB(43, 78, 65)
+		for _, p in ipairs(Players:GetPlayers()) do addESP(p) end
+	else
+		espFolder.Parent = nil
+		espBtn.Text = "  RAINBOW ESP • OFF"
+		espBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+	end
+end)
+
+Players.PlayerAdded:Connect(function(p) if espEnabled then addESP(p) end end)
+Players.PlayerRemoving:Connect(removeESP)
+
+RunService.RenderStepped:Connect(function()
+	if not espEnabled then return end
+	local hue = (tick() % 5) / 5
+	local rainbowColor = Color3.fromHSV(hue, 1, 1)
+	for _, container in ipairs(espFolder:GetChildren()) do
+		local highlight = container:FindFirstChild("Highlight")
+		if highlight then
+			highlight.FillColor = rainbowColor
+			highlight.OutlineColor = rainbowColor
+		end
+		local billboard = container:FindFirstChild("NameTag")
+		if billboard then
+			local textLabel = billboard:FindFirstChild("Text")
+			if textLabel then textLabel.TextColor3 = rainbowColor end
+		end
+	end
+end)
+
+-- 6. Jerk Off Tool Butonu
+local jerkToolBtn = Instance.new("TextButton", page4)
+jerkToolBtn.Size = UDim2.new(1, 0, 0, 36)
+jerkToolBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+jerkToolBtn.BorderSizePixel = 0
+jerkToolBtn.Text = "  sus!"
+jerkToolBtn.TextColor3 = Color3.fromRGB(220, 225, 235)
+jerkToolBtn.Font = Enum.Font.Code
+jerkToolBtn.TextSize = 10
+jerkToolBtn.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", jerkToolBtn).CornerRadius = UDim.new(0, 4)
+
+jerkToolBtn.MouseButton1Click:Connect(function()
+	logToTerminal("Executed: Jerk Off Tool Given")
+	pcall(function()
+		local t = Instance.new("Tool")
+		t.Name = "sus!"
+		t.RequiresHandle = false
+		t.Parent = LocalPlayer.Backpack
+		
+		local s = false
+		local k = {}
+		
+		local function e(id, t1, t2, id2)
+			local char = LocalPlayer.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if not hum then return end
+			local a = Instance.new("Animation")
+			a.AnimationId = "rbxassetid://99198989"
+			local tr = hum:LoadAnimation(a)
+			k[id2] = RunService.RenderStepped:Connect(function()
+				if s then
+					if tr.TimePosition >= t2 or tr.IsPlaying == false then
+						tr:Play()
+						tr.TimePosition = t1
+					end
+				else
+					tr:Stop()
+				end
+			end)
+			tr:Play()
+			tr.TimePosition = t1
+		end
+		
+		t.Activated:Connect(function()
+			s = not s
+			if s then
+				e("72042024", 0.5, 0.9, 1)
+				e("168268306", 1, 1.001, 2)
+			else
+				s, k = false, {}
+			end
+		end)
+	end)
+end)
+
+-- 7. Dramatic Blood Sky Butonu
+local dramaticSkyBtn = Instance.new("TextButton", page4)
+dramaticSkyBtn.Size = UDim2.new(1, 0, 0, 36)
+dramaticSkyBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+dramaticSkyBtn.BorderSizePixel = 0
+dramaticSkyBtn.Text = "  DRAMATIC BLOOD SKY • OFF"
+dramaticSkyBtn.TextColor3 = Color3.fromRGB(220, 225, 235)
+dramaticSkyBtn.Font = Enum.Font.Code
+dramaticSkyBtn.TextSize = 10
+dramaticSkyBtn.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", dramaticSkyBtn).CornerRadius = UDim.new(0, 4)
+
+local dramaticActive = false
+dramaticSkyBtn.MouseButton1Click:Connect(function()
+	dramaticActive = not dramaticActive
+	local Lighting = game:GetService("Lighting")
+	
+	if dramaticActive then
+		dramaticSkyBtn.Text = "  DRAMATIC BLOOD SKY • ON"
+		dramaticSkyBtn.BackgroundColor3 = Color3.fromRGB(78, 43, 43)
+		logToTerminal("Executed: Dramatic Blood Sky Enabled")
+		
+		pcall(function()
+			for _, v in ipairs(Lighting:GetChildren()) do
+				if v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("ColorCorrectionEffect") then
+					v:Destroy()
+				end
+			end
+		end)
+		
+		local sky = Instance.new("Sky")
+		sky.Name = "NexusDramaticSky"
+		sky.SkyboxBk = "rbxassetid://644488433"
+		sky.SkyboxDn = "rbxassetid://644488433"
+		sky.SkyboxFt = "rbxassetid://644488433"
+		sky.SkyboxLf = "rbxassetid://644488433"
+		sky.SkyboxRt = "rbxassetid://644488433"
+		sky.SkyboxUp = "rbxassetid://644488433"
+		sky.SunAngularSize = 21
+		sky.Parent = Lighting
+		
+		local atmosphere = Instance.new("Atmosphere")
+		atmosphere.Name = "NexusDramaticAtmosphere"
+		atmosphere.Density = 0.35
+		atmosphere.Offset = 0.25
+		atmosphere.Color = Color3.fromRGB(120, 20, 20)
+		atmosphere.Decay = Color3.fromRGB(40, 10, 10)
+		atmosphere.Glare = 0.4
+		atmosphere.Haze = 2.5
+		atmosphere.Parent = Lighting
+		
+		local cc = Instance.new("ColorCorrectionEffect")
+		cc.Name = "NexusDramaticCC"
+		cc.Brightness = -0.05
+		cc.Contrast = 0.3
+		cc.Saturation = -0.25
+		cc.TintColor = Color3.fromRGB(255, 120, 120)
+		cc.Parent = Lighting
+		
+		Lighting.ClockTime = 0
+		Lighting.ExposureCompensation = -0.2
+	else
+		dramaticSkyBtn.Text = "  DRAMATIC BLOOD SKY • OFF"
+		dramaticSkyBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+		logToTerminal("Executed: Dramatic Blood Sky Disabled")
+		
+		pcall(function()
+			for _, v in ipairs(Lighting:GetChildren()) do
+				if v.Name == "NexusDramaticSky" or v.Name == "NexusDramaticAtmosphere" or v.Name == "NexusDramaticCC" then
+					v:Destroy()
+				end
+			end
+		end)
+	end
+end)
+
+--==================================================
+-- PAGE 5: EXTRA TP & LOOP GOTO (OYUNCU LİSTESİ İLE)
+--==================================================
+local selectedTargetPlayer = nil
+
+local selectListLabel = Instance.new("TextLabel", page5)
+selectListLabel.Size = UDim2.new(1, 0, 0, 20)
+selectListLabel.BackgroundTransparency = 1
+selectListLabel.Text = "SUNUCU OYUNCU LİSTESİ (Seçmek için tıkla):"
+selectListLabel.TextColor3 = Color3.fromRGB(130, 135, 150)
+selectListLabel.Font = Enum.Font.Code
+selectListLabel.TextSize = 9
+selectListLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local playerScrollBox = Instance.new("ScrollingFrame", page5)
+playerScrollBox.Size = UDim2.new(1, 0, 0, 130)
+playerScrollBox.BackgroundColor3 = Color3.fromRGB(12, 14, 20)
+playerScrollBox.BorderSizePixel = 0
+playerScrollBox.ScrollBarThickness = 4
+playerScrollBox.AutomaticCanvasSize = Enum.AutomaticSize.Y
+playerScrollBox.CanvasSize = UDim2.new()
+Instance.new("UICorner", playerScrollBox).CornerRadius = UDim.new(0, 4)
+
+local playerScrollLayout = Instance.new("UIListLayout", playerScrollBox)
+playerScrollLayout.Padding = UDim.new(0, 3)
+
+local function refreshPlayerScrollList()
+	for _, child in ipairs(playerScrollBox:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer then
+			local pBtn = Instance.new("TextButton", playerScrollBox)
+			pBtn.Size = UDim2.new(1, -4, 0, 28)
+			pBtn.BackgroundColor3 = (selectedTargetPlayer == p) and Color3.fromRGB(43, 78, 65) or Color3.fromRGB(18, 20, 30)
+			pBtn.BorderSizePixel = 0
+			pBtn.Text = "  " .. p.Name
+			pBtn.TextColor3 = (selectedTargetPlayer == p) and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(220, 225, 235)
+			pBtn.Font = Enum.Font.Code
+			pBtn.TextSize = 10
+			pBtn.TextXAlignment = Enum.TextXAlignment.Left
+			Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 3)
+
+			pBtn.MouseButton1Click:Connect(function()
+				selectedTargetPlayer = p
+				logToTerminal("Target Selected: " .. p.Name)
+				refreshPlayerScrollList()
+			end)
+		end
+	end
+end
+
+refreshPlayerScrollList()
+Players.PlayerAdded:Connect(refreshPlayerScrollList)
+Players.PlayerRemoving:Connect(refreshPlayerScrollList)
+
+local tpSelectedBtn = Instance.new("TextButton", page5)
+tpSelectedBtn.Size = UDim2.new(1, 0, 0, 36)
+tpSelectedBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+tpSelectedBtn.BorderSizePixel = 0
+tpSelectedBtn.Text = "  SEÇİLEN OYUNCUYA TP OL"
+tpSelectedBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpSelectedBtn.Font = Enum.Font.Code
+tpSelectedBtn.TextSize = 10
+tpSelectedBtn.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", tpSelectedBtn).CornerRadius = UDim.new(0, 4)
+
+tpSelectedBtn.MouseButton1Click:Connect(function()
+	if selectedTargetPlayer and selectedTargetPlayer.Character and selectedTargetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		if rootPart and rootPart.Parent then
+			rootPart.CFrame = selectedTargetPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+			logToTerminal("Teleported to " .. selectedTargetPlayer.Name)
+		end
+	else
+		logToTerminal("Error: Geçerli bir oyuncu seçilmedi!")
+	end
+end)
+
+local loopGotoActive = false
+local loopGotoBtn = Instance.new("TextButton", page5)
+loopGotoBtn.Size = UDim2.new(1, 0, 0, 36)
+loopGotoBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+loopGotoBtn.BorderSizePixel = 0
+loopGotoBtn.Text = "  LOOP GOTO (SEÇİLİ KİŞİ) • OFF"
+loopGotoBtn.TextColor3 = Color3.fromRGB(220, 225, 235)
+loopGotoBtn.Font = Enum.Font.Code
+loopGotoBtn.TextSize = 10
+loopGotoBtn.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", loopGotoBtn).CornerRadius = UDim.new(0, 4)
+
+loopGotoBtn.MouseButton1Click:Connect(function()
+	if not selectedTargetPlayer then
+		logToTerminal("Error: Önce listeden bir oyuncu seçmelisin!")
+		return
+	end
+	loopGotoActive = not loopGotoActive
+	if loopGotoActive then
+		loopGotoBtn.Text = "  LOOP GOTO (SEÇİLİ KİŞİ) • ON"
+		loopGotoBtn.BackgroundColor3 = Color3.fromRGB(43, 78, 65)
+		logToTerminal("Loop Goto Enabled for " .. selectedTargetPlayer.Name)
+	else
+		loopGotoBtn.Text = "  LOOP GOTO (SEÇİLİ KİŞİ) • OFF"
+		loopGotoBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+		logToTerminal("Loop Goto Disabled")
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	if loopGotoActive and selectedTargetPlayer and selectedTargetPlayer.Character and selectedTargetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		local tRoot = selectedTargetPlayer.Character.HumanoidRootPart
+		if rootPart and humanoid then
+			humanoid.PlatformStand = true
+			rootPart.CFrame = tRoot.CFrame * CFrame.new(0, 2, 3)
+			rootPart.Velocity = Vector3.zero
+		end
+	else
+		if not flying and humanoid and humanoid.PlatformStand and not loopGotoActive then
+			humanoid.PlatformStand = false
+		end
+	end
+end)
+
+--==================================================
+-- PAGE 6: SETTINGS
+--==================================================
+local unhideBtn = Instance.new("TextButton", page6)
+unhideBtn.Size = UDim2.new(1, 0, 0, 36)
+unhideBtn.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+unhideBtn.BorderSizePixel = 0
+unhideBtn.Text = "  DESTROY HUB"
+unhideBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
+unhideBtn.Font = Enum.Font.Code
+unhideBtn.TextSize = 10
+unhideBtn.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", unhideBtn).CornerRadius = UDim.new(0, 4)
+
+unhideBtn.MouseButton1Click:Connect(function()
+	ScreenGui:Destroy()
+	pcall(function() espFolder:Destroy() end)
+	pcall(function() if flingScreenGui then flingScreenGui:Destroy() end end)
+end)
+
+--==================================================
+-- DRAGGABLE SYSTEM
+--==================================================
+local dragging, dragStart, startPos
+Header.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = Main.Position
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = input.Position - dragStart
+		Main.Position = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
+end)
+
+print("[Nexus Premium] Script updated successfully[cite: 5].")
+
+game:GetService("StarterGui"):SetCore("SendNotification", {
+	Title = "[Nexus]",
+	Text = "Nexus Attached in game!",
+	Icon = "rbxassetid://10885640695",
+	Duration = 5
+})
+--==================================================
+-- PAGE 7: TSB EXTRA PACK • 20 FEATURES
+--==================================================
+local page7 = createSection("TSB EXTRA PACK", 7)
+
+local function nexusButton(parent, text)
+    local b = Instance.new("TextButton", parent)
+    b.Size = UDim2.new(1, 0, 0, 34)
+    b.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+    b.BorderSizePixel = 0
+    b.Text = "  " .. text
+    b.TextColor3 = Color3.fromRGB(220, 225, 235)
+    b.Font = Enum.Font.Code
+    b.TextSize = 10
+    b.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
+    return b
+end
+
+local function nexusToggle(parent, label, callback)
+    local state = false
+    local b = nexusButton(parent, label .. " • OFF")
+    b.MouseButton1Click:Connect(function()
+        state = not state
+        b.Text = "  " .. label .. (state and " • ON" or " • OFF")
+        b.BackgroundColor3 = state and Color3.fromRGB(43, 78, 65) or Color3.fromRGB(16, 18, 26)
+        callback(state)
+    end)
+    return b
+end
+
+-- 1. FPS counter
+local fpsGui = nil
+local fpsLabel = nil
+local fpsConnection = nil
+nexusToggle(page7, "FPS COUNTER", function(on)
+    if on then
+        fpsGui = Instance.new("ScreenGui")
+        fpsGui.Name = "NexusFPS"
+        fpsGui.ResetOnSpawn = false
+        fpsGui.Parent = PlayerGui
+        fpsLabel = Instance.new("TextLabel", fpsGui)
+        fpsLabel.Size = UDim2.fromOffset(120, 24)
+        fpsLabel.Position = UDim2.fromOffset(10, 10)
+        fpsLabel.BackgroundTransparency = 1
+        fpsLabel.Font = Enum.Font.Code
+        fpsLabel.TextSize = 12
+        fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+        local frames, last = 0, os.clock()
+        fpsConnection = RunService.RenderStepped:Connect(function()
+            frames += 1
+            local now = os.clock()
+            if now - last >= 0.5 then
+                fpsLabel.Text = "FPS: " .. math.floor(frames / (now - last))
+                frames, last = 0, now
+            end
+        end)
+    else
+        if fpsConnection then fpsConnection:Disconnect(); fpsConnection = nil end
+        if fpsGui then fpsGui:Destroy(); fpsGui = nil end
+    end
+end)
+
+-- 2. Ping display
+local pingGui, pingLabel, pingConnection
+nexusToggle(page7, "PING DISPLAY", function(on)
+    if on then
+        pingGui = Instance.new("ScreenGui", PlayerGui)
+        pingGui.Name = "NexusPing"
+        pingGui.ResetOnSpawn = false
+        pingLabel = Instance.new("TextLabel", pingGui)
+        pingLabel.Size = UDim2.fromOffset(140, 24)
+        pingLabel.Position = UDim2.fromOffset(10, 34)
+        pingLabel.BackgroundTransparency = 1
+        pingLabel.Font = Enum.Font.Code
+        pingLabel.TextSize = 12
+        pingLabel.TextXAlignment = Enum.TextXAlignment.Left
+        pingConnection = RunService.Heartbeat:Connect(function()
+            local ok, value = pcall(function()
+                return game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
+            end)
+            pingLabel.Text = "PING: " .. (ok and value or "N/A")
+        end)
+    else
+        if pingConnection then pingConnection:Disconnect(); pingConnection = nil end
+        if pingGui then pingGui:Destroy(); pingGui = nil end
+    end
+end)
+
+-- 3. Coordinates display
+local coordGui, coordLabel, coordConnection
+nexusToggle(page7, "COORDINATES", function(on)
+    if on then
+        coordGui = Instance.new("ScreenGui", PlayerGui)
+        coordGui.Name = "NexusCoordinates"
+        coordGui.ResetOnSpawn = false
+        coordLabel = Instance.new("TextLabel", coordGui)
+        coordLabel.Size = UDim2.fromOffset(260, 24)
+        coordLabel.Position = UDim2.fromOffset(10, 58)
+        coordLabel.BackgroundTransparency = 1
+        coordLabel.Font = Enum.Font.Code
+        coordLabel.TextSize = 11
+        coordLabel.TextXAlignment = Enum.TextXAlignment.Left
+        coordConnection = RunService.RenderStepped:Connect(function()
+            if rootPart and rootPart.Parent then
+                local p = rootPart.Position
+                coordLabel.Text = string.format("POS: %.1f, %.1f, %.1f", p.X, p.Y, p.Z)
+            end
+        end)
+    else
+        if coordConnection then coordConnection:Disconnect(); coordConnection = nil end
+        if coordGui then coordGui:Destroy(); coordGui = nil end
+    end
+end)
+
+-- 4. Fullbright
+local oldLighting = {}
+local fullbrightOn = false
+nexusToggle(page7, "FULLBRIGHT", function(on)
+    fullbrightOn = on
+    local Lighting = game:GetService("Lighting")
+    if on then
+        oldLighting.Brightness = Lighting.Brightness
+        oldLighting.ClockTime = Lighting.ClockTime
+        oldLighting.FogEnd = Lighting.FogEnd
+        oldLighting.GlobalShadows = Lighting.GlobalShadows
+        Lighting.Brightness = 3
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+    else
+        if oldLighting.Brightness then Lighting.Brightness = oldLighting.Brightness end
+        if oldLighting.ClockTime then Lighting.ClockTime = oldLighting.ClockTime end
+        if oldLighting.FogEnd then Lighting.FogEnd = oldLighting.FogEnd end
+        if oldLighting.GlobalShadows ~= nil then Lighting.GlobalShadows = oldLighting.GlobalShadows end
+    end
+end)
+
+-- 5. Camera FOV 90/70
+local defaultFOV = workspace.CurrentCamera and workspace.CurrentCamera.FieldOfView or 70
+nexusToggle(page7, "WIDE FOV", function(on)
+    local cam = workspace.CurrentCamera
+    if cam then cam.FieldOfView = on and 90 or defaultFOV end
+end)
+
+-- 6. Infinite jump
+local infiniteJumpConnection
+nexusToggle(page7, "INFINITE JUMP", function(on)
+    if on then
+        infiniteJumpConnection = UserInputService.JumpRequest:Connect(function()
+            if humanoid and humanoid.Parent then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+        end)
+    else
+        if infiniteJumpConnection then infiniteJumpConnection:Disconnect(); infiniteJumpConnection = nil end
+    end
+end)
+
+-- 7. Jump power
+local jumpPowerBox = Instance.new("TextBox", page7)
+jumpPowerBox.Size = UDim2.new(1, 0, 0, 34)
+jumpPowerBox.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+jumpPowerBox.BorderSizePixel = 0
+jumpPowerBox.Text = "50"
+jumpPowerBox.PlaceholderText = "JumpPower (1-250)"
+jumpPowerBox.TextColor3 = Color3.fromRGB(240, 242, 250)
+jumpPowerBox.Font = Enum.Font.Code
+jumpPowerBox.TextSize = 10
+Instance.new("UICorner", jumpPowerBox).CornerRadius = UDim.new(0, 4)
+local jumpApply = nexusButton(page7, "APPLY JUMP POWER")
+jumpApply.MouseButton1Click:Connect(function()
+    local n = math.clamp(tonumber(jumpPowerBox.Text) or 50, 1, 250)
+    jumpPowerBox.Text = tostring(n)
+    if humanoid and humanoid.Parent then
+        humanoid.UseJumpPower = true
+        humanoid.JumpPower = n
+    end
+end)
+
+-- 8. Gravity control
+local gravityBox = Instance.new("TextBox", page7)
+gravityBox.Size = UDim2.new(1, 0, 0, 34)
+gravityBox.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+gravityBox.BorderSizePixel = 0
+gravityBox.Text = "196.2"
+gravityBox.PlaceholderText = "Gravity"
+gravityBox.TextColor3 = Color3.fromRGB(240, 242, 250)
+gravityBox.Font = Enum.Font.Code
+gravityBox.TextSize = 10
+Instance.new("UICorner", gravityBox).CornerRadius = UDim.new(0, 4)
+local oldGravity = workspace.Gravity
+local gravityApply = nexusButton(page7, "APPLY GRAVITY")
+gravityApply.MouseButton1Click:Connect(function()
+    workspace.Gravity = math.clamp(tonumber(gravityBox.Text) or oldGravity, 0, 500)
+end)
+
+-- 9. Reset gravity
+local gravityReset = nexusButton(page7, "RESET GRAVITY")
+gravityReset.MouseButton1Click:Connect(function() workspace.Gravity = oldGravity end)
+
+-- 10. Anti AFK
+local antiAfkConnection
+nexusToggle(page7, "ANTI AFK", function(on)
+    if on then
+        antiAfkConnection = LocalPlayer.Idled:Connect(function()
+            pcall(function()
+                local vu = game:GetService("VirtualUser")
+                vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+                task.wait(0.2)
+                vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+            end)
+        end)
+    else
+        if antiAfkConnection then antiAfkConnection:Disconnect(); antiAfkConnection = nil end
+    end
+end)
+
+-- 11. Auto reset on demand
+local resetBtn = nexusButton(page7, "RESET CHARACTER")
+resetBtn.MouseButton1Click:Connect(function()
+    if humanoid then humanoid.Health = 0 end
+end)
+
+-- 12. Sit / stand
+local sitBtn = nexusButton(page7, "SIT / STAND")
+sitBtn.MouseButton1Click:Connect(function()
+    if humanoid then humanoid.Sit = not humanoid.Sit end
+end)
+
+-- 13. Platform under player
+local platform, platformConn
+nexusToggle(page7, "PLAYER PLATFORM", function(on)
+    if on then
+        platform = Instance.new("Part")
+        platform.Name = "NexusPlatform"
+        platform.Size = Vector3.new(7, 0.5, 7)
+        platform.Anchored = true
+        platform.CanCollide = true
+        platform.Transparency = 0.35
+        platform.Parent = workspace
+        platformConn = RunService.RenderStepped:Connect(function()
+            if platform and rootPart and rootPart.Parent then
+                platform.CFrame = CFrame.new(rootPart.Position - Vector3.new(0, 3.3, 0))
+            end
+        end)
+    else
+        if platformConn then platformConn:Disconnect(); platformConn = nil end
+        if platform then platform:Destroy(); platform = nil end
+    end
+end)
+
+-- 14. Hide hub keybind (RightShift)
+local hubKeyConnection
+nexusToggle(page7, "RIGHTSHIFT HUB TOGGLE", function(on)
+    if on then
+        hubKeyConnection = UserInputService.InputBegan:Connect(function(input, gp)
+            if not gp and input.KeyCode == Enum.KeyCode.RightShift then ScreenGui.Enabled = not ScreenGui.Enabled end
+        end)
+    else
+        if hubKeyConnection then hubKeyConnection:Disconnect(); hubKeyConnection = nil end
+    end
+end)
+
+-- 15. UI transparency
+local transparentMode = false
+nexusToggle(page7, "GLASS UI", function(on)
+    transparentMode = on
+    Main.BackgroundTransparency = on and 0.35 or 0.1
+end)
+
+-- 16. Low graphics
+local lowGraphicsOld = nil
+nexusToggle(page7, "LOW GRAPHICS", function(on)
+    local Lighting = game:GetService("Lighting")
+    if on then
+        lowGraphicsOld = {}
+        for _, v in ipairs(Lighting:GetChildren()) do
+            if v:IsA("PostEffect") then
+                lowGraphicsOld[v] = v.Enabled
+                v.Enabled = false
+            end
+        end
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+    else
+        if lowGraphicsOld then
+            for v, enabled in pairs(lowGraphicsOld) do
+                if v and v.Parent then v.Enabled = enabled end
+            end
+        end
+    end
+end)
+
+-- 17. Camera reset
+local cameraReset = nexusButton(page7, "RESET CAMERA")
+cameraReset.MouseButton1Click:Connect(function()
+    local cam = workspace.CurrentCamera
+    if cam then
+        cam.FieldOfView = defaultFOV
+        if humanoid then cam.CameraSubject = humanoid end
+        cam.CameraType = Enum.CameraType.Custom
+    end
+end)
+
+-- 18. Local time display
+local timeGui, timeLabel, timeConn
+nexusToggle(page7, "LOCAL TIME", function(on)
+    if on then
+        timeGui = Instance.new("ScreenGui", PlayerGui)
+        timeGui.Name = "NexusClock"
+        timeGui.ResetOnSpawn = false
+        timeLabel = Instance.new("TextLabel", timeGui)
+        timeLabel.Size = UDim2.fromOffset(160, 24)
+        timeLabel.Position = UDim2.fromOffset(10, 82)
+        timeLabel.BackgroundTransparency = 1
+        timeLabel.Font = Enum.Font.Code
+        timeLabel.TextSize = 11
+        timeLabel.TextXAlignment = Enum.TextXAlignment.Left
+        timeConn = RunService.Heartbeat:Connect(function()
+            timeLabel.Text = os.date("%H:%M:%S")
+        end)
+    else
+        if timeConn then timeConn:Disconnect(); timeConn = nil end
+        if timeGui then timeGui:Destroy(); timeGui = nil end
+    end
+end)
+
+-- 19. Respawn position save/return
+local savedCFrame
+local savePos = nexusButton(page7, "SAVE POSITION")
+savePos.MouseButton1Click:Connect(function()
+    if rootPart and rootPart.Parent then
+        savedCFrame = rootPart.CFrame
+        logToTerminal("Position saved")
+    end
+end)
+local returnPos = nexusButton(page7, "RETURN TO SAVED POSITION")
+returnPos.MouseButton1Click:Connect(function()
+    if savedCFrame and rootPart and rootPart.Parent then
+        rootPart.CFrame = savedCFrame
+        logToTerminal("Returned to saved position")
+    end
+end)
+
+-- 20. Rejoin server
+local rejoinBtn = nexusButton(page7, "REJOIN SERVER")
+rejoinBtn.MouseButton1Click:Connect(function()
+    local TeleportService = game:GetService("TeleportService")
+    pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+end)
+
+logToTerminal("TSB Extra Pack loaded: 20 features")
