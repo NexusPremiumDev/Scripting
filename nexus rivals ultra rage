@@ -1,0 +1,2990 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
+local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local Stats = game:GetService("Stats")
+
+local localPlayer = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Müzik Tanımlaması (It's Raining Tacos)
+local RAGE_MUSIC_ID = "rbxassetid://142376088"
+local musicSound = Instance.new("Sound")
+musicSound.Name = "RageMusic"
+musicSound.SoundId = RAGE_MUSIC_ID
+musicSound.Volume = 1
+musicSound.Looped = true
+musicSound.Parent = Workspace
+local musicEnabled = false
+
+local fpsDisplayEnabled = false
+local spoofPlatformType = "PC"
+
+local isLeftMouseDown = false
+local isAimingKeyHeld = false
+local autoClickConnection = nil
+
+pcall(function()
+	local meta = getrawmetatable(game)
+	if meta then
+		setreadonly(meta, false)
+		local oldNewIndex = meta.__newindex
+		meta.__newindex = newcclosure(function(self, idx, val)
+			if checkcaller() then
+				return oldNewIndex(self, idx, val)
+			end
+			if self == localPlayer or (character and self:IsDescendantOf(character)) then
+				if idx == "WalkSpeed" or idx == "JumpPower" or idx == "PlatformStand" or idx == "CFrame" then
+					return
+				end
+			end
+			return oldNewIndex(self, idx, val)
+		end)
+		setreadonly(meta, true)
+	end
+end)
+
+-- Sunucuya Kontrol Modunu Bildiren Fonksiyon
+local function updateServerControlMode(mode)
+	pcall(function()
+		local ReplicatedStorage = game:GetService('ReplicatedStorage')
+		local setControlsRemote = ReplicatedStorage:FindFirstChild("Remotes") 
+			and ReplicatedStorage.Remotes:FindFirstChild("Replication") 
+			and ReplicatedStorage.Remotes.Replication.Fighter:FindFirstChild("SetControls")
+			
+		if setControlsRemote then
+			setControlsRemote:FireServer(mode)
+		end
+	end)
+end
+
+-- Gelişmiş Device Spoof Hook
+pcall(function()
+	local indexHook
+	indexHook = hookmetamethod(game, "__index", function(self, idx)
+		if not checkcaller() then
+			if self == UserInputService or self == GuiService then
+				if spoofPlatformType == "VR" then
+					if idx == "GamepadEnabled" or idx == "VREnabled" then return true end
+					if idx == "TouchEnabled" or idx == "KeyboardEnabled" or idx == "MouseEnabled" then return false end
+				elseif spoofPlatformType == "Console" then
+					if idx == "GamepadEnabled" then return true end
+					if idx == "TouchEnabled" or idx == "KeyboardEnabled" or idx == "MouseEnabled" then return false end
+				elseif spoofPlatformType == "Mobile" then
+					if idx == "TouchEnabled" then return true end
+					if idx == "GamepadEnabled" or idx == "KeyboardEnabled" or idx == "MouseEnabled" then return false end
+				elseif spoofPlatformType == "PC" then
+					if idx == "KeyboardEnabled" or idx == "MouseEnabled" then return true end
+					if idx == "TouchEnabled" or idx == "GamepadEnabled" or idx == "VREnabled" then return false end
+				end
+			end
+		end
+		return indexHook(self, idx)
+	end)
+end)
+
+local FILL_TRANSPARENCY = 0.5
+local OUTLINE_TRANSPARENCY = 0
+
+getgenv().Aimbot = false
+getgenv().Smoothness = 65
+
+local silentEnabled = false
+local autoShootEnabled = false
+local triggerBotEnabled = false
+local customFovEnabled = false
+local customFovValue = 90
+
+local aimbotEnabled = false
+local aimbotFov     = 150 
+local aimbonePart = "Head"
+
+local predictionEnabled = false
+local wallBangEnabled = false
+local crosshairEnabled = false
+local bendEnabled = false
+local limbScatterEnabled = false
+local espEnabled = true
+
+local hitboxEnabled = false
+local hitboxSize = Vector3.new(5, 5, 5)
+
+_G.EnableSpeed = false
+_G.SpeedPower = 6
+
+local loopGotoEnabled = false 
+local loopGotoTarget = nil
+local rageModeEnabled = false 
+local heavyImpactEnabled = false
+local skyCampEnabled = false
+local screenShakeEnabled = false
+local flingEnabled = false
+
+local activeDanceTrack = nil
+local currentDanceName = "OFF"
+
+local dances = {
+	["Bang"] = "rbxassetid://5918726674",
+	["Chaos Orbit"] = "rbxassetid://507771019"
+}
+
+local spinBotEnabled = false
+local spinSpeed = 9999
+
+local headSpinEnabled = false
+local bodyAngle = 0
+local bodyRadius = 3.5
+local bodySpeed = 15
+
+local galaxySkyEnabled = false
+local noclipEnabled = false
+local tpKillEnabled = false
+local uiVisible = false 
+
+local originalHeadC0 = nil
+local originalMotorC1s = {}
+local statusIndicators = {}
+local danceIndicators = {}
+local galaxyAtmosphere = nil
+local galaxySky = nil
+
+local updateStatus, playDance, toggleHeadSpin, toggleGalaxySky, setNoclip, rebuildHighlights, clearHighlights, autoClick, toggleLoopGoto, toggleRageMode, toggleBend, toggleHeavyImpact, toggleSkyCamp, toggleScreenShake, addHighlight, toggleEsp, toggleHitbox, toggleMusic, unexecuteScript
+
+function toggleMusic(state)
+	if state ~= nil then
+		musicEnabled = state
+	else
+		musicEnabled = not musicEnabled
+	end
+	
+	if musicEnabled then
+		musicSound:Play()
+	else
+		musicSound:Stop()
+	end
+	updateStatus()
+end
+
+function applyCreepyAvatar()
+	pcall(function()
+		local char = localPlayer.Character
+		if not char then return end
+		
+		for _, part in ipairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.Material = Enum.Material.SmoothPlastic
+				part.Color = Color3.fromRGB(20, 10, 30)
+				
+				if part.Name == "Head" then
+					part.Color = Color3.fromRGB(10, 10, 10)
+					for _, faceChild in ipairs(part:GetChildren()) do
+						if faceChild:IsA("Decal") or faceChild:IsA("Texture") then
+							faceChild:Destroy()
+						end
+					end
+					local eyes = Instance.new("PointLight")
+					eyes.Color = Color3.fromRGB(255, 0, 0)
+					eyes.Brightness = 5
+					eyes.Range = 8
+					eyes.Parent = part
+				end
+			end
+		end
+		
+		for _, item in ipairs(char:GetChildren()) do
+			if item:IsA("Clothing") or item:IsA("Accessory") then
+				item:Destroy()
+			end
+		end
+	end)
+end
+
+function addHighlight(char)
+	if not char or char:FindFirstChild("PlayerHighlight") then return end
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "PlayerHighlight"
+	highlight.FillTransparency = FILL_TRANSPARENCY
+	highlight.OutlineTransparency = OUTLINE_TRANSPARENCY
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = char
+end
+
+function clearHighlights()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player.Character then
+			local highlight = player.Character:FindFirstChild("PlayerHighlight")
+			if highlight then highlight:Destroy() end
+		end
+	end
+end
+
+function rebuildHighlights()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= localPlayer and player.Character then
+			addHighlight(player.Character)
+		end
+	end
+end
+
+function toggleEsp()
+	espEnabled = not espEnabled
+	if not espEnabled then
+		clearHighlights()
+	else
+		rebuildHighlights()
+	end
+	updateStatus()
+end
+
+function toggleHitbox()
+	hitboxEnabled = not hitboxEnabled
+	updateStatus()
+end
+
+function toggleBend()
+	bendEnabled = not bendEnabled
+	updateStatus()
+end
+
+function toggleScreenShake()
+	screenShakeEnabled = not screenShakeEnabled
+	updateStatus()
+end
+
+function toggleHeavyImpact()
+	heavyImpactEnabled = not heavyImpactEnabled
+	updateStatus()
+end
+
+function toggleSkyCamp()
+	skyCampEnabled = not skyCampEnabled
+	if skyCampEnabled and humanoid then
+		humanoid.PlatformStand = true
+	elseif not skyCampEnabled and humanoid then
+		humanoid.PlatformStand = false
+	end
+	updateStatus()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "NexusPremiumHub"
+screenGui.ResetOnSpawn = false
+screenGui.DisplayOrder = 999999
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.IgnoreGuiInset = true
+
+-- UI'yi Roblox'un dahili CoreGui'sine yazmak yerine PlayerGui'de tut.
+-- Bu, CoreGui.RobloxGui tarafındaki Visible nil hatalarını engeller.
+local playerGui = localPlayer:WaitForChild("PlayerGui")
+screenGui.Parent = playerGui
+
+-- ==================== YÜKLEME EKRANI ====================
+local loadingScreen = Instance.new("Frame")
+loadingScreen.Name = "LoadingScreen"
+loadingScreen.Size = UDim2.new(1, 0, 1, 0)
+loadingScreen.BackgroundColor3 = Color3.fromRGB(10, 8, 12)
+loadingScreen.BorderSizePixel = 0
+loadingScreen.ZIndex = 10000
+loadingScreen.Parent = screenGui
+
+local loadCenterFrame = Instance.new("Frame")
+loadCenterFrame.Size = UDim2.new(0, 340, 0, 220)
+loadCenterFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+loadCenterFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+loadCenterFrame.BackgroundColor3 = Color3.fromRGB(16, 12, 20)
+loadCenterFrame.BorderSizePixel = 0
+loadCenterFrame.Parent = loadingScreen
+Instance.new("UICorner", loadCenterFrame).CornerRadius = UDim.new(0, 16)
+
+local loadStroke = Instance.new("UIStroke")
+loadStroke.Color = Color3.fromRGB(255, 45, 85)
+loadStroke.Thickness = 1.5
+loadStroke.Parent = loadCenterFrame
+
+local loadTitle = Instance.new("TextLabel")
+loadTitle.Size = UDim2.new(1, 0, 0, 30)
+loadTitle.Position = UDim2.new(0, 0, 0.15, 0)
+loadTitle.BackgroundTransparency = 1
+loadTitle.RichText = true
+loadTitle.Text = "<b>NEXUS PREMIUM</b>"
+loadTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+loadTitle.Font = Enum.Font.GothamBold
+loadTitle.TextSize = 18
+loadTitle.Parent = loadCenterFrame
+
+local loadSubtitle = Instance.new("TextLabel")
+loadSubtitle.Size = UDim2.new(1, 0, 0, 20)
+loadSubtitle.Position = UDim2.new(0, 0, 0.32, 0)
+loadSubtitle.BackgroundTransparency = 1
+loadSubtitle.Text = "Loading modules & injecting..."
+loadSubtitle.TextColor3 = Color3.fromRGB(170, 140, 160)
+loadSubtitle.Font = Enum.Font.GothamMedium
+loadSubtitle.TextSize = 12
+loadSubtitle.Parent = loadCenterFrame
+
+local barBg = Instance.new("Frame")
+barBg.Size = UDim2.new(0, 260, 0, 8)
+barBg.AnchorPoint = Vector2.new(0.5, 0.5)
+barBg.Position = UDim2.new(0.5, 0, 0.62, 0)
+barBg.BackgroundColor3 = Color3.fromRGB(25, 18, 30)
+barBg.BorderSizePixel = 0
+barBg.Parent = loadCenterFrame
+Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
+
+local barFill = Instance.new("Frame")
+barFill.Size = UDim2.new(0, 0, 1, 0)
+barFill.BackgroundColor3 = Color3.fromRGB(255, 45, 85)
+barFill.BorderSizePixel = 0
+barFill.Parent = barBg
+Instance.new("UICorner", barFill).CornerRadius = UDim.new(1, 0)
+
+local percentLabel = Instance.new("TextLabel")
+percentLabel.Size = UDim2.new(1, 0, 0, 20)
+percentLabel.Position = UDim2.new(0, 0, 0.73, 0)
+percentLabel.BackgroundTransparency = 1
+percentLabel.Text = "%0"
+percentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+percentLabel.Font = Enum.Font.GothamBold
+percentLabel.TextSize = 13
+percentLabel.Parent = loadCenterFrame
+
+task.spawn(function()
+	local info = TweenInfo.new(1.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	TweenService:Create(barFill, info, {Size = UDim2.new(1, 0, 1, 0)}):Play()
+	
+	for i = 0, 100, 2 do
+		percentLabel.Text = "%" .. tostring(i)
+		if i == 40 then
+			loadSubtitle.Text = "Bypassing security hooks..."
+		elseif i == 80 then
+			loadSubtitle.Text = "Initializing user interface..."
+		end
+		task.wait(1.8 / 50)
+	end
+	
+	percentLabel.Text = "%100"
+	loadSubtitle.Text = "Ready!"
+	task.wait(0.3)
+	
+	local fadeInfo = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(loadCenterFrame, fadeInfo, {Size = UDim2.new(0, 380, 0, 260), BackgroundTransparency = 1}):Play()
+	TweenService:Create(loadStroke, fadeInfo, {Transparency = 1}):Play()
+	TweenService:Create(loadTitle, fadeInfo, {TextTransparency = 1}):Play()
+	TweenService:Create(loadSubtitle, fadeInfo, {TextTransparency = 1}):Play()
+	TweenService:Create(barBg, fadeInfo, {BackgroundTransparency = 1}):Play()
+	TweenService:Create(barFill, fadeInfo, {BackgroundTransparency = 1}):Play()
+	TweenService:Create(percentLabel, fadeInfo, {TextTransparency = 1}):Play()
+	
+	local bgFade = TweenService:Create(loadingScreen, fadeInfo, {BackgroundTransparency = 1})
+	bgFade:Play()
+	bgFade.Completed:Connect(function()
+		loadingScreen:Destroy()
+	end)
+end)
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 540, 0, 420)
+mainFrame.Position = UDim2.new(0.5, -270, 0.5, -210)
+mainFrame.BackgroundColor3 = Color3.fromRGB(14, 11, 16)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 14)
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(255, 45, 85)
+mainStroke.Thickness = 1.5
+mainStroke.Parent = mainFrame
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 115, 0, 42)
+toggleButton.Position = UDim2.new(0, 15, 0.4, 0)
+toggleButton.BackgroundColor3 = Color3.fromRGB(25, 14, 20)
+toggleButton.BorderSizePixel = 0
+toggleButton.Text = "NEXUS"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.TextSize = 13
+toggleButton.Active = true
+toggleButton.Draggable = true
+toggleButton.Parent = screenGui
+
+Instance.new("UICorner", toggleButton).CornerRadius = UDim.new(0, 10)
+local toggleStroke = Instance.new("UIStroke")
+toggleStroke.Color = Color3.fromRGB(255, 45, 85)
+toggleStroke.Thickness = 1.5
+toggleStroke.Parent = toggleButton
+
+toggleButton.MouseEnter:Connect(function()
+	TweenService:Create(toggleButton, TweenInfo.new(0.2), {Size = UDim2.new(0, 125, 0, 46)}):Play()
+end)
+toggleButton.MouseLeave:Connect(function()
+	TweenService:Create(toggleButton, TweenInfo.new(0.2), {Size = UDim2.new(0, 115, 0, 42)}):Play()
+end)
+
+local dragStartPos = nil
+toggleButton.MouseButton1Down:Connect(function()
+	dragStartPos = UserInputService:GetMouseLocation()
+end)
+
+toggleButton.MouseButton1Up:Connect(function()
+	if dragStartPos then
+		local distance = (UserInputService:GetMouseLocation() - dragStartPos).Magnitude
+		if distance < 6 then
+			uiVisible = not uiVisible
+			if mainFrame and mainFrame.Parent then
+				if mainFrame and mainFrame.Parent then
+		mainFrame.Visible = uiVisible
+	end
+			end
+		end
+	end
+	dragStartPos = nil
+end)
+
+function unexecuteScript()
+	pcall(function()
+		if activeDanceTrack then activeDanceTrack:Stop() end
+		if musicSound then musicSound:Stop() musicSound:Destroy() end
+		clearHighlights()
+		toggleGalaxySky(false)
+		setNoclip(false)
+		if humanoid then humanoid.PlatformStand = false end
+		if autoClickConnection then autoClickConnection:Disconnect() end
+		if screenGui then screenGui:Destroy() end
+	end)
+end
+
+function updateStatus()
+	if statusIndicators.silent then statusIndicators.silent.Text = silentEnabled and "ON" or "OFF" end
+	if statusIndicators.autoshoot then statusIndicators.autoshoot.Text = autoShootEnabled and "ON" or "OFF" end
+	if statusIndicators.triggerbot then statusIndicators.triggerbot.Text = triggerBotEnabled and "ON" or "OFF" end
+	if statusIndicators.aimlock then statusIndicators.aimlock.Text = aimbotEnabled and "ON" or "OFF" end
+	if statusIndicators.prediction then statusIndicators.prediction.Text = predictionEnabled and "ON" or "OFF" end
+	if statusIndicators.wallbang then statusIndicators.wallbang.Text = wallBangEnabled and "ON" or "OFF" end
+	if statusIndicators.aimbone then statusIndicators.aimbone.Text = aimbonePart end
+	if statusIndicators.rage then statusIndicators.rage.Text = rageModeEnabled and "ON" or "OFF" end
+	if statusIndicators.hitbox then statusIndicators.hitbox.Text = hitboxEnabled and "ON" or "OFF" end
+	if statusIndicators.bend then statusIndicators.bend.Text = bendEnabled and "ON" or "OFF" end
+	if statusIndicators.screenshake then statusIndicators.screenshake.Text = screenShakeEnabled and "ON" or "OFF" end
+	if statusIndicators.heavyimpact then statusIndicators.heavyimpact.Text = heavyImpactEnabled and "ON" or "OFF" end
+	if statusIndicators.skycamp then statusIndicators.skycamp.Text = skyCampEnabled and "ON" or "OFF" end
+	if statusIndicators.loopgoto then statusIndicators.loopgoto.Text = loopGotoEnabled and "ON" or "OFF" end
+	if statusIndicators.headspin then statusIndicators.headspin.Text = headSpinEnabled and "ON" or "OFF" end
+	if statusIndicators.noclip then statusIndicators.noclip.Text = noclipEnabled and "ON" or "OFF" end
+	if statusIndicators.speed then statusIndicators.speed.Text = _G.EnableSpeed and "ON" or "OFF" end
+	if statusIndicators.galaxy then statusIndicators.galaxy.Text = galaxySkyEnabled and "ON" or "OFF" end
+	if statusIndicators.esp then statusIndicators.esp.Text = espEnabled and "ON" or "OFF" end
+	if statusIndicators.crosshair then statusIndicators.crosshair.Text = crosshairEnabled and "ON" or "OFF" end
+	if statusIndicators.fovchanger then statusIndicators.fovchanger.Text = customFovEnabled and tostring(customFovValue) or "OFF" end
+	if statusIndicators.music then statusIndicators.music.Text = musicEnabled and "ON" or "OFF" end
+	if statusIndicators.fpsdisplay then statusIndicators.fpsdisplay.Text = fpsDisplayEnabled and "ON" or "OFF" end
+	if statusIndicators.spoof then statusIndicators.spoof.Text = spoofPlatformType end
+	
+	for dName, indicator in pairs(danceIndicators) do
+		indicator.Text = (currentDanceName == dName) and "ACTIVE" or "OFF"
+	end
+end
+
+function playDance(danceName)
+	pcall(function()
+		if activeDanceTrack then
+			pcall(function() activeDanceTrack:Stop() end)
+			activeDanceTrack = nil
+		end
+		
+		currentDanceName = danceName
+		
+		if danceName ~= "OFF" and dances[danceName] and humanoid then
+			local anim = Instance.new("Animation")
+			anim.AnimationId = dances[danceName]
+			
+			local success, track = pcall(function()
+				return humanoid:LoadAnimation(anim)
+			end)
+			
+			if success and track then
+				activeDanceTrack = track
+				activeDanceTrack.Looped = true
+				activeDanceTrack.Priority = Enum.AnimationPriority.Action4
+				activeDanceTrack:Play()
+				pcall(function() activeDanceTrack:AdjustSpeed(30) end)
+			else
+				currentDanceName = "OFF"
+			end
+		end
+	end)
+	updateStatus()
+end
+
+function toggleLoopGoto()
+	loopGotoEnabled = not loopGotoEnabled
+	if loopGotoEnabled then
+		local playersList = Players:GetPlayers()
+		local validTargets = {}
+		for _, p in ipairs(playersList) do
+			if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+				local hum = p.Character:FindFirstChild("Humanoid")
+				if hum and hum.Health > 0 then
+					table.insert(validTargets, p)
+				end
+			end
+		end
+		if #validTargets > 0 then
+			loopGotoTarget = validTargets[math.random(1, #validTargets)]
+		else
+			loopGotoTarget = nil
+			loopGotoEnabled = false
+		end
+	else
+		loopGotoTarget = nil
+		if humanoid then humanoid.PlatformStand = false end
+	end
+	updateStatus()
+end
+
+local randomSpoofConnection = nil
+
+function toggleRageMode()
+	rageModeEnabled = not rageModeEnabled
+	if rageModeEnabled then
+	    RageHeadShakeActive = true
+		silentEnabled = true
+		autoShootEnabled = true
+		triggerBotEnabled = true
+		customFovEnabled = true
+		customFovValue = 110
+		aimbotEnabled = true
+		loopGotoEnabled = true 
+		hitboxEnabled = true 
+		flingEnabled = true
+		heavyImpactEnabled = false
+		skyCampEnabled = true
+		limbScatterEnabled = false
+		screenShakeEnabled = true
+		getgenv().Smoothness = 65
+		spinBotEnabled = true
+		_G.EnableSpeed = true
+		bendEnabled = true
+		spinSpeed = 9999
+		toggleHeadSpin(true)
+		applyCreepyAvatar()
+		playDance("Chaos Orbit")
+		
+		if randomSpoofConnection then task.cancel(randomSpoofConnection) end
+		local platforms = {"PC", "VR", "Console", "Mobile"}
+		local remoteModes = {"MouseKeyboard", "VR", "Gamepad", "Touch"}
+		randomSpoofConnection = task.spawn(function()
+			while rageModeEnabled do
+				local idx = math.random(1, #platforms)
+				spoofPlatformType = platforms[idx]
+				updateServerControlMode(remoteModes[idx])
+				updateStatus()
+				task.wait(2)
+			end
+		end)
+	else
+		toggleMusic(false)
+		RageHeadShakeActive = false
+		silentEnabled = false
+		autoShootEnabled = false
+		triggerBotEnabled = false
+		customFovEnabled = false
+		camera.FieldOfView = 70
+		aimbotEnabled = false
+		loopGotoEnabled = false 
+		hitboxEnabled = false 
+		flingEnabled = false 
+		heavyImpactEnabled = false
+		skyCampEnabled = false
+		spinBotEnabled = false
+		_G.EnableSpeed = false
+		bendEnabled = false
+		limbScatterEnabled = false
+		screenShakeEnabled = false
+		toggleHeadSpin(false)
+		playDance("OFF")
+		
+		spoofPlatformType = "PC"
+		updateServerControlMode("MouseKeyboard")
+		
+		loopGotoTarget = nil
+		isLeftMouseDown = false
+		if humanoid then humanoid.PlatformStand = false end
+		if autoClickConnection then
+			autoClickConnection:Disconnect()
+			autoClickConnection = nil
+		end
+	end
+	updateStatus()
+end
+
+function toggleHeadSpin(state)
+	headSpinEnabled = state
+	if not state then
+		local char = localPlayer.Character
+		if char then
+			local head = char:FindFirstChild("Head")
+			if head then
+				local neck = head:FindFirstChild("Neck")
+				if neck and originalHeadC0 then
+					neck.C0 = originalHeadC0
+				end
+			end
+		end
+	end
+	updateStatus()
+end
+
+function toggleGalaxySky(state)
+	galaxySkyEnabled = state
+	if galaxySkyEnabled then
+		Lighting.Ambient = Color3.fromRGB(60, 20, 80)
+		Lighting.OutdoorAmbient = Color3.fromRGB(40, 10, 60)
+		Lighting.ClockTime = 0
+		Lighting.Brightness = 0.9
+		
+		galaxySky = Lighting:FindFirstChild("NexusGalaxySky")
+		if not galaxySky then
+			galaxySky = Instance.new("Sky")
+			galaxySky.Name = "NexusGalaxySky"
+			galaxySky.SkyboxBk = "rbxassetid://159454299"
+			galaxySky.SkyboxDn = "rbxassetid://159454299"
+			galaxySky.SkyboxFt = "rbxassetid://159454299"
+			galaxySky.SkyboxLf = "rbxassetid://159454299"
+			galaxySky.SkyboxRt = "rbxassetid://159454299"
+			galaxySky.SkyboxUp = "rbxassetid://159454299"
+			galaxySky.Parent = Lighting
+		end
+		
+		galaxyAtmosphere = Lighting:FindFirstChild("NexusGalaxyAtmosphere")
+		if not galaxyAtmosphere then
+			galaxyAtmosphere = Instance.new("Atmosphere")
+			galaxyAtmosphere.Name = "NexusGalaxyAtmosphere"
+			galaxyAtmosphere.Density = 0.4
+			galaxyAtmosphere.Offset = 0.3
+			galaxyAtmosphere.Color = Color3.fromRGB(150, 40, 220)
+			galaxyAtmosphere.Decay = Color3.fromRGB(30, 10, 50)
+			galaxyAtmosphere.Glare = 0.5
+			galaxyAtmosphere.Haze = 1.2
+			galaxyAtmosphere.Parent = Lighting
+		end
+	else
+		Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+		Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+		Lighting.ClockTime = 14
+		Lighting.Brightness = 1
+		
+		if galaxySky then galaxySky:Destroy() galaxySky = nil end
+		if galaxyAtmosphere then galaxyAtmosphere:Destroy() galaxyAtmosphere = nil end
+	end
+end
+
+function setNoclip(enabled)
+	local char = localPlayer.Character
+	if not char then return end
+	for _, part in ipairs(char:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = not enabled
+		end
+	end
+end
+
+local resizeHandle = Instance.new("TextButton")
+resizeHandle.Size = UDim2.new(0, 20, 0, 20)
+resizeHandle.Position = UDim2.new(1, -20, 1, -20)
+resizeHandle.BackgroundTransparency = 1
+resizeHandle.Text = "◢"
+resizeHandle.TextColor3 = Color3.fromRGB(255, 45, 85)
+resizeHandle.Font = Enum.Font.GothamBold
+resizeHandle.TextSize = 14
+resizeHandle.ZIndex = 500
+resizeHandle.Parent = mainFrame
+
+local resizing = false
+local resizeStartPos, startSize
+
+resizeHandle.MouseButton1Down:Connect(function()
+	resizing = true
+	resizeStartPos = UserInputService:GetMouseLocation()
+	startSize = mainFrame.AbsoluteSize
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		resizing = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = UserInputService:GetMouseLocation() - resizeStartPos
+		local newX = math.clamp(startSize.X + delta.X, 420, 900)
+		local newY = math.clamp(startSize.Y + delta.Y, 320, 700)
+		TweenService:Create(mainFrame, TweenInfo.new(0.05), {Size = UDim2.new(0, newX, 0, newY)}):Play()
+	end
+end)
+
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 46)
+titleBar.BackgroundColor3 = Color3.fromRGB(20, 14, 22)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 14)
+titleCorner.Parent = titleBar
+
+local titleFix = Instance.new("Frame")
+titleFix.Size = UDim2.new(1, 0, 0.5, 0)
+titleFix.Position = UDim2.new(0, 0, 0.5, 0)
+titleFix.BackgroundColor3 = Color3.fromRGB(20, 14, 22)
+titleFix.BorderSizePixel = 0
+titleFix.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -20, 1, 0)
+titleLabel.Position = UDim2.new(0, 16, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.RichText = true
+titleLabel.Text = "<b>NEXUS PREMIUM</b> <font color='#FF2D55'>ULTIMATE HUB</font>"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 14
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+local sidebar = Instance.new("ScrollingFrame")
+sidebar.Name = "Sidebar"
+sidebar.Size = UDim2.new(0, 145, 1, -46)
+sidebar.Position = UDim2.new(0, 0, 0, 46)
+sidebar.BackgroundColor3 = Color3.fromRGB(17, 12, 19)
+sidebar.BorderSizePixel = 0
+sidebar.ScrollBarThickness = 0
+sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
+sidebar.Parent = mainFrame
+
+local sidebarLayout = Instance.new("UIListLayout")
+sidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+sidebarLayout.Padding = UDim.new(0, 6)
+sidebarLayout.Parent = sidebar
+
+local sidebarPadding = Instance.new("UIPadding")
+sidebarPadding.PaddingTop = UDim.new(0, 10)
+sidebarPadding.PaddingLeft = UDim.new(0, 10)
+sidebarPadding.PaddingRight = UDim.new(0, 10)
+sidebarPadding.Parent = sidebar
+
+local containerHolder = Instance.new("Frame")
+containerHolder.Name = "ContainerHolder"
+containerHolder.Size = UDim2.new(1, -145, 1, -46)
+containerHolder.Position = UDim2.new(0, 145, 0, 46)
+containerHolder.BackgroundTransparency = 1
+containerHolder.Parent = mainFrame
+
+local tabs = {}
+local tabButtons = {}
+local activeTabName = nil
+
+local function createTab(name)
+	local tabBtn = Instance.new("TextButton")
+	tabBtn.Size = UDim2.new(1, 0, 0, 36)
+	tabBtn.BackgroundColor3 = Color3.fromRGB(24, 16, 26)
+	tabBtn.BorderSizePixel = 0
+	tabBtn.AutoButtonColor = false
+	tabBtn.Text = "    " .. name
+	tabBtn.TextColor3 = Color3.fromRGB(170, 140, 160)
+	tabBtn.Font = Enum.Font.GothamMedium
+	tabBtn.TextSize = 13
+	tabBtn.TextXAlignment = Enum.TextXAlignment.Left
+	tabBtn.Parent = sidebar
+	
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(0, 8)
+	btnCorner.Parent = tabBtn
+
+	local tabScroll = Instance.new("ScrollingFrame")
+	tabScroll.Name = name .. "Scroll"
+	tabScroll.Size = UDim2.new(1, 0, 1, 0)
+	tabScroll.BackgroundTransparency = 1
+	tabScroll.BorderSizePixel = 0
+	tabScroll.ScrollBarThickness = 4
+	tabScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 45, 85)
+	tabScroll.CanvasSize = UDim2.new(0, 0, 0, 650)
+	tabScroll.Visible = false
+	tabScroll.Parent = containerHolder
+
+	local tabLayout = Instance.new("UIListLayout")
+	tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	tabLayout.Padding = UDim.new(0, 8)
+	tabLayout.Parent = tabScroll
+
+	local tabPadding = Instance.new("UIPadding")
+	tabPadding.PaddingTop = UDim.new(0, 12)
+	tabPadding.PaddingBottom = UDim.new(0, 12)
+	tabPadding.PaddingLeft = UDim.new(0, 12)
+	tabPadding.PaddingRight = UDim.new(0, 12)
+	tabPadding.Parent = tabScroll
+
+	local function switchTab()
+		for _, t in pairs(tabs) do t.Visible = false end
+		for _, b in pairs(tabButtons) do 
+			TweenService:Create(b, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(24, 16, 26)}):Play()
+			b.TextColor3 = Color3.fromRGB(170, 140, 160)
+		end
+		tabScroll.Visible = true
+		TweenService:Create(tabBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 45, 85)}):Play()
+		tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	end
+
+	tabBtn.MouseButton1Click:Connect(switchTab)
+	tabBtn.TouchTap:Connect(switchTab)
+
+	tabs[name] = tabScroll
+	tabButtons[name] = tabBtn
+
+	if not activeTabName then
+		activeTabName = name
+		tabScroll.Visible = true
+		tabBtn.BackgroundColor3 = Color3.fromRGB(255, 45, 85)
+		tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	end
+
+	return tabScroll
+end
+
+local combatTab = createTab("Combat")
+local visualTab = createTab("Visuals")
+local trollTab = createTab("Troll & Fun")
+local cosmeticTab = createTab("Cosmetics")
+
+local function createFeatureRow(parentTab, labelText, stateGetterFunc, onClickCallback)
+	local row = Instance.new("TextButton")
+	row.Size = UDim2.new(1, 0, 0, 38)
+	row.BackgroundColor3 = Color3.fromRGB(21, 15, 24)
+	row.BorderSizePixel = 0
+	row.AutoButtonColor = false
+	row.Text = ""
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = row
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -75, 1, 0)
+	label.Position = UDim2.new(0, 14, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = labelText
+	label.TextColor3 = Color3.fromRGB(220, 200, 210)
+	label.Font = Enum.Font.GothamMedium
+	label.TextSize = 13
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = row
+
+	local indicator = Instance.new("TextLabel")
+	indicator.Size = UDim2.new(0, 65, 1, 0)
+	indicator.Position = UDim2.new(1, -70, 0, 0)
+	indicator.BackgroundTransparency = 1
+	indicator.Text = stateGetterFunc()
+	indicator.TextColor3 = Color3.fromRGB(255, 70, 95)
+	indicator.Font = Enum.Font.GothamBold
+	indicator.TextSize = 12
+	indicator.TextXAlignment = Enum.TextXAlignment.Right
+	indicator.Parent = row
+
+	row.MouseEnter:Connect(function()
+		TweenService:Create(row, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 20, 35)}):Play()
+	end)
+	row.MouseLeave:Connect(function()
+		TweenService:Create(row, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(21, 15, 24)}):Play()
+	end)
+
+	if onClickCallback then
+		row.MouseButton1Click:Connect(onClickCallback)
+		row.TouchTap:Connect(onClickCallback)
+	end
+	row.Parent = parentTab
+	return indicator
+end
+
+statusIndicators.silent = createFeatureRow(combatTab, "Silent Aim (B)", function() return silentEnabled and "ON" or "OFF" end, function()
+	silentEnabled = not silentEnabled
+	updateStatus()
+end)
+
+statusIndicators.autoshoot = createFeatureRow(combatTab, "Auto Shoot", function() return autoShootEnabled and "ON" or "OFF" end, function()
+	autoShootEnabled = not autoShootEnabled
+	updateStatus()
+end)
+
+statusIndicators.triggerbot = createFeatureRow(combatTab, "TriggerBot", function() return triggerBotEnabled and "ON" or "OFF" end, function()
+	triggerBotEnabled = not triggerBotEnabled
+	updateStatus()
+end)
+
+statusIndicators.aimlock = createFeatureRow(combatTab, "Aimbot + FOV", function() return aimbotEnabled and "ON" or "OFF" end, function()
+	aimbotEnabled = not aimbotEnabled
+	if fovCircle and fovCircle.Parent then
+		fovCircle.Visible = aimbotEnabled
+	end
+	updateStatus()
+end)
+
+statusIndicators.prediction = createFeatureRow(combatTab, "Auto Prediction", function() return predictionEnabled and "ON" or "OFF" end, function()
+	predictionEnabled = not predictionEnabled
+	updateStatus()
+end)
+
+statusIndicators.wallbang = createFeatureRow(combatTab, "Wall Bang / Pierce", function() return wallBangEnabled and "ON" or "OFF" end, function()
+	wallBangEnabled = not wallBangEnabled
+	updateStatus()
+end)
+
+statusIndicators.hitbox = createFeatureRow(combatTab, "Hitbox Extender", function() return hitboxEnabled and "ON" or "OFF" end, toggleHitbox)
+statusIndicators.aimbone = createFeatureRow(combatTab, "Aim Part: Head", function() return aimbonePart end, function()
+	updateStatus()
+end)
+
+statusIndicators.rage = createFeatureRow(combatTab, "Rage Mode (P)", function() return rageModeEnabled and "ON" or "OFF" end, toggleRageMode)
+
+statusIndicators.esp = createFeatureRow(visualTab, "Rainbow ESP", function() return espEnabled and "ON" or "OFF" end, toggleEsp)
+statusIndicators.galaxy = createFeatureRow(visualTab, "Galaxy Sky Theme", function() return galaxySkyEnabled and "ON" or "OFF" end, function() toggleGalaxySky(not galaxySkyEnabled); updateStatus() end)
+statusIndicators.crosshair = createFeatureRow(visualTab, "Nexus Custom Crosshair", function() return crosshairEnabled and "ON" or "OFF" end, function()
+	crosshairEnabled = not crosshairEnabled
+	if crosshairDot and crosshairDot.Parent then
+		crosshairDot.Visible = crosshairEnabled
+	end
+	updateStatus()
+end)
+
+statusIndicators.fovchanger = createFeatureRow(visualTab, "Custom FOV Changer", function() return customFovEnabled and tostring(customFovValue) or "OFF" end, function()
+	customFovEnabled = not customFovEnabled
+	if not customFovEnabled then
+		camera.FieldOfView = 70
+	end
+	updateStatus()
+end)
+
+statusIndicators.music = createFeatureRow(visualTab, "It's Raining Tacos", function() return musicEnabled and "ON" or "OFF" end, function()
+	toggleMusic()
+end)
+
+statusIndicators.fpsdisplay = createFeatureRow(visualTab, "FPS & Ping Meter", function() return fpsDisplayEnabled and "ON" or "OFF" end, function()
+	fpsDisplayEnabled = not fpsDisplayEnabled
+	fpsGui.Enabled = fpsDisplayEnabled
+	updateStatus()
+end)
+
+statusIndicators.spoof = createFeatureRow(visualTab, "Client Device Spoof", function() return spoofPlatformType end, function()
+	if spoofPlatformType == "PC" then
+		spoofPlatformType = "VR"
+		updateServerControlMode("VR")
+	elseif spoofPlatformType == "VR" then
+		spoofPlatformType = "Console"
+		updateServerControlMode("Gamepad")
+	elseif spoofPlatformType == "Console" then
+		spoofPlatformType = "Mobile"
+		updateServerControlMode("Touch")
+	else
+		spoofPlatformType = "PC"
+		updateServerControlMode("MouseKeyboard")
+	end
+	updateStatus()
+end)
+
+local animWindowToggleBtn = Instance.new("TextButton")
+animWindowToggleBtn.Size = UDim2.new(1, 0, 0, 38)
+animWindowToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 16, 24)
+animWindowToggleBtn.BorderSizePixel = 0
+animWindowToggleBtn.AutoButtonColor = false
+animWindowToggleBtn.Text = "Open NexusAnimations GUI"
+animWindowToggleBtn.TextColor3 = Color3.fromRGB(255, 120, 140)
+animWindowToggleBtn.Font = Enum.Font.GothamBold
+animWindowToggleBtn.TextSize = 13
+animWindowToggleBtn.Parent = trollTab
+Instance.new("UICorner", animWindowToggleBtn).CornerRadius = UDim.new(0, 8)
+
+animWindowToggleBtn.MouseEnter:Connect(function()
+	TweenService:Create(animWindowToggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 20, 30)}):Play()
+end)
+animWindowToggleBtn.MouseLeave:Connect(function()
+	TweenService:Create(animWindowToggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 16, 24)}):Play()
+end)
+
+local animationGuiWindow = Instance.new("Frame")
+animationGuiWindow.Name = "NexusAnimationsWindow"
+animationGuiWindow.Size = UDim2.new(0, 260, 0, 300)
+animationGuiWindow.Position = UDim2.new(0.5, 280, 0.5, -150)
+animationGuiWindow.BackgroundColor3 = Color3.fromRGB(14, 11, 16)
+animationGuiWindow.BorderSizePixel = 0
+animationGuiWindow.Active = true
+animationGuiWindow.Draggable = true
+animationGuiWindow.Visible = false
+animationGuiWindow.Parent = screenGui
+Instance.new("UICorner", animationGuiWindow).CornerRadius = UDim.new(0, 12)
+
+local animWinStroke = Instance.new("UIStroke")
+animWinStroke.Color = Color3.fromRGB(255, 45, 85)
+animWinStroke.Thickness = 1.5
+animWinStroke.Parent = animationGuiWindow
+
+local animWinTitleBar = Instance.new("Frame")
+animWinTitleBar.Size = UDim2.new(1, 0, 0, 38)
+animWinTitleBar.BackgroundColor3 = Color3.fromRGB(20, 14, 22)
+animWinTitleBar.BorderSizePixel = 0
+animWinTitleBar.Parent = animationGuiWindow
+Instance.new("UICorner", animWinTitleBar).CornerRadius = UDim.new(0, 12)
+
+local animWinTitleText = Instance.new("TextLabel")
+animWinTitleText.Size = UDim2.new(1, -40, 1, 0)
+animWinTitleText.Position = UDim2.new(0, 14, 0, 0)
+animWinTitleText.BackgroundTransparency = 1
+animWinTitleText.Text = "NexusAnimations"
+animWinTitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+animWinTitleText.Font = Enum.Font.GothamBold
+animWinTitleText.TextSize = 13
+animWinTitleText.TextXAlignment = Enum.TextXAlignment.Left
+animWinTitleText.Parent = animWinTitleBar
+
+local animWinCloseBtn = Instance.new("TextButton")
+animWinCloseBtn.Size = UDim2.new(0, 30, 0, 30)
+animWinCloseBtn.Position = UDim2.new(1, -34, 0, 4)
+animWinCloseBtn.BackgroundTransparency = 1
+animWinCloseBtn.Text = "X"
+animWinCloseBtn.TextColor3 = Color3.fromRGB(255, 90, 110)
+animWinCloseBtn.Font = Enum.Font.GothamBold
+animWinCloseBtn.TextSize = 14
+animWinCloseBtn.Parent = animWinTitleBar
+
+animWinCloseBtn.MouseButton1Click:Connect(function()
+	if animationGuiWindow and animationGuiWindow.Parent then
+		animationGuiWindow.Visible = false
+	end
+end)
+
+animWindowToggleBtn.MouseButton1Click:Connect(function()
+	if animationGuiWindow and animationGuiWindow.Parent then
+		animationGuiWindow.Visible = not animationGuiWindow.Visible
+	end
+end)
+animWindowToggleBtn.TouchTap:Connect(function()
+	if animationGuiWindow and animationGuiWindow.Parent then
+		animationGuiWindow.Visible = not animationGuiWindow.Visible
+	end
+end)
+
+local animScroll = Instance.new("ScrollingFrame")
+animScroll.Size = UDim2.new(1, -16, 1, -50)
+animScroll.Position = UDim2.new(0, 8, 0, 44)
+animScroll.BackgroundTransparency = 1
+animScroll.BorderSizePixel = 0
+animScroll.ScrollBarThickness = 3
+animScroll.CanvasSize = UDim2.new(0, 0, 0, 400)
+animScroll.Parent = animationGuiWindow
+
+local animScrollLayout = Instance.new("UIListLayout")
+animScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+animScrollLayout.Padding = UDim.new(0, 6)
+animScrollLayout.Parent = animScroll
+
+for dName, _ in pairs(dances) do
+	danceIndicators[dName] = createFeatureRow(animScroll, "Emote: " .. dName, function() return currentDanceName == dName and "ACTIVE" or "OFF" end, function()
+		if currentDanceName == dName then
+			playDance("OFF")
+		else
+			playDance(dName)
+		end
+	end)
+end
+
+statusIndicators.bend = createFeatureRow(trollTab, "Body Bend / Twist", function() return bendEnabled and "ON" or "OFF" end, toggleBend)
+statusIndicators.screenshake = createFeatureRow(trollTab, "Screen Shake", function() return screenShakeEnabled and "ON" or "OFF" end, toggleScreenShake)
+statusIndicators.limbscatter = createFeatureRow(trollTab, "Limb Scatter", function() return limbScatterEnabled and "ON" or "OFF" end, function() limbScatterEnabled = not limbScatterEnabled; updateStatus() end)
+statusIndicators.heavyimpact = createFeatureRow(trollTab, "Heavy Impact", function() return heavyImpactEnabled and "ON" or "OFF" end, toggleHeavyImpact)
+statusIndicators.skycamp = createFeatureRow(trollTab, "Sky Ghost / Void Camp", function() return skyCampEnabled and "ON" or "OFF" end, toggleSkyCamp)
+statusIndicators.loopgoto = createFeatureRow(trollTab, "LoopGoto / Bang", function() return loopGotoEnabled and "ON" or "OFF" end, toggleLoopGoto)
+statusIndicators.headspin = createFeatureRow(trollTab, "Head Spin", function() return headSpinEnabled and "ON" or "OFF" end, function() toggleHeadSpin(not headSpinEnabled) end)
+
+local infYieldBtn = Instance.new("TextButton")
+infYieldBtn.Size = UDim2.new(1, 0, 0, 38)
+infYieldBtn.BackgroundColor3 = Color3.fromRGB(35, 16, 24)
+infYieldBtn.BorderSizePixel = 0
+infYieldBtn.AutoButtonColor = false
+infYieldBtn.Text = "Infinite Yield"
+infYieldBtn.TextColor3 = Color3.fromRGB(255, 120, 140)
+infYieldBtn.Font = Enum.Font.GothamBold
+infYieldBtn.TextSize = 13
+infYieldBtn.Parent = trollTab
+Instance.new("UICorner", infYieldBtn).CornerRadius = UDim.new(0, 8)
+
+infYieldBtn.MouseEnter:Connect(function()
+	TweenService:Create(infYieldBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 20, 30)}):Play()
+end)
+infYieldBtn.MouseLeave:Connect(function()
+	TweenService:Create(infYieldBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 16, 24)}):Play()
+end)
+
+infYieldBtn.MouseButton1Click:Connect(function()
+	pcall(function()
+		loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+	end)
+end)
+infYieldBtn.TouchTap:Connect(function()
+	pcall(function()
+		loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+	end)
+end)
+
+statusIndicators.speed = createFeatureRow(cosmeticTab, "WalkSpeed Boost", function() return _G.EnableSpeed and "ON" or "OFF" end, function() _G.EnableSpeed = not _G.EnableSpeed; updateStatus() end)
+statusIndicators.noclip = createFeatureRow(cosmeticTab, "Noclip", function() return noclipEnabled and "ON" or "OFF" end, function() noclipEnabled = not noclipEnabled; setNoclip(noclipEnabled); updateStatus() end)
+
+local creepyAvatarBtn = Instance.new("TextButton")
+creepyAvatarBtn.Size = UDim2.new(1, 0, 0, 38)
+creepyAvatarBtn.BackgroundColor3 = Color3.fromRGB(45, 15, 24)
+creepyAvatarBtn.BorderSizePixel = 0
+creepyAvatarBtn.AutoButtonColor = false
+creepyAvatarBtn.Text = "Creepy / Scary Avatar Apply"
+creepyAvatarBtn.TextColor3 = Color3.fromRGB(255, 90, 110)
+creepyAvatarBtn.Font = Enum.Font.GothamBold
+creepyAvatarBtn.TextSize = 13
+creepyAvatarBtn.Parent = cosmeticTab
+Instance.new("UICorner", creepyAvatarBtn).CornerRadius = UDim.new(0, 8)
+
+creepyAvatarBtn.MouseEnter:Connect(function()
+	TweenService:Create(creepyAvatarBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 20, 30)}):Play()
+end)
+creepyAvatarBtn.MouseLeave:Connect(function()
+	TweenService:Create(creepyAvatarBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 15, 24)}):Play()
+end)
+
+creepyAvatarBtn.MouseButton1Click:Connect(function()
+	applyCreepyAvatar()
+end)
+
+local unexecuteBtn = Instance.new("TextButton")
+unexecuteBtn.Size = UDim2.new(1, 0, 0, 38)
+unexecuteBtn.BackgroundColor3 = Color3.fromRGB(160, 30, 50)
+unexecuteBtn.BorderSizePixel = 0
+unexecuteBtn.AutoButtonColor = false
+unexecuteBtn.Text = "Unexecute Script (Close)"
+unexecuteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+unexecuteBtn.Font = Enum.Font.GothamBold
+unexecuteBtn.TextSize = 13
+unexecuteBtn.Parent = cosmeticTab
+Instance.new("UICorner", unexecuteBtn).CornerRadius = UDim.new(0, 8)
+
+unexecuteBtn.MouseEnter:Connect(function()
+	TweenService:Create(unexecuteBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(180, 40, 60)}):Play()
+end)
+unexecuteBtn.MouseLeave:Connect(function()
+	TweenService:Create(unexecuteBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(160, 30, 50)}):Play()
+end)
+
+unexecuteBtn.MouseButton1Click:Connect(function()
+	unexecuteScript()
+end)
+
+local fpsGui = Instance.new("ScreenGui")
+fpsGui.Name = "NexusFpsGui"
+fpsGui.ResetOnSpawn = false
+fpsGui.IgnoreGuiInset = true
+fpsGui.DisplayOrder = 999999
+fpsGui.Enabled = false
+fpsGui.Parent = screenGui
+
+local fpsLabel = Instance.new("TextLabel")
+fpsLabel.Name = "FpsLabel"
+fpsLabel.Size = UDim2.new(0, 115, 0, 28)
+fpsLabel.Position = UDim2.new(0, 15, 0.4, 48)
+fpsLabel.BackgroundColor3 = Color3.fromRGB(14, 11, 16)
+fpsLabel.BackgroundTransparency = 0.3
+fpsLabel.BorderSizePixel = 0
+fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+fpsLabel.Font = Enum.Font.GothamBold
+fpsLabel.TextSize = 11
+fpsLabel.Text = "FPS: -- | Ping: --"
+fpsLabel.Active = true
+fpsLabel.Draggable = true
+fpsLabel.Parent = fpsGui
+Instance.new("UICorner", fpsLabel).CornerRadius = UDim.new(0, 6)
+local fpsStroke = Instance.new("UIStroke")
+fpsStroke.Color = Color3.fromRGB(255, 45, 85)
+fpsStroke.Thickness = 1
+fpsStroke.Parent = fpsLabel
+
+local fovGui = Instance.new("ScreenGui")
+fovGui.Name = "AimbotFovGui"
+fovGui.ResetOnSpawn = false
+fovGui.IgnoreGuiInset = true
+fovGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+fovGui.Parent = screenGui
+
+local fovCircle = Instance.new("Frame")
+fovCircle.Name = "FovCircle"
+fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+fovCircle.BackgroundTransparency = 1
+fovCircle.BorderSizePixel = 0
+fovCircle.Size = UDim2.new(0, aimbotFov * 2, 0, aimbotFov * 2)
+fovCircle.Visible = false
+fovCircle.ZIndex = 100
+fovCircle.Parent = fovGui
+Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(1, 0)
+
+local fovStroke = Instance.new("UIStroke")
+fovStroke.Color = Color3.fromRGB(255, 255, 255)
+fovStroke.Thickness = 2
+fovStroke.Transparency = 0.1
+fovStroke.Parent = fovCircle
+
+local crosshairGui = Instance.new("ScreenGui")
+crosshairGui.Name = "NexusCrosshairGui"
+crosshairGui.ResetOnSpawn = false
+crosshairGui.IgnoreGuiInset = true
+crosshairGui.DisplayOrder = 999999
+crosshairGui.Parent = screenGui
+
+local crosshairDot = Instance.new("Frame")
+crosshairDot.Size = UDim2.new(0, 10, 0, 10)
+crosshairDot.AnchorPoint = Vector2.new(0.5, 0.5)
+crosshairDot.Position = UDim2.new(0.5, 0, 0.5, 0)
+crosshairDot.BackgroundColor3 = Color3.fromRGB(255, 50, 70)
+crosshairDot.BorderSizePixel = 0
+crosshairDot.Visible = false
+crosshairDot.ZIndex = 1000
+crosshairDot.Parent = crosshairGui
+Instance.new("UICorner", crosshairDot).CornerRadius = UDim.new(1, 0)
+
+local crosshairStroke = Instance.new("UIStroke")
+crosshairStroke.Color = Color3.fromRGB(255, 255, 255)
+crosshairStroke.Thickness = 1
+crosshairStroke.Parent = crosshairDot
+
+localPlayer.CharacterAdded:Connect(function(char)
+	character = char
+	humanoid = char:WaitForChild("Humanoid")
+	rootPart = char:WaitForChild("HumanoidRootPart")
+	currentDanceName = "OFF"
+	if activeDanceTrack then
+		pcall(function() activeDanceTrack:Stop() end)
+		activeDanceTrack = nil
+	end
+	headSpinEnabled = false
+	bodyAngle = 0
+	bendEnabled = false
+	screenShakeEnabled = false
+	limbScatterEnabled = false
+	spinBotEnabled = false
+	rageModeEnabled = false
+	heavyImpactEnabled = false
+	skyCampEnabled = false
+	silentEnabled = false
+	autoShootEnabled = false
+	triggerBotEnabled = false
+	customFovEnabled = false
+	loopGotoEnabled = false
+	hitboxEnabled = false
+	flingEnabled = false
+	originalHeadC0 = nil
+	originalMotorC1s = {}
+	isAimingKeyHeld = false
+	
+	espEnabled = true
+	rebuildHighlights()
+	
+	updateStatus()
+end)
+
+local function getClosestPlayer()
+	local closestPlayer = nil
+	local shortestDistance = math.huge
+	if not rootPart then return nil end
+	local origin = rootPart.Position
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= localPlayer and player.Character then
+			local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+			local hum = player.Character:FindFirstChild("Humanoid")
+			if hrp and hum and hum.Health > 0 then
+				local distance = (hrp.Position - origin).Magnitude
+				if distance < shortestDistance then
+					shortestDistance = distance
+					closestPlayer = player
+				end
+			end
+		end
+	end
+	return closestPlayer
+end
+
+local function getClosestTargetInFov()
+	local mousePos = UserInputService:GetMouseLocation()
+	local bestPlayer = nil
+	local bestDist   = math.huge
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr == localPlayer then continue end
+		local char = plr.Character
+		if not char then continue end
+		local targetPart = char:FindFirstChild("Head")
+		local hum  = char:FindFirstChildOfClass("Humanoid")
+		if not targetPart or not hum or hum.Health <= 0 then continue end
+
+		local predictedPosition = targetPart.Position
+		if predictionEnabled then
+			local hrp = char:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				predictedPosition = predictedPosition + (hrp.Velocity * 0.12)
+			end
+		end
+
+		local screenPos, onScreen = camera:WorldToViewportPoint(predictedPosition)
+		if not onScreen then continue end
+
+		local screenVec = Vector2.new(screenPos.X, screenPos.Y)
+		local dist2d    = (screenVec - mousePos).Magnitude
+
+		if dist2d < bestDist then
+			bestDist   = dist2d
+			bestPlayer = plr
+		end
+	end
+
+	return bestPlayer
+end
+
+local lastUpdateTick = 0
+RunService.RenderStepped:Connect(function(dt)
+	if fpsDisplayEnabled then
+		if tick() - lastUpdateTick > 0.3 then
+			lastUpdateTick = tick()
+			pcall(function()
+				local fps = math.floor(1 / dt)
+				local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+				fpsLabel.Text = "FPS: " .. tostring(fps) .. " | Ping: " .. tostring(ping)
+			end)
+		end
+	end
+
+	fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+	if fovCircle and fovCircle.Parent then
+		fovCircle.Visible = aimbotEnabled
+	end
+
+	if customFovEnabled then
+		camera.FieldOfView = customFovValue
+	end
+
+	if screenShakeEnabled and rootPart then
+		pcall(function()
+			local shakeIntensity = 0.4
+			local randomOffset = Vector3.new(
+				math.random(-100, 100) * 0.01 * shakeIntensity,
+				math.random(-100, 100) * 0.01 * shakeIntensity,
+				math.random(-100, 100) * 0.01 * shakeIntensity
+			)
+			camera.CFrame = camera.CFrame * CFrame.new(randomOffset)
+		end)
+	end
+
+	local rainbowColor = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+	fovStroke.Color = rainbowColor
+	if mainStroke then mainStroke.Color = rainbowColor end
+	if toggleStroke then toggleStroke.Color = rainbowColor end
+
+	if espEnabled then
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= localPlayer and player.Character then
+				local char = player.Character
+				addHighlight(char)
+				local hl = char:FindFirstChild("PlayerHighlight")
+				if hl then
+					hl.FillColor = rainbowColor
+					hl.OutlineColor = rainbowColor
+				end
+			end
+		end
+	end
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= localPlayer and player.Character then
+			local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+			local hum = player.Character:FindFirstChild("Humanoid")
+			if hrp and hum and hum.Health > 0 then
+				if hitboxEnabled then
+					hrp.Size = hitboxSize
+					hrp.Transparency = 0.7
+					hrp.Color = Color3.fromRGB(255, 0, 0)
+					hrp.CanCollide = false
+				else
+					hrp.Size = Vector3.new(2, 2, 1)
+					hrp.Transparency = 1
+				end
+			end
+		end
+	end
+
+	if aimbotEnabled and isAimingKeyHeld then
+		local target = getClosestTargetInFov() or getClosestPlayer()
+		if target and target.Character then
+			local targetPart = target.Character:FindFirstChild("Head")
+			if targetPart then
+				local targetPos = targetPart.Position
+				if predictionEnabled then
+					local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+					if hrp then targetPos = targetPos + (hrp.Velocity * 0.12) end
+				end
+				camera.CFrame = CFrame.new(camera.CFrame.Position, targetPos)
+			end
+		end
+	end
+
+	if spinBotEnabled and rootPart and not flingEnabled then
+		rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(spinSpeed), 0)
+	end
+
+	if heavyImpactEnabled and math.random(1, 10) == 1 then
+		pcall(function()
+			if character and rootPart and humanoid then
+				humanoid.JumpPower = 50
+				if humanoid.FloorMaterial ~= Enum.Material.Air then
+					humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+				end
+			end
+		end)
+	end
+
+	if skyCampEnabled and rootPart and humanoid then
+		rootPart.CFrame = CFrame.new(rootPart.Position.X, 1500, rootPart.Position.Z)
+		humanoid.PlatformStand = true
+	end
+
+	if limbScatterEnabled and character then
+		pcall(function()
+			local t = tick() * 20
+			for _, part in ipairs(character:GetDescendants()) do
+				if part:IsA("Motor6D") then
+					if not originalMotorC1s[part] then
+						originalMotorC1s[part] = part.C1
+					end
+					local offset = 3
+					part.C1 = originalMotorC1s[part] * CFrame.new(
+						math.sin(t + part.Part0.Name:byte()) * offset,
+						math.cos(t) * offset,
+						math.sin(t * 1.5) * offset
+					) * CFrame.Angles(
+						math.rad(math.sin(t) * 90),
+						math.rad(math.cos(t) * 90),
+						math.rad(math.sin(t * 0.5) * 90)
+					)
+				end
+			end
+		end)
+	end
+
+	if bendEnabled and character and not limbScatterEnabled then
+		pcall(function()
+			local multiplier = rageModeEnabled and 12.0 or 3.0
+			local t = tick() * (rageModeEnabled and 80 or 25)
+			for _, part in ipairs(character:GetDescendants()) do
+				if part:IsA("Motor6D") then
+					if part.Name == "Neck" then
+						part.C1 = part.C1 * CFrame.Angles(math.sin(t * 1.5) * multiplier, math.cos(t * 2) * multiplier, math.sin(t) * multiplier) + Vector3.new(math.sin(t) * 3, math.cos(t) * 3, math.sin(t*1.5)*2)
+					elseif part.Name == "Waist" then
+						part.C1 = part.C1 * CFrame.Angles(math.cos(t * 1.3) * multiplier, math.sin(t * 1.8) * multiplier, math.sin(t) * (multiplier * 0.8)) + Vector3.new(0, math.sin(t * 2) * 2.5, 0)
+					elseif string.find(part.Name, "Shoulder") or string.find(part.Name, "Hip") then
+						part.C1 = part.C1 * CFrame.Angles(math.sin(t * 2.5) * multiplier, math.cos(t * 2) * multiplier, math.sin(t) * 2)
+					end
+				end
+			end
+		end)
+	end
+	
+	if activeDanceTrack and humanoid then
+		pcall(function()
+			if not activeDanceTrack.IsPlaying then
+				activeDanceTrack:Play()
+			end
+			if activeDanceTrack.Speed ~= 30 then
+				activeDanceTrack:AdjustSpeed(30)
+			end
+		end)
+	end
+end)
+
+function autoClick()
+	if autoClickConnection then autoClickConnection:Disconnect() end
+	autoClickConnection = RunService.Heartbeat:Connect(function()
+		if autoShootEnabled and isAimingKeyHeld then
+			pcall(function()
+				if mouse1click then mouse1click() end
+			end)
+		end
+	end)
+end
+autoClick()
+
+RunService.RenderStepped:Connect(function()
+	if not _G.EnableSpeed or skyCampEnabled then return end
+	local char = localPlayer.Character
+	if not char then return end
+	local hum = char:FindFirstChild("Humanoid")
+	local root = char:FindFirstChild("HumanoidRootPart")
+	if hum and root and hum.MoveDirection.Magnitude > 0 then
+		root.CFrame = root.CFrame + (hum.MoveDirection * (_G.SpeedPower / 10))
+	end
+end)
+
+RunService.Heartbeat:Connect(function()
+	if loopGotoEnabled and isAimingKeyHeld then
+		if not loopGotoTarget or not loopGotoTarget.Character or not loopGotoTarget.Character:FindFirstChild("HumanoidRootPart") then
+			loopGotoTarget = getClosestPlayer()
+		end
+
+		if loopGotoTarget and loopGotoTarget.Character then
+			local targetChar = loopGotoTarget.Character
+			local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+			local targetHum = targetChar:FindFirstChild("Humanoid")
+			
+			if targetHum and targetHum.Health <= 0 then
+				loopGotoTarget = getClosestPlayer()
+				return
+			end
+			
+			local myHRP = rootPart
+			local hum = humanoid
+			if targetHRP and myHRP and hum then
+				myHRP.CFrame = targetHRP.CFrame * CFrame.new(math.sin(tick() * 20) * 1.5, 3, math.cos(tick() * 20) * 1.5)
+				hum.PlatformStand = true
+			end
+		end
+	else
+		if not skyCampEnabled and humanoid and humanoid.PlatformStand then
+			humanoid.PlatformStand = false
+		end
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	local char = localPlayer.Character
+	if not char then return end
+	local head = char:FindFirstChild("Head")
+	if not head then return end
+	
+	local neck = head:FindFirstChild("Neck")
+	if neck and headSpinEnabled then
+		if not originalHeadC0 then originalHeadC0 = neck.C0 end
+		bodyAngle = (bodyAngle + bodySpeed) % 360
+		local rad = math.rad(bodyAngle)
+		local offsetX = math.cos(rad) * bodyRadius
+		local offsetZ = math.sin(rad) * bodyRadius
+		neck.C0 = CFrame.new(offsetX, -2.5, offsetZ) * CFrame.Angles(0, rad, 0)
+	end
+end)
+
+RunService.Stepped:Connect(function()
+	if noclipEnabled then setNoclip(true) end
+end)
+
+UserInputService.InputBegan:Connect(function(input, isProcessed)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		isLeftMouseDown = true
+	elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+		isAimingKeyHeld = true
+	elseif input.KeyCode == Enum.KeyCode.B then
+		silentEnabled = not silentEnabled
+		updateStatus()
+	elseif input.KeyCode == Enum.KeyCode.P then
+		toggleRageMode()
+	elseif input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightShift then
+		uiVisible = not uiVisible
+		if mainFrame and mainFrame.Parent then
+		mainFrame.Visible = uiVisible
+	end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input, isProcessed)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		isLeftMouseDown = false
+	elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+		isAimingKeyHeld = false
+	end
+end)
+
+rebuildHighlights()
+updateStatus()
+task.spawn(function()
+    pcall(function()
+        -- Nexus Helper (Clean & Minimal Hub)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+
+local localPlayer = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local targetPlayer = nil
+local isLeftMouseDown = false
+local autoClickConnection = nil
+
+-- ESP settings
+local FILL_COLOR = Color3.fromRGB(120, 110, 255)
+local OUTLINE_COLOR = Color3.fromRGB(255, 255, 255)
+local FILL_TRANSPARENCY = 0.5
+local OUTLINE_TRANSPARENCY = 0
+
+-- AIM settings
+getgenv().Aimbot = true
+getgenv().Smoothness = 0.35
+
+local AimbotEnabled = false
+local aiming = false
+local silentEnabled = false
+local autoShootEnabled = false
+
+-- SPEED settings
+_G.EnableSpeed = false
+_G.SpeedPower = 4
+
+-- LOOPGOTO / BANG / RAGE SETTINGS
+local loopGotoEnabled = false
+local loopGotoTarget = nil
+local rageModeEnabled = false
+
+-- HYPER FAST DANCE & HEAD BREAK/GLITCH DANCE SETTINGS
+local takeLEnabled = false
+local danceTrack = nil
+local danceAnimId = "rbxassetid://507771019"
+local danceTime = 0
+
+-- SPIN BOT SETTINGS
+local spinBotEnabled = false
+local spinSpeed = 75
+
+-- FIXED HEAD & ORBITING BODY SETTINGS
+local fixedHeadSpinEnabled = false
+local bodyAngle = 0
+local bodyRadius = 3.5
+local bodySpeed = 8
+
+-- NIGHT MODE SETTINGS
+local nightModeEnabled = false
+local originalAmbient = Lighting.Ambient
+local originalOutdoorAmbient = Lighting.OutdoorAmbient
+local originalClockTime = Lighting.ClockTime
+local originalBrightness = Lighting.Brightness
+
+-- Toggles
+local noclipEnabled = false
+local espenabled = false
+local tpKillEnabled = false
+local uiVisible = true
+local isTeleporting = false
+
+-- Fonksiyonlar (Ön tanımlar)
+local toggleFixedHeadSpin, toggleNightMode, setNoclip, rebuildHighlights, DoSilentKillSafe, autoClick, updateStatus, toggleLoopGoto, toggleRageMode, toggleTakeL
+local statusIndicators = {}
+
+localPlayer.CharacterAdded:Connect(function(char)
+	character = char
+	humanoid = char:WaitForChild("Humanoid")
+	rootPart = char:WaitForChild("HumanoidRootPart")
+	fixedHeadSpinEnabled = false
+	bodyAngle = 0
+	takeLEnabled = false
+	danceTrack = nil
+	spinBotEnabled = false
+	
+	task.wait(0.5)
+	if espenabled then
+		rebuildHighlights()
+	end
+end)
+
+-- GUI SETUP (Daha Ufak Boyut)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "NexusHelperGui"
+screenGui.ResetOnSpawn = false
+screenGui.DisplayOrder = 999
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 240, 0, 420)
+mainFrame.Position = UDim2.new(0, 30, 0, 30)
+mainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(60, 50, 110)
+mainStroke.Thickness = 1.8
+mainStroke.Parent = mainFrame
+
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 38)
+titleBar.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+titleBar.BorderSizePixel = 0
+titleBar.Active = true
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 12)
+titleCorner.Parent = titleBar
+
+local titleFix = Instance.new("Frame")
+titleFix.Size = UDim2.new(1, 0, 0.5, 0)
+titleFix.Position = UDim2.new(0, 0, 0.5, 0)
+titleFix.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+titleFix.BorderSizePixel = 0
+titleFix.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -14, 1, 0)
+titleLabel.Position = UDim2.new(0, 10, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.RichText = true
+titleLabel.Text = "<font color='rgb(130, 110, 255)'>Nexus</font> Helper"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 11
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+local contentScroll = Instance.new("ScrollingFrame")
+contentScroll.Size = UDim2.new(1, 0, 1, -38)
+contentScroll.Position = UDim2.new(0, 0, 0, 38)
+contentScroll.BackgroundTransparency = 1
+contentScroll.BorderSizePixel = 0
+contentScroll.ScrollBarThickness = 3
+contentScroll.ScrollBarImageColor3 = Color3.fromRGB(120, 110, 255)
+contentScroll.CanvasSize = UDim2.new(0, 0, 0, 550)
+contentScroll.Parent = mainFrame
+
+local uiLayout = Instance.new("UIListLayout")
+uiLayout.SortOrder = Enum.SortOrder.LayoutOrder
+uiLayout.Padding = UDim.new(0, 5)
+uiLayout.Parent = contentScroll
+
+local uiPadding = Instance.new("UIPadding")
+uiPadding.PaddingTop = UDim.new(0, 8)
+uiPadding.PaddingBottom = UDim.new(0, 8)
+uiPadding.PaddingLeft = UDim.new(0, 8)
+uiPadding.PaddingRight = UDim.new(0, 8)
+uiPadding.Parent = contentScroll
+
+local function createClickableFeatureRow(labelText, stateGetterFunc, onClickCallback)
+	local row = Instance.new("TextButton")
+	row.Size = UDim2.new(1, 0, 0, 30)
+	row.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+	row.BorderSizePixel = 0
+	row.AutoButtonColor = true
+	row.Text = ""
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = row
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -50, 1, 0)
+	label.Position = UDim2.new(0, 8, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = labelText
+	label.TextColor3 = Color3.fromRGB(200, 200, 210)
+	label.Font = Enum.Font.GothamMedium
+	label.TextSize = 11
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = row
+
+	local indicator = Instance.new("TextLabel")
+	indicator.Size = UDim2.new(0, 45, 1, 0)
+	indicator.Position = UDim2.new(1, -48, 0, 0)
+	indicator.BackgroundTransparency = 1
+	indicator.Text = stateGetterFunc()
+	indicator.TextColor3 = Color3.fromRGB(255, 255, 255)
+	indicator.Font = Enum.Font.GothamBold
+	indicator.TextSize = 10
+	indicator.TextXAlignment = Enum.TextXAlignment.Right
+	indicator.Parent = row
+
+	row.MouseButton1Click:Connect(onClickCallback)
+	row.Parent = contentScroll
+	return indicator
+end
+
+-- LOGIC FUNCTIONS
+function toggleLoopGoto()
+	loopGotoEnabled = not loopGotoEnabled
+	if loopGotoEnabled then
+		local playersList = Players:GetPlayers()
+		local validTargets = {}
+		for _, p in ipairs(playersList) do
+			if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+				local hum = p.Character:FindFirstChild("Humanoid")
+				if hum and hum.Health > 0 then
+					table.insert(validTargets, p)
+				end
+			end
+		end
+		if #validTargets > 0 then
+			loopGotoTarget = validTargets[math.random(1, #validTargets)]
+		else
+			loopGotoTarget = nil
+			loopGotoEnabled = false
+		end
+	else
+		loopGotoTarget = nil
+		if humanoid then humanoid.PlatformStand = false end
+	end
+	updateStatus()
+end
+
+function toggleRageMode()
+	rageModeEnabled = not rageModeEnabled
+	if rageModeEnabled then
+		silentEnabled = true
+		AimbotEnabled = true
+		getgenv().Smoothness = 0.05
+		spinBotEnabled = true
+		_G.EnableSpeed = true
+		toggleFixedHeadSpin(true)
+		if not takeLEnabled then toggleTakeL() end
+	else
+		getgenv().Smoothness = 0.35
+		spinBotEnabled = false
+		_G.EnableSpeed = false
+		toggleFixedHeadSpin(false)
+		if takeLEnabled then toggleTakeL() end
+		if humanoid then humanoid.CameraOffset = Vector3.new(0, 0, 0) end
+		if humanoid then humanoid.PlatformStand = false end
+	end
+	updateStatus()
+end
+
+function toggleTakeL()
+	takeLEnabled = not takeLEnabled
+	if takeLEnabled then
+		pcall(function()
+			if humanoid then
+				local anim = Instance.new("Animation")
+				anim.AnimationId = danceAnimId
+				danceTrack = humanoid:LoadAnimation(anim)
+				danceTrack.Looped = true
+				danceTrack:Play()
+				danceTrack:AdjustSpeed(25)
+			end
+		end)
+	else
+		if danceTrack then
+			danceTrack:Stop()
+			danceTrack = nil
+		end
+	end
+	updateStatus()
+end
+
+-- GUI BUTTONS (Her şey kapalı başlar)
+statusIndicators.silent = createClickableFeatureRow("Silent Aim (B)", function() return silentEnabled and "🟢 ON" or "🔴 OFF" end, function()
+	silentEnabled = not silentEnabled
+	if not silentEnabled then
+		targetPlayer = nil
+		isLeftMouseDown = false
+		autoShootEnabled = false
+		if autoClickConnection then
+			autoClickConnection:Disconnect()
+			autoClickConnection = nil
+		end
+	end
+	updateStatus()
+end)
+
+statusIndicators.autoshoot = createClickableFeatureRow("Auto Shoot", function() return autoShootEnabled and "🟢 ON" or "🔴 OFF" end, function()
+	if not silentEnabled then return end
+	autoShootEnabled = not autoShootEnabled
+	if autoShootEnabled and not autoClickConnection then autoClick() end
+	updateStatus()
+end)
+
+statusIndicators.aimlock = createClickableFeatureRow("Aimlock", function() return not AimbotEnabled and "🔴 OFF" end, function()
+	AimbotEnabled = not AimbotEnabled
+	updateStatus()
+end)
+
+statusIndicators.takel = createClickableFeatureRow("Hyper Fast Dance", function() return takeLEnabled and "🟢 ON" or "🔴 OFF" end, toggleTakeL)
+statusIndicators.loopgoto = createClickableFeatureRow("LoopGoto / Bang", function() return loopGotoEnabled and "🟢 ON" or "🔴 OFF" end, toggleLoopGoto)
+statusIndicators.tpkill = createClickableFeatureRow("TP + Kill", function() return tpKillEnabled and "🟢 ON" or "🔴 OFF" end, function() DoSilentKillSafe() end)
+statusIndicators.fixedheadspin = createClickableFeatureRow("Fixed Head Spin", function() return fixedHeadSpinEnabled and "🟢 ON" or "🔴 OFF" end, function() toggleFixedHeadSpin(not fixedHeadSpinEnabled) end)
+statusIndicators.noclip = createClickableFeatureRow("Noclip", function() return noclipEnabled and "🟢 ON" or "🔴 OFF" end, function() noclipEnabled = not noclipEnabled; setNoclip(noclipEnabled); updateStatus() end)
+statusIndicators.speed = createClickableFeatureRow("WalkSpeed", function() return _G.EnableSpeed and "🟢 ON" or "🔴 OFF" end, function() _G.EnableSpeed = not _G.EnableSpeed; updateStatus() end)
+statusIndicators.night = createClickableFeatureRow("Night Mode", function() return nightModeEnabled and "🟢 ON" or "🔴 OFF" end, function() toggleNightMode(not nightModeEnabled); updateStatus() end)
+statusIndicators.esp = createClickableFeatureRow("ESP", function() return espenabled and "🟢 ON" or "🔴 OFF" end, function() espenabled = not espenabled; rebuildHighlights(); updateStatus() end)
+
+local iyButton = Instance.new("TextButton")
+iyButton.Size = UDim2.new(1, 0, 0, 30)
+iyButton.BackgroundColor3 = Color3.fromRGB(35, 30, 60)
+iyButton.BorderSizePixel = 0
+iyButton.AutoButtonColor = true
+iyButton.Text = "Infinite Yield (Admin)"
+iyButton.TextColor3 = Color3.fromRGB(200, 190, 255)
+iyButton.Font = Enum.Font.GothamBold
+iyButton.TextSize = 11
+iyButton.Parent = contentScroll
+
+local iyCorner = Instance.new("UICorner")
+iyCorner.CornerRadius = UDim.new(0, 6)
+iyCorner.Parent = iyButton
+
+iyButton.MouseButton1Click:Connect(function()
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+end)
+
+function updateStatus()
+	statusIndicators.silent.Text = silentEnabled and "🟢 ON" or "🔴 OFF"
+	statusIndicators.autoshoot.Text = autoShootEnabled and "🟢 ON" or "🔴 OFF"
+	statusIndicators.aimlock.Text = not AimbotEnabled and "🔴 OFF" or aiming and "🟢 ON" or "🟡 READY"
+	statusIndicators.takel.Text = takeLEnabled and "🟢 ON" or "🔴 OFF"
+	statusIndicators.loopgoto.Text = loopGotoEnabled and "🟢 ON" or "🔴 OFF"
+	statusIndicators.tpkill.Text = tpKillEnabled and "🟢 ON" or "🔴 OFF"
+	statusIndicators.fixedheadspin.Text = fixedHeadSpinEnabled and "🟢 ON" or "🔴 OFF"
+	statusIndicators.noclip.Text = noclipEnabled and "🟢 ON" or "🔴 OFF"
+	statusIndicators.speed.Text = _G.EnableSpeed and "🟢 ON" or "🔴 OFF"
+	statusIndicators.night.Text = nightModeEnabled and "🟢 ON" or "🔴 OFF"
+	statusIndicators.esp.Text = espenabled and "🟢 ON" or "🔴 OFF"
+end
+
+local function isLobbyVisible()
+	local gui = localPlayer.PlayerGui:FindFirstChild("MainGui")
+	if gui and gui:FindFirstChild("MainFrame") then
+		local lobby = gui.MainFrame:FindFirstChild("Lobby")
+		if lobby and lobby:FindFirstChild("Currency") then
+			return lobby.Currency.Visible
+		end
+	end
+	return false
+end
+
+local function getClosestPlayerOffScreen()
+	local closestPlayer = nil
+	local shortestDistance = math.huge
+	if not rootPart then return nil end
+	local origin = rootPart.Position
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= localPlayer and player.Character then
+			local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+			local hum = player.Character:FindFirstChild("Humanoid")
+			if hrp and hum and hum.Health > 0 then
+				local distance = (hrp.Position - origin).Magnitude
+				if distance < shortestDistance then
+					shortestDistance = distance
+					closestPlayer = player
+				end
+			end
+		end
+	end
+	return closestPlayer
+end
+
+local function lockCameraToHead()
+	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Head") then
+		local head = targetPlayer.Character.Head
+		camera.CFrame = CFrame.new(camera.CFrame.Position, head.Position)
+	end
+end
+
+local function get_target()
+	local target = nil
+	local closestDistance = 2000
+	local myCharacter = localPlayer.Character
+	if not myCharacter then return nil end
+	local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
+	if not myRoot then return nil end
+
+	for _, v in ipairs(Players:GetPlayers()) do
+		if v ~= localPlayer and v.Character then
+			local humanoid = v.Character:FindFirstChild("Humanoid")
+			local root = v.Character:FindFirstChild("HumanoidRootPart")
+			if humanoid and humanoid.Health > 0 and root then
+				local distance = (root.Position - myRoot.Position).Magnitude
+				if distance < closestDistance then
+					local part = v.Character:FindFirstChild("HeadHB") or v.Character:FindFirstChild("Head") or v.Character:FindFirstChild("UpperTorso")
+					if part then
+						closestDistance = distance
+						target = part
+					end
+				end
+			end
+		end
+	end
+	return target
+end
+
+RunService.RenderStepped:Connect(function(dt)
+	if spinBotEnabled and rootPart then
+		rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(spinSpeed), 0)
+	end
+
+	if AimbotEnabled and (aiming or rageModeEnabled) and getgenv().Aimbot then
+		local target = get_target()
+		if target and target.Parent then
+			local pos, onScreen = camera:WorldToViewportPoint(target.Position)
+			if onScreen or rageModeEnabled then
+				local mouse = UserInputService:GetMouseLocation()
+				local x = (pos.X - mouse.X) * getgenv().Smoothness
+				local y = (pos.Y - mouse.Y) * getgenv().Smoothness
+				if mousemoverel then mousemoverel(x, y) end
+			end
+		end
+	end
+	
+	if takeLEnabled and humanoid and rootPart then
+		if danceTrack and not danceTrack.IsPlaying then
+			danceTrack:Play()
+		end
+		if danceTrack and danceTrack.Speed ~= 25 then
+			danceTrack:AdjustSpeed(25)
+		end
+		
+		danceTime = danceTime + dt * 45
+		local offsetX = math.sin(danceTime) * 2.5
+		local offsetZ = math.cos(danceTime * 1.3) * 2.5
+		local randomRotation = math.rad(math.random(-180, 180))
+		
+		local crouchOffset = 0
+		if rageModeEnabled then
+			crouchOffset = math.abs(math.sin(danceTime * 4)) * -2.2
+		end
+		humanoid.CameraOffset = Vector3.new(0, crouchOffset, 0)
+		
+		rootPart.CFrame = rootPart.CFrame * CFrame.new(offsetX, math.sin(danceTime * 3) * 0.6, offsetZ) * CFrame.Angles(0, randomRotation, 0)
+		
+		local head = character:FindFirstChild("Head")
+		if head then
+			local neck = head:FindFirstChild("Neck")
+			if neck then
+				local headTiltX = math.sin(danceTime * 5) * 1.5
+				local headTiltZ = math.cos(danceTime * 4) * 1.5
+				local headPosOffset = Vector3.new(math.sin(danceTime * 6) * 1.2, math.cos(danceTime * 5) * 0.8, math.cos(danceTime * 6) * 1.2)
+				neck.C0 = CFrame.new(headPosOffset) * CFrame.Angles(headTiltX, 0, headTiltZ)
+			end
+		end
+	end
+end)
+
+function autoClick()
+	if autoClickConnection then autoClickConnection:Disconnect() end
+	autoClickConnection = RunService.Heartbeat:Connect(function()
+		if not silentEnabled and not rageModeEnabled then
+			autoClickConnection:Disconnect()
+			autoClickConnection = nil
+			return
+		end
+		if isLeftMouseDown or autoShootEnabled or (rageModeEnabled and aiming) then
+			if not isLobbyVisible() then
+				if mouse1click then mouse1click() end
+			end
+		else
+			autoClickConnection:Disconnect()
+			autoClickConnection = nil
+		end
+	end)
+end
+
+RunService.RenderStepped:Connect(function()
+	if not _G.EnableSpeed then return end
+	local char = localPlayer.Character
+	if not char then return end
+	local hum = char:FindFirstChild("Humanoid")
+	local root = char:FindFirstChild("HumanoidRootPart")
+	if hum and root and hum.MoveDirection.Magnitude > 0 then
+		root.CFrame += hum.MoveDirection * (_G.SpeedPower / 10)
+	end
+end)
+
+RunService.Heartbeat:Connect(function()
+	local activeBang = (loopGotoEnabled or rageModeEnabled) and aiming
+	if activeBang then
+		local currentTarget = loopGotoTarget
+		if (loopGotoEnabled or rageModeEnabled) and aiming then
+			currentTarget = targetPlayer or getClosestPlayerOffScreen()
+		end
+
+		if currentTarget and currentTarget.Character then
+			local targetChar = currentTarget.Character
+			local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+			local targetHum = targetChar:FindFirstChild("Humanoid")
+			
+			if targetHum and targetHum.Health <= 0 then
+				if loopGotoEnabled then toggleLoopGoto() end
+				return
+			end
+			
+			local myHRP = rootPart
+			local hum = humanoid
+			if targetHRP and myHRP and hum then
+				if not isLobbyVisible() then
+					myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 1.2)
+					hum.PlatformStand = true
+				else
+					if hum.PlatformStand then
+						hum.PlatformStand = false
+					end
+				end
+			end
+		end
+	else
+		if not loopGotoEnabled and humanoid and humanoid.PlatformStand then
+			humanoid.PlatformStand = false
+		end
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	if not fixedHeadSpinEnabled or takeLEnabled then return end
+	local char = localPlayer.Character
+	if not char then return end
+	local head = char:FindFirstChild("Head")
+	if not head then return end
+	
+	local neck = head:FindFirstChild("Neck")
+	if neck then
+		if not originalHeadC0 then originalHeadC0 = neck.C0 end
+		bodyAngle = (bodyAngle + bodySpeed) % 360
+		local rad = math.rad(bodyAngle)
+		local offsetX = math.cos(rad) * bodyRadius
+		local offsetZ = math.sin(rad) * bodyRadius
+		neck.C0 = CFrame.new(offsetX, -2.5, offsetZ) * CFrame.Angles(0, rad, 0)
+	end
+end)
+
+function toggleFixedHeadSpin(state)
+	fixedHeadSpinEnabled = state
+	if not state and not takeLEnabled then
+		local char = localPlayer.Character
+		if char then
+			local head = char:FindFirstChild("Head")
+			if head then
+				local neck = head:FindFirstChild("Neck")
+				if neck and originalHeadC0 then
+					neck.C0 = originalHeadC0
+				end
+			end
+		end
+	end
+	updateStatus()
+end
+
+function toggleNightMode(state)
+	nightModeEnabled = state
+	if nightModeEnabled then
+		Lighting.Ambient = Color3.fromRGB(20, 20, 35)
+		Lighting.OutdoorAmbient = Color3.fromRGB(15, 15, 25)
+		Lighting.ClockTime = 0
+		Lighting.Brightness = 0.5
+	else
+		Lighting.Ambient = originalAmbient
+		Lighting.OutdoorAmbient = originalOutdoorAmbient
+		Lighting.ClockTime = originalClockTime
+		Lighting.Brightness = originalBrightness
+	end
+end
+
+function setNoclip(enabled)
+	local char = localPlayer.Character
+	if not char then return end
+	for _, part in ipairs(char:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = not enabled
+		end
+	end
+end
+
+RunService.Stepped:Connect(function()
+	if noclipEnabled then setNoclip(true) end
+end)
+
+local function clearHighlights()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player.Character then
+			local highlight = player.Character:FindFirstChild("PlayerHighlight")
+			if highlight then highlight:Destroy() end
+		end
+	end
+end
+
+local function addHighlight(character)
+	if not character or character:FindFirstChild("PlayerHighlight") then return end
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "PlayerHighlight"
+	highlight.FillColor = FILL_COLOR
+	highlight.OutlineColor = OUTLINE_COLOR
+	highlight.FillTransparency = FILL_TRANSPARENCY
+	highlight.OutlineTransparency = OUTLINE_TRANSPARENCY
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = character
+end
+
+function rebuildHighlights()
+	clearHighlights()
+	if not espenabled then return end
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= localPlayer and player.Character then
+			addHighlight(player.Character)
+		end
+	end
+end
+
+RunService.Heartbeat:Connect(function()
+	if not espenabled then return end
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= localPlayer and player.Character then
+			if not player.Character:FindFirstChild("PlayerHighlight") then
+				addHighlight(player.Character)
+			end
+		end
+	end
+end)
+
+function DoSilentKillSafe()
+	if isTeleporting then return end
+	isTeleporting = true
+	tpKillEnabled = true
+	updateStatus()
+
+	pcall(function()
+		local target = nil
+		local distMin = math.huge
+		for _, v in pairs(Players:GetPlayers()) do
+			if v ~= localPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+				local hum = v.Character:FindFirstChild("Humanoid")
+				if hum and hum.Health > 0 then
+					local distance = (v.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
+					if distance < distMin then
+						distMin = distance
+						target = v
+					end
+				end
+			end
+		end
+
+		if target and localPlayer.Character then
+			local hrp = rootPart
+			local oldPosition = hrp.CFrame
+			local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+			local targetHead = target.Character:FindFirstChild("Head")
+
+			if targetHRP then
+				hrp.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 4)
+				if targetHead then
+					camera.CFrame = CFrame.new(camera.CFrame.Position, targetHead.Position)
+				end
+				task.wait(0.04)
+				hrp.CFrame = oldPosition
+			end
+		end
+	end)
+
+	task.wait(0.1)
+	tpKillEnabled = false
+	isTeleporting = false
+	updateStatus()
+end
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		if espenabled then
+			task.wait(0.2)
+			addHighlight(character)
+		end
+	end)
+end)
+
+-- Sadece Silent Aim için B tuşu ve Menüyü gizlemek için Insert/RightShift kısayolları bırakıldı
+UserInputService.InputBegan:Connect(function(input, isProcessed)
+	if isProcessed then return end
+	
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		isLeftMouseDown = true
+		if autoShootEnabled and not autoClickConnection then autoClick() end
+	elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+		if AimbotEnabled or rageModeEnabled then
+			aiming = true
+			updateStatus()
+		end
+	elseif input.KeyCode == Enum.KeyCode.B then
+		silentEnabled = not silentEnabled
+		if not silentEnabled then
+			targetPlayer = nil
+			isLeftMouseDown = false
+			autoShootEnabled = false
+			if autoClickConnection then
+				autoClickConnection:Disconnect()
+				autoClickConnection = nil
+			end
+		end
+		updateStatus()
+	elseif input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightShift then
+		uiVisible = not uiVisible
+		if mainFrame and mainFrame.Parent then
+		mainFrame.Visible = uiVisible
+	end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input, isProcessed)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		isLeftMouseDown = false
+	elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+		aiming = false
+		if humanoid then humanoid.PlatformStand = false end
+		updateStatus()
+	end
+end)
+
+RunService.Heartbeat:Connect(function()
+	if not silentEnabled and not rageModeEnabled then return end
+	local SilentAimMode = getClosestPlayerOffScreen()
+	if not isLobbyVisible() or rageModeEnabled then
+		targetPlayer = SilentAimMode
+		if targetPlayer then
+			lockCameraToHead()
+		end
+	end
+end)
+
+    end)
+end)
+-- Nexus Animation - Integrated FE Loop Edition
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local NexusGui = Instance.new("ScreenGui")
+NexusGui.Name = "NexusAnimationHub"
+NexusGui.ResetOnSpawn = false
+NexusGui.Parent = PlayerGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = NexusGui
+MainFrame.Active = true
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderColor3 = Color3.fromRGB(255, 80, 80)
+MainFrame.Draggable = true
+MainFrame.Position = UDim2.new(0, 300, 0, 100)
+MainFrame.Size = UDim2.new(0, 380, 0, 320)
+
+local TopBar = Instance.new("Frame")
+TopBar.Parent = MainFrame
+TopBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+TopBar.Size = UDim2.new(0, 380, 0, 35)
+
+local Title = Instance.new("TextLabel")
+Title.Parent = TopBar
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Size = UDim2.new(0, 300, 0, 35)
+Title.Font = Enum.Font.SourceSansBold
+Title.Text = "Nexus Animation (Loop & FE Mode)"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Parent = TopBar
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Position = UDim2.new(0, 345, 0, 5)
+CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+CloseBtn.Font = Enum.Font.SourceSansBold
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 14
+
+CloseBtn.MouseButton1Click:Connect(function()
+	NexusGui:Destroy()
+end)
+
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Parent = MainFrame
+ScrollingFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ScrollingFrame.Position = UDim2.new(0, 10, 0, 45)
+ScrollingFrame.Size = UDim2.new(0, 360, 0, 265)
+ScrollingFrame.ScrollBarThickness = 8
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 1050)
+
+-- Aktif animasyon takibini tutmak için tablo
+local activeTracks = {}
+
+local function PlayLoopAnimation(btn, animId)
+	local char = LocalPlayer.Character
+	if not char then return end
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+	
+	-- Eğer bu buton zaten çalışıyorsa durdur
+	if activeTracks[btn] then
+		activeTracks[btn].active = false
+		if activeTracks[btn].track then
+			activeTracks[btn].track:Stop()
+		end
+		activeTracks[btn] = nil
+		btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+		return
+	end
+	
+	-- Diğer aktifleri durdur (isteğe bağlı, tek seferde tek animasyon için)
+	for b, data in pairs(activeTracks) do
+		data.active = false
+		if data.track then data.track:Stop() end
+		b.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+		activeTracks[b] = nil
+	end
+	
+	local anim = Instance.new("Animation")
+	anim.AnimationId = "rbxassetid://" .. tostring(animId)
+	
+	local success, track = pcall(function()
+		return humanoid:LoadAnimation(anim)
+	end)
+	
+	if success and track then
+		local state = {active = true, track = track}
+		activeTracks[btn] = state
+		btn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+		
+		task.spawn(function()
+			track:Play(.1, 1, 1)
+			while state.active and task.wait() do
+				if not track.IsPlaying and state.active then
+					pcall(function()
+						track:Play(.1, 1, 1)
+					end)
+				end
+			end
+		end)
+	end
+end
+
+local dances = {
+	{"R15 Hip Hop", 507771019},
+	{"R15 Grooving", 507771955},
+	{"R15 Wave/Pose", 507770239},
+	{"Sturdy Dance 1", 132967433846099},
+	{"Sturdy Dance 2", 128968764985212},
+	{"Gangnam Style", 129764254213842},
+	{"Electro Swing", 138785676658772},
+	{"Phut Hon", 88038962894440},
+	{"Snoop's Walk", 110204898807330},
+	{"Belly Dance", 85312683743028},
+	{"Moshing", 96147994216119},
+	{"Zero Two Dance", 125154823571632},
+	{"Dougie", 93650537970037},
+	{"Rollie", 138097548542741},
+	{"Acelerada", 103360497719320},
+	{"Tyla Dance", 111754856931573},
+	{"TV Time", 104748118296461},
+	{"Shake It", 115318724645140},
+	{"Car Pose", 132760747409859},
+	{"Wall Lean", 128744696457318},
+	{"Gojo Floating", 109030594660124},
+	{"Floating Aura", 73980801925168},
+	{"Stylish Floating", 112089880074848},
+	{"Levitation Idle", 113087712986783},
+	{"Spider-Man Hanging", 123955307291627},
+	{"Cute Kawaii", 129100070542534},
+	{"Stop All Animations", 0}
+}
+
+local yPos = 5
+for i, dance in ipairs(dances) do
+	local btn = Instance.new("TextButton")
+	btn.Parent = ScrollingFrame
+	btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	btn.Position = UDim2.new(0, 5, 0, yPos)
+	btn.Size = UDim2.new(0, 340, 0, 30)
+	btn.Font = Enum.Font.SourceSans
+	btn.Text = dance[1]
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btn.TextSize = 14
+	
+	local id = dance[2]
+	btn.MouseButton1Click:Connect(function()
+		if id == 0 then
+			for b, data in pairs(activeTracks) do
+				data.active = false
+				if data.track then data.track:Stop() end
+				b.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+				activeTracks[b] = nil
+			end
+		else
+			PlayLoopAnimation(btn, id)
+		end
+	end)
+	
+	yPos = yPos + 35
+end
+-- Servisler
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Kontrol Değişkeni (Başlangıçta kapalı)
+local AlwaysHeadShakeActive = false
+
+-- P Tuşu ile Manuel Açma / Kapama Kontrolü
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
+        AlwaysHeadShakeActive = not AlwaysHeadShakeActive
+        if AlwaysHeadShakeActive then
+            print("[Nexus] Hızlı Kafa Sallama: AÇILDI (P Tuşu)")
+        else
+            print("[Nexus] Hızlı Kafa Sallama: KAPANDI (P Tuşu)")
+        end
+    end
+end)
+
+-- HER ROUND / ÖLÜM / YENİDEN DOĞMA DURUMUNDA KAPATMA
+LocalPlayer.CharacterAdded:Connect(function(character)
+    -- Yeni karakter yüklendiğinde (yeni round başladığında) otomatik kapat
+    AlwaysHeadShakeActive = false
+    print("[Nexus] Yeni round/karakter algılandı: Kafa sallama sıfırlandı ve kapatıldı.")
+end)
+
+-- Ana Çalışma Döngüsü
+RunService.RenderStepped:Connect(function()
+    if not AlwaysHeadShakeActive then return end
+    
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local head = character:FindFirstChild("Head")
+    local root = character:FindFirstChild("HumanoidRootPart")
+    
+    if head and root then
+        local speed = 65
+        local intensity = 0.35
+        local t = tick() * speed
+        
+        -- Kafayı aşırı hızlı ve sürekli sarsma hareketi
+        head.CFrame = root.CFrame * CFrame.new(0, 1.5, 0) * CFrame.Angles(math.sin(t) * intensity, math.cos(t) * intensity, math.sin(t) * (intensity / 2))
+    end
+end)
+-- Servisler
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+local AlwaysHeadShakeActive = false
+
+-- Ortak Açma / Kapama Fonksiyonu
+local function ToggleHeadShake()
+    AlwaysHeadShakeActive = not AlwaysHeadShakeActive
+    if AlwaysHeadShakeActive then
+        print("[Nexus] Kafa Sallama: AÇILDI")
+    else
+        print("[Nexus] Kafa Sallama: KAPANDI")
+    end
+end
+
+-- A) P Tuşu İle Tetikleme
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
+        ToggleHeadShake()
+    end
+end)
+
+-- B) BUTON İLE TETİKLEME (Menündeki Buton Yolunu Buraya Yazmalısın)
+-- Örnek: local KafaButonu = game.CoreGui.NexusGui.MainFrame.KafaSallamaButton
+-- KafaButonu.MouseButton1Click:Connect(function()
+--     ToggleHeadShake()
+-- end)
+
+-- Her Round / Ölüm Durumunda Otomatik Sıfırlama
+LocalPlayer.CharacterAdded:Connect(function(character)
+    AlwaysHeadShakeActive = false
+end)
+
+-- Ana Çalışma Döngüsü
+RunService.RenderStepped:Connect(function()
+    if not AlwaysHeadShakeActive then return end
+    
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local head = character:FindFirstChild("Head")
+    local root = character:FindFirstChild("HumanoidRootPart")
+    
+    if head and root then
+        local speed = 65
+        local intensity = 0.35
+        local t = tick() * speed
+        
+        head.CFrame = root.CFrame * CFrame.new(0, 1.5, 0) * CFrame.Angles(math.sin(t) * intensity, math.cos(t) * intensity, math.sin(t) * (intensity / 2))
+    end
+end)
+-- Servisler
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Ortak Kontrol Değişkeni (Tüm yöntemler bunu kontrol eder)
+local NexusChaosActive = false
+local spinSpeed = 90        -- Deli gibi dönme hızı
+local headShakeSpeed = 70   -- Kafanın sallanma hızı
+
+-- 1. P Tuşu İle Açma / Kapama
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
+        NexusChaosActive = not NexusChaosActive
+        print("[Nexus] Çılgın Mod (P Tuşu): " .. tostring(NexusChaosActive))
+    end
+end)
+
+-- 2. Her Round / Ölüm Durumunda Otomatik Kapatma
+LocalPlayer.CharacterAdded:Connect(function(character)
+    NexusChaosActive = false
+    print("[Nexus] Yeni round algılandı: Çılgın mod sıfırlandı.")
+end)
+
+-- 3. Menüdeki Buton veya Toggle için Dışarıdan Erişim Fonksiyonu
+-- Menü koduna bunu bağlayabilirsin: NexusChaosActive = Value (veya not NexusChaosActive)
+local function ToggleNexusChaos(state)
+    if state ~= nil then
+        NexusChaosActive = state
+    else
+        NexusChaosActive = not NexusChaosActive
+    end
+end
+
+-- Ana Çalışma Döngüsü (Hem Spin Bot hem Kafa Sallama Aynı Anda ve Deli Gibi)
+RunService.RenderStepped:Connect(function()
+    if not NexusChaosActive then return end
+    
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    local head = character:FindFirstChild("Head")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    
+    if rootPart and humanoid and humanoid.Health > 0 then
+        -- A) Deli Gibi Dönen Spin Bot (Herkeste görünürlük için CFrame rotasyonu)
+        local currentCFrame = rootPart.CFrame
+        local rotationStep = CFrame.Angles(0, math.rad(spinSpeed), 0)
+        rootPart.CFrame = currentCFrame * rotationStep
+    end
+    
+    if head and rootPart then
+        -- B) Kafanın Deli Gibi Sallanması (Kameranın da takılması için CFrame manipülasyonu)
+        local t = tick() * headShakeSpeed
+        local intensity = 0.5
+        local headOffset = CFrame.Angles(math.sin(t) * intensity, math.cos(t) * intensity, math.sin(t) * (intensity / 2))
+        head.CFrame = rootPart.CFrame * CFrame.new(0, 1.5, 0) * headOffset
+    end
+end)
+-- Servisler
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Ortak Kontrol Değişkeni
+local NexusChaosActive = false
+local spinSpeed = 120       -- Deli gibi dönme hızı (Herkeste görünmesi için artırıldı)
+local headShakeSpeed = 90   -- Kafanın sallanma hızı
+
+-- 1. P Tuşu İle Açma / Kapama
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
+        NexusChaosActive = not NexusChaosActive
+        print("[Nexus] Çılgın Mod (P Tuşu): " .. tostring(NexusChaosActive))
+    end
+end)
+
+-- 2. Her Round / Ölüm Durumunda Otomatik Kapatma
+LocalPlayer.CharacterAdded:Connect(function(character)
+    NexusChaosActive = false
+    print("[Nexus] Yeni round algılandı: Çılgın mod sıfırlandı.")
+end)
+
+-- 3. Dışarıdan (Rage Mode veya Menü Butonu ile) Erişmek İçin Fonksiyon
+local function ToggleNexusChaos(state)
+    if state ~= nil then
+        NexusChaosActive = state
+    else
+        NexusChaosActive = not NexusChaosActive
+    end
+end
+
+-- Ana Çalışma Döngüsü (Sunucu Senkronizasyonlu)
+RunService.RenderStepped:Connect(function()
+    if not NexusChaosActive then return end
+    
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    local head = character:FindFirstChild("Head")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    
+    if rootPart and humanoid and humanoid.Health > 0 then
+        -- A) Vücut Spin Bot (Herkeste net görünür)
+        local currentCFrame = rootPart.CFrame
+        local rotationStep = CFrame.Angles(0, math.rad(spinSpeed), 0)
+        rootPart.CFrame = currentCFrame * rotationStep
+        
+        -- B) Kafa Sallama (Herkeste görünmesi için gövdeye bağlı sarsıntı)
+        if head then
+            local t = tick() * headShakeSpeed
+            local intensity = 0.6
+            local headOffset = CFrame.Angles(math.sin(t) * intensity, math.cos(t) * intensity, math.sin(t) * (intensity / 2))
+            head.CFrame = rootPart.CFrame * CFrame.new(0, 1.5, 0) * headOffset
+        end
+    end
+end)
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local ViewModels = player
+	:WaitForChild("PlayerScripts")
+	:WaitForChild("Assets")
+	:WaitForChild("ViewModels")
+
+local Weapons = ViewModels:FindFirstChild("Weapons")
+
+if not Weapons then
+	warn("[SkinChanger] Weapons klasörü bulunamadı!")
+	return
+end
+
+--------------------------------------------------
+-- SKIN BULUCU
+--------------------------------------------------
+
+local function FindSkin(skinName)
+
+	-- Tam eşleşme
+	local direct = ViewModels:FindFirstChild(skinName, true)
+
+	if direct then
+		print("[SkinChanger] Skin bulundu:")
+		print("İsim:", direct.Name)
+		print("Class:", direct.ClassName)
+		print("Yol:", direct:GetFullName())
+
+		return direct
+	end
+
+	-- Yakın isimleri ara
+	local wanted = string.lower(skinName)
+
+	for _, obj in ipairs(ViewModels:GetDescendants()) do
+		local objName = string.lower(obj.Name)
+
+		if string.find(objName, wanted, 1, true)
+			or string.find(wanted, objName, 1, true) then
+
+			print(
+				"[SkinChanger] Benzer skin:",
+				obj.Name,
+				"| Class:",
+				obj.ClassName,
+				"| Yol:",
+				obj:GetFullName()
+			)
+		end
+	end
+
+	warn("[SkinChanger] Skin bulunamadı:", skinName)
+
+	return nil
+end
+
+--------------------------------------------------
+-- SKIN UYGULAMA
+--------------------------------------------------
+
+local function ApplySkin(weaponName, skinName)
+
+	local weapon = Weapons:FindFirstChild(weaponName)
+
+	if not weapon then
+		warn("[SkinChanger] Silah bulunamadı:", weaponName)
+		return false
+	end
+
+	local skin = FindSkin(skinName)
+
+	if not skin then
+		return false
+	end
+
+	print("[SkinChanger] Weapon:", weapon:GetFullName())
+	print("[SkinChanger] Skin:", skin:GetFullName())
+
+	-- Mevcut içeriği temizle
+	for _, child in ipairs(weapon:GetChildren()) do
+		child:Destroy()
+	end
+
+	local copied = 0
+
+	-- Skin modelini kopyala
+	for _, child in ipairs(skin:GetChildren()) do
+		local clone = child:Clone()
+		clone.Parent = weapon
+		copied += 1
+	end
+
+	print(
+		"[SkinChanger] Uygulandı:",
+		weaponName,
+		"->",
+		skinName,
+		"| Obje:",
+		copied
+	)
+
+	return copied > 0
+end
+
+--------------------------------------------------
+-- TEST
+--------------------------------------------------
+
+ApplySkin("Knife", "Caladbolg")
+
+ApplySkin("Assault Rifle", "AKEY-47")
+
+ApplySkin("Sniper", "Event Horizon")
+
+ApplySkin("Handgun", "Pixel Handgun")
+
+ApplySkin("Uzi", "Keyzi")
+
+ApplySkin("Fists", "Brass Knuckles")
+
+ApplySkin("Grenade", "Soul Grenade")
+
+ApplySkin("War Horn", "Megaphone")
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+
+local ANIMATION_ID = "rbxassetid://123955307291627"
+local active = false
+local track = nil
+
+local function stopAnimation()
+	active = false
+
+	if track then
+		pcall(function()
+			track:Stop()
+			track:Destroy()
+		end)
+		track = nil
+	end
+end
+
+local function startAnimation()
+	if active then
+		return
+	end
+
+	local character = LocalPlayer.Character
+	if not character then
+		return
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+
+	local animation = Instance.new("Animation")
+	animation.AnimationId = ANIMATION_ID
+
+	local success, result = pcall(function()
+		return animator:LoadAnimation(animation)
+	end)
+
+	if not success or not result then
+		warn("[Nexus] Spider-Man animasyonu yüklenemedi.")
+		animation:Destroy()
+		return
+	end
+
+	track = result
+	active = true
+
+	track.Looped = true
+	track.Priority = Enum.AnimationPriority.Action
+	track:Play(0.1, 1, 1)
+
+	animation:Destroy()
+
+	print("[Nexus] Spider-Man Dance: ON")
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then
+		return
+	end
+
+	if input.KeyCode == Enum.KeyCode.P then
+		if active then
+			stopAnimation()
+			print("[Nexus] Spider-Man Dance: OFF")
+		else
+			startAnimation()
+		end
+	end
+end)
+
+-- Yeni round / respawn olduğunda otomatik kapat
+LocalPlayer.CharacterAdded:Connect(function()
+	stopAnimation()
+end)
+
+-- Script çalıştırıldığında başlangıçta kapalı
+stopAnimation()
