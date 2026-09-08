@@ -1,0 +1,894 @@
+-- NexusPremium MM2 Hub v9.5 (Fixed typo)
+-- Project Name: Nexus Premium
+
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+local Lighting = game:GetService("Lighting")
+
+if CoreGui:FindFirstChild("NexusPremium") then
+    CoreGui:FindFirstChild("NexusPremium"):Destroy()
+end
+
+local NexusPremium = Instance.new("ScreenGui")
+NexusPremium.Name = "NexusPremium"
+NexusPremium.Parent = CoreGui
+NexusPremium.ResetOnSpawn = false
+
+-- Main Container Window
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = NexusPremium
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+MainFrame.BorderColor3 = Color3.fromRGB(60, 60, 85)
+MainFrame.BorderSizePixel = 1
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.Size = UDim2.new(0, 0, 0, 0)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Parent = MainFrame
+UIStroke.Color = Color3.fromRGB(255, 215, 0)
+UIStroke.Transparency = 0.5
+UIStroke.Thickness = 1.5
+
+TweenService:Create(MainFrame, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 580, 0, 420)}):Play()
+
+-- Top Bar Header
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Parent = MainFrame
+TopBar.BackgroundColor3 = Color3.fromRGB(8, 8, 11)
+TopBar.BorderSizePixel = 0
+TopBar.Size = UDim2.new(1, 0, 0, 46)
+
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Parent = TopBar
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 18, 0, 0)
+Title.Size = UDim2.new(0, 380, 1, 0)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "NEXUS PREMIUM — MM2 ELITE"
+Title.TextColor3 = Color3.fromRGB(255, 215, 0)
+Title.TextSize = 13
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Parent = TopBar
+CloseButton.BackgroundTransparency = 1
+CloseButton.Position = UDim2.new(1, -45, 0, 0)
+CloseButton.Size = UDim2.new(0, 45, 1, 0)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Text = "×"
+CloseButton.TextColor3 = Color3.fromRGB(180, 180, 200)
+CloseButton.TextSize = 20
+
+CloseButton.MouseButton1Click:Connect(function()
+    local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)})
+    closeTween:Play()
+    closeTween.Completed:Connect(function()
+        NexusPremium:Destroy()
+    end)
+end)
+
+-- Sidebar Navigation Frame
+local Sidebar = Instance.new("ScrollingFrame")
+Sidebar.Name = "Sidebar"
+Sidebar.Parent = MainFrame
+Sidebar.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+Sidebar.BorderSizePixel = 0
+Sidebar.Position = UDim2.new(0, 0, 0, 46)
+Sidebar.Size = UDim2.new(0, 150, 1, -46)
+Sidebar.CanvasSize = UDim2.new(0, 0, 0, 250)
+Sidebar.ScrollBarThickness = 2
+
+local SidebarLayout = Instance.new("UIListLayout")
+SidebarLayout.Parent = Sidebar
+SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SidebarLayout.Padding = UDim.new(0, 6)
+
+-- Container Holder for Tabs
+local ContainerHolder = Instance.new("Frame")
+ContainerHolder.Name = "ContainerHolder"
+ContainerHolder.Parent = MainFrame
+ContainerHolder.BackgroundTransparency = 1
+ContainerHolder.Position = UDim2.new(0, 155, 0, 52)
+ContainerHolder.Size = UDim2.new(1, -160, 1, -58)
+
+local function createTabContent(name)
+    local Scrolling = Instance.new("ScrollingFrame")
+    Scrolling.Name = name .. "Tab"
+    Scrolling.Parent = ContainerHolder
+    Scrolling.BackgroundTransparency = 1
+    Scrolling.BorderSizePixel = 0
+    Scrolling.Size = UDim2.new(1, 0, 1, 0)
+    Scrolling.CanvasSize = UDim2.new(0, 0, 0, 1100)
+    Scrolling.ScrollBarThickness = 3
+    Scrolling.Visible = false
+    
+    local Layout = Instance.new("UIListLayout")
+    Layout.Parent = Scrolling
+    Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Layout.Padding = UDim.new(0, 8)
+    
+    return Scrolling
+end
+
+local MainTab = createTabContent("Main")
+local VisualsTab = createTabContent("Visuals")
+local CombatTab = createTabContent("Combat")
+local TeleportTab = createTabContent("Teleports")
+local MiscTab = createTabContent("Misc")
+MainTab.Visible = true
+
+local function createTabButton(text, targetTab)
+    local TabBtn = Instance.new("TextButton")
+    TabBtn.Parent = Sidebar
+    TabBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+    TabBtn.BorderSizePixel = 0
+    TabBtn.Size = UDim2.new(0, 138, 0, 36)
+    TabBtn.Font = Enum.Font.GothamSemibold
+    TabBtn.Text = text
+    TabBtn.TextColor3 = Color3.fromRGB(170, 170, 195)
+    TabBtn.TextSize = 11
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = TabBtn
+    
+    TabBtn.MouseButton1Click:Connect(function()
+        MainTab.Visible = false
+        VisualsTab.Visible = false
+        CombatTab.Visible = false
+        TeleportTab.Visible = false
+        MiscTab.Visible = false
+        targetTab.Visible = true
+        
+        local clickTween = TweenService:Create(TabBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(255, 215, 0), TextColor3 = Color3.fromRGB(0, 0, 0)})
+        clickTween:Play()
+        clickTween.Completed:Connect(function()
+            TweenService:Create(TabBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(18, 18, 26), TextColor3 = Color3.fromRGB(170, 170, 195)}):Play()
+        end)
+    end)
+end
+
+createTabButton("⚡ Main & Movement", MainTab)
+createTabButton("👁️ Visuals & ESP", VisualsTab)
+createTabButton("⚔️ Combat & Aimbot", CombatTab)
+createTabButton("📍 Map Teleports", TeleportTab)
+createTabButton("🛠️ Utility & Misc", MiscTab)
+
+local function createToggleButton(parentTab, title, callback)
+    local state = false
+    local Button = Instance.new("TextButton")
+    Button.Parent = parentTab
+    Button.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+    Button.BorderSizePixel = 0
+    Button.Size = UDim2.new(0, 395, 0, 38)
+    Button.Font = Enum.Font.GothamSemibold
+    Button.Text = "   " .. title .. ": [ OFF ]"
+    Button.TextColor3 = Color3.fromRGB(210, 210, 225)
+    Button.TextSize = 11
+    Button.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Button
+    
+    Button.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            Button.Text = "   " .. title .. ": [ ON ]"
+            TweenService:Create(Button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(28, 90, 40), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+        else
+            Button.Text = "   " .. title .. ": [ OFF ]"
+            TweenService:Create(Button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(20, 20, 28), TextColor3 = Color3.fromRGB(210, 210, 225)}):Play()
+        end
+        callback(state)
+    end)
+    return Button
+end
+
+local function createStandardButton(parentTab, name, callback)
+    local Button = Instance.new("TextButton")
+    Button.Parent = parentTab
+    Button.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+    Button.BorderSizePixel = 0
+    Button.Size = UDim2.new(0, 395, 0, 38)
+    Button.Font = Enum.Font.GothamSemibold
+    Button.Text = "   " .. name
+    Button.TextColor3 = Color3.fromRGB(210, 210, 225)
+    Button.TextSize = 11
+    Button.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Button
+    
+    Button.MouseButton1Click:Connect(function()
+        local clickTween = TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 215, 0), TextColor3 = Color3.fromRGB(0, 0, 0)})
+        clickTween:Play()
+        clickTween.Completed:Connect(function()
+            TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(20, 20, 28), TextColor3 = Color3.fromRGB(210, 210, 225)}):Play()
+        end)
+        callback()
+    end)
+    return Button
+end
+
+local function createSlider(parentTab, title, min, max, default, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 395, 0, 45)
+    Frame.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
+    Frame.BorderSizePixel = 0
+    Frame.Parent = parentTab
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Frame
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -75, 1, 0)
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = "   " .. title .. ": " .. default
+    Label.TextColor3 = Color3.fromRGB(210, 210, 225)
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextSize = 11
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+    
+    local TextBox = Instance.new("TextBox")
+    TextBox.Size = UDim2.new(0, 55, 0, 26)
+    TextBox.Position = UDim2.new(1, -65, 0.5, -13)
+    TextBox.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
+    TextBox.BorderSizePixel = 0
+    TextBox.Text = tostring(default)
+    TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TextBox.Font = Enum.Font.GothamBold
+    TextBox.TextSize = 11
+    TextBox.Parent = Frame
+    
+    local BoxCorner = Instance.new("UICorner")
+    BoxCorner.CornerRadius = UDim.new(0, 4)
+    BoxCorner.Parent = TextBox
+    
+    TextBox.FocusLost:Connect(function()
+        local val = tonumber(TextBox.Text)
+        if val then
+            val = math.clamp(val, min, max)
+            TextBox.Text = tostring(val)
+            Label.Text = "   " .. title .. ": " .. val
+            callback(val)
+        else
+            TextBox.Text = tostring(default)
+        end
+    end)
+end
+
+-- Role Finder Function for MM2
+local function getMM2Role(p)
+    if p == Player then return "Self", Color3.fromRGB(255, 255, 255) end
+    local char = p.Character
+    local backpack = p:FindFirstChild("Backpack")
+    
+    local function checkContainer(container)
+        if not container then return nil end
+        for _, item in ipairs(container:GetChildren()) do
+            if item:IsA("Tool") then
+                local n = item.Name:lower()
+                if n:find("gun") or n:find("revolver") or n:find("sheriff") or n:find("peacemaker") then
+                    return "Sheriff", Color3.fromRGB(0, 150, 255)
+                elseif n:find("knife") or n:find("dagger") or n:find("murder") or n:find("godly") or n:find("chroma") then
+                    return "Murderer", Color3.fromRGB(255, 50, 50)
+                end
+            end
+        end
+        return nil
+    end
+    
+    local role = checkContainer(char) or checkContainer(backpack)
+    if role then return role, role == "Murderer" and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 150, 255) end
+    return "Innocent", Color3.fromRGB(50, 255, 50)
+end
+
+-- ==========================================
+-- TAB 1: MAIN & MOVEMENT
+-- ==========================================
+
+local iyLoaded = false
+createToggleButton(MainTab, "Infinite Yield Menu Integration", function(state)
+    if state then
+        if not iyLoaded then
+            iyLoaded = true
+            task.spawn(function()
+                pcall(function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+                end)
+            end)
+        else
+            pcall(function() if CoreGui:FindFirstChild("Infinite Yield") then CoreGui["Infinite Yield"].Enabled = true end end)
+        end
+    else
+        pcall(function() if CoreGui:FindFirstChild("Infinite Yield") then CoreGui["Infinite Yield"].Enabled = false end end)
+    end
+end)
+
+if _G.NexusClickTP == nil then _G.NexusClickTP = false end
+local mouse = Player:GetMouse()
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if _G.NexusClickTP and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                Player.Character.HumanoidRootPart.CFrame = CFrame.new(mouse.Hit.p + Vector3.new(0, 3, 0))
+            end
+        end
+    end
+end)
+createToggleButton(MainTab, "Ctrl + Click Teleport", function(state) _G.NexusClickTP = state end)
+
+createSlider(MainTab, "WalkSpeed Multiplier", 16, 300, 16, function(val)
+    if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+        Player.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = val
+    end
+end)
+
+createSlider(MainTab, "JumpPower Booster", 50, 450, 50, function(val)
+    if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+        Player.Character:FindFirstChildOfClass("Humanoid").JumpPower = val
+        Player.Character:FindFirstChildOfClass("Humanoid").UseJumpPower = true
+    end
+end)
+
+if _G.NexusInfJump == nil then _G.NexusInfJump = false end
+UserInputService.JumpRequest:Connect(function()
+    if _G.NexusInfJump then
+        if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+            Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+createToggleButton(MainTab, "Infinite Air Jump", function(state) _G.NexusInfJump = state end)
+
+if _G.NexusNoclip == nil then _G.NexusNoclip = false end
+RunService.Stepped:Connect(function()
+    if _G.NexusNoclip and Player.Character then
+        for _, part in ipairs(Player.Character:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
+end)
+createToggleButton(MainTab, "Noclip (Walk Through Walls)", function(state) _G.NexusNoclip = state end)
+
+if _G.NexusAutoCoin == nil then _G.NexusAutoCoin = false end
+createToggleButton(MainTab, "Auto Coin Collector (Fast Farm)", function(state)
+    _G.NexusAutoCoin = state
+    task.spawn(function()
+        while _G.NexusAutoCoin do
+            task.wait(0.2)
+            pcall(function()
+                for _, obj in ipairs(Workspace:GetDescendants()) do
+                    if not _G.NexusAutoCoin then break end
+                    if obj:IsA("BasePart") and (obj.Name == "Coin" or obj.Name:lower():find("coin")) then
+                        if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                            Player.Character.HumanoidRootPart.CFrame = obj.CFrame
+                            task.wait(0.04)
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+-- ==========================================
+-- TAB 2: VISUALS & ESP
+-- ==========================================
+
+if _G.NexusESPActive == nil then _G.NexusESPActive = false end
+createToggleButton(VisualsTab, "MM2 Role ESP Highlights", function(state)
+    _G.NexusESPActive = state
+    if not state then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("NexusHighlight") then
+                p.Character.NexusHighlight:Destroy()
+            end
+        end
+    end
+end)
+RunService.RenderStepped:Connect(function()
+    if not _G.NexusESPActive then return end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character and p.Character:FindFirstChild("Head") then
+            local char = p.Character
+            local _, color = getMM2Role(p)
+            local highlight = char:FindFirstChild("NexusHighlight")
+            if not highlight then
+                highlight = Instance.new("Highlight")
+                highlight.Name = "NexusHighlight"
+                highlight.Adornee = char
+                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                highlight.Parent = char
+            end
+            highlight.FillColor = color
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        end
+    end
+end)
+
+-- ==========================================
+-- TAB 3: COMBAT & AIMBOT
+-- ==========================================
+
+if _G.NexusAimbot == nil then _G.NexusAimbot = false end
+createToggleButton(CombatTab, "Aimbot Lock (Strictly Murderer Only)", function(state) _G.NexusAimbot = state end)
+RunService.RenderStepped:Connect(function()
+    if _G.NexusAimbot then
+        local targetHead = nil
+        local shortestDist = math.huge
+        local mousePos = UserInputService:GetMouseLocation()
+
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local role, _ = getMM2Role(p)
+                if role == "Murderer" then
+                    local head = p.Character:FindFirstChild("Head") or p.Character.HumanoidRootPart
+                    local screenPoint, onScreen = Camera:WorldToViewportPoint(head.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(screenPoint.X, screenPoint.Y) - mousePos).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            targetHead = head
+                        end
+                    end
+                end
+            end
+        end
+
+        if targetHead then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetHead.Position)
+        end
+    end
+end)
+
+if _G.NexusAutoShoot == nil then _G.NexusAutoShoot = false end
+createToggleButton(CombatTab, "Sheriff Instant Auto-Shoot Murderer", function(state) _G.NexusAutoShoot = state end)
+RunService.RenderStepped:Connect(function()
+    if _G.NexusAutoShoot then
+        local role, _ = getMM2Role(Player)
+        if role == "Sheriff" then
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= Player then
+                    local pRole, _ = getMM2Role(p)
+                    if pRole == "Murderer" and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        local gun = Player.Character:FindFirstChildOfClass("Tool") or Player.Backpack:FindFirstChildOfClass("Tool")
+                        if gun then
+                            if gun.Parent == Player.Backpack then gun.Parent = Player.Character end
+                            pcall(function() gun:Activate() end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- TAB 4: MAP TELEPORTS
+-- ==========================================
+
+createStandardButton(TeleportTab, "Teleport to Lobby / Spawn", function()
+    pcall(function()
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj.Name:lower():find("spawn") or obj.Name:lower():find("lobby") then
+                if obj:IsA("BasePart") and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                    Player.Character.HumanoidRootPart.CFrame = obj.CFrame + Vector3.new(0, 3, 0)
+                    break
+                end
+            end
+        end
+    end)
+end)
+
+createStandardButton(TeleportTab, "Teleport to Gun Drop Location", function()
+    pcall(function()
+        local gunDrop = Workspace:FindFirstChild("GunDrop")
+        if gunDrop and gunDrop:FindFirstChild("Handle") and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+            Player.Character.HumanoidRootPart.CFrame = gunDrop.Handle.CFrame + Vector3.new(0, 3, 0)
+        end
+    end)
+end)
+
+createStandardButton(TeleportTab, "Teleport to Random Player", function()
+    pcall(function()
+        local targets = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                table.insert(targets, p.Character.HumanoidRootPart)
+            end
+        end
+        if #targets > 0 then
+            local randomTarget = targets[math.random(1, #targets)]
+            Player.Character.HumanoidRootPart.CFrame = randomTarget.CFrame + Vector3.new(0, 3, 0)
+        end
+    end)
+end)
+
+if _G.NexusEKeyRandomTP == nil then _G.NexusEKeyRandomTP = false end
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and _G.NexusEKeyRandomTP then
+        if input.KeyCode == Enum.KeyCode.E then
+            pcall(function()
+                local targets = {}
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                        if hum and hum.Health > 0 then
+                            table.insert(targets, p.Character.HumanoidRootPart)
+                        end
+                    end
+                end
+                if #targets > 0 and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                    local randomTarget = targets[math.random(1, #targets)]
+                    Player.Character.HumanoidRootPart.CFrame = randomTarget.CFrame + Vector3.new(0, 3, 0)
+                end
+            end)
+        end
+    end
+end)
+createToggleButton(TeleportTab, "Press E to Random Teleport Player", function(state) _G.NexusEKeyRandomTP = state end)
+
+-- ==========================================
+-- TAB 5: UTILITY & MISC
+-- ==========================================
+
+createStandardButton(MiscTab, "⚔️ Open Multi-Target Fling GUI", function()
+    if CoreGui:FindFirstChild("NexusFlingGUI") then
+        CoreGui:FindFirstChild("NexusFlingGUI"):Destroy()
+    end
+    
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "NexusFlingGUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = CoreGui
+    
+    local MainFrameFling = Instance.new("Frame")
+    MainFrameFling.Size = UDim2.new(0, 300, 0, 350)
+    MainFrameFling.Position = UDim2.new(0.5, -150, 0.5, -175)
+    MainFrameFling.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    MainFrameFling.BorderSizePixel = 0
+    MainFrameFling.Active = true
+    MainFrameFling.Draggable = true
+    MainFrameFling.Parent = ScreenGui
+    
+    local TitleBar = Instance.new("Frame")
+    TitleBar.Size = UDim2.new(1, 0, 0, 30)
+    TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    TitleBar.BorderSizePixel = 0
+    TitleBar.Parent = MainFrameFling
+    
+    local TitleFling = Instance.new("TextLabel")
+    TitleFling.Size = UDim2.new(1, -30, 1, 0)
+    TitleFling.BackgroundTransparency = 1
+    TitleFling.Text = "Nexus'S MULTI-FLING"
+    TitleFling.TextColor3 = Color3.fromRGB(255, 80, 80)
+    TitleFling.Font = Enum.Font.SourceSansBold
+    TitleFling.TextSize = 18
+    TitleFling.Parent = TitleBar
+    
+    local CloseBtnFling = Instance.new("TextButton")
+    CloseBtnFling.Position = UDim2.new(1, -30, 0, 0)
+    CloseBtnFling.Size = UDim2.new(0, 30, 0, 30)
+    CloseBtnFling.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    CloseBtnFling.BorderSizePixel = 0
+    CloseBtnFling.Text = "X"
+    CloseBtnFling.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseBtnFling.Font = Enum.Font.SourceSansBold
+    CloseBtnFling.TextSize = 18
+    CloseBtnFling.Parent = TitleBar
+    
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Position = UDim2.new(0, 10, 0, 40)
+    StatusLabel.Size = UDim2.new(1, -20, 0, 25)
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Text = "Select targets to fling"
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StatusLabel.Font = Enum.Font.SourceSans
+    StatusLabel.TextSize = 16
+    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    StatusLabel.Parent = MainFrameFling
+    
+    local SelectionFrame = Instance.new("Frame")
+    SelectionFrame.Position = UDim2.new(0, 10, 0, 70)
+    SelectionFrame.Size = UDim2.new(1, -20, 0, 200)
+    SelectionFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    SelectionFrame.BorderSizePixel = 0
+    SelectionFrame.Parent = MainFrameFling
+    
+    local PlayerScrollFrame = Instance.new("ScrollingFrame")
+    PlayerScrollFrame.Position = UDim2.new(0, 5, 0, 5)
+    PlayerScrollFrame.Size = UDim2.new(1, -10, 1, -10)
+    PlayerScrollFrame.BackgroundTransparency = 1
+    PlayerScrollFrame.BorderSizePixel = 0
+    PlayerScrollFrame.ScrollBarThickness = 6
+    PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    PlayerScrollFrame.Parent = SelectionFrame
+    
+    local StartButton = Instance.new("TextButton")
+    StartButton.Position = UDim2.new(0, 10, 0, 280)
+    StartButton.Size = UDim2.new(0.5, -15, 0, 40)
+    StartButton.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+    StartButton.BorderSizePixel = 0
+    StartButton.Text = "START FLING"
+    StartButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StartButton.Font = Enum.Font.SourceSansBold
+    StartButton.TextSize = 18
+    StartButton.Parent = MainFrameFling
+    
+    local StopButton = Instance.new("TextButton")
+    StopButton.Position = UDim2.new(0.5, 5, 0, 280)
+    StopButton.Size = UDim2.new(0.5, -15, 0, 40)
+    StopButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+    StopButton.BorderSizePixel = 0
+    StopButton.Text = "STOP FLING"
+    StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StopButton.Font = Enum.Font.SourceSansBold
+    StopButton.TextSize = 18
+    StopButton.Parent = MainFrameFling
+    
+    local SelectAllButton = Instance.new("TextButton")
+    SelectAllButton.Position = UDim2.new(0, 10, 0, 330)
+    SelectAllButton.Size = UDim2.new(0.5, -15, 0, 30)
+    SelectAllButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    SelectAllButton.BorderSizePixel = 0
+    SelectAllButton.Text = "SELECT ALL"
+    SelectAllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SelectAllButton.Font = Enum.Font.SourceSans
+    SelectAllButton.TextSize = 14
+    SelectAllButton.Parent = MainFrameFling
+    
+    local DeselectAllButton = Instance.new("TextButton")
+    DeselectAllButton.Position = UDim2.new(0.5, 5, 0, 330)
+    DeselectAllButton.Size = UDim2.new(0.5, -15, 0, 30)
+    DeselectAllButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    DeselectAllButton.BorderSizePixel = 0
+    DeselectAllButton.Text = "DESELECT ALL"
+    DeselectAllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DeselectAllButton.Font = Enum.Font.SourceSans
+    DeselectAllButton.TextSize = 14
+    DeselectAllButton.Parent = MainFrameFling
+    
+    local SelectedTargets = {}
+    local PlayerCheckboxes = {}
+    local FlingActive = false
+    local OldPosFling = nil
+    local FPDH = Workspace.FallenPartsDestroyHeight
+    
+    local function RefreshPlayerList()
+        for _, child in pairs(PlayerScrollFrame:GetChildren()) do
+            child:Destroy()
+        end
+        PlayerCheckboxes = {}
+        local PlayerList = Players:GetPlayers()
+        table.sort(PlayerList, function(a, b) return a.Name:lower() < b.Name:lower() end)
+        
+        local yPosition = 5
+        for _, player in ipairs(PlayerList) do
+            if player ~= Player then
+                local PlayerEntry = Instance.new("Frame")
+                PlayerEntry.Size = UDim2.new(1, -10, 0, 30)
+                PlayerEntry.Position = UDim2.new(0, 5, 0, yPosition)
+                PlayerEntry.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                PlayerEntry.BorderSizePixel = 0
+                PlayerEntry.Parent = PlayerScrollFrame
+                
+                local Checkbox = Instance.new("TextButton")
+                Checkbox.Size = UDim2.new(0, 24, 0, 24)
+                Checkbox.Position = UDim2.new(0, 3, 0.5, -12)
+                Checkbox.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+                Checkbox.BorderSizePixel = 0
+                Checkbox.Text = ""
+                Checkbox.Parent = PlayerEntry
+                
+                local Checkmark = Instance.new("TextLabel")
+                Checkmark.Size = UDim2.new(1, 0, 1, 0)
+                Checkmark.BackgroundTransparency = 1
+                Checkmark.Text = "✓"
+                Checkmark.TextColor3 = Color3.fromRGB(0, 255, 0)
+                Checkmark.TextSize = 18
+                Checkmark.Font = Enum.Font.SourceSansBold
+                Checkmark.Visible = SelectedTargets[player.Name] ~= nil
+                Checkmark.Parent = Checkbox
+                
+                local NameLabel = Instance.new("TextLabel")
+                NameLabel.Size = UDim2.new(1, -35, 1, 0)
+                NameLabel.Position = UDim2.new(0, 30, 0, 0)
+                NameLabel.BackgroundTransparency = 1
+                NameLabel.Text = player.Name
+                NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                NameLabel.TextSize = 16
+                NameLabel.Font = Enum.Font.SourceSans
+                NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                NameLabel.Parent = PlayerEntry
+                
+                local ClickArea = Instance.new("TextButton")
+                ClickArea.Size = UDim2.new(1, 0, 1, 0)
+                ClickArea.BackgroundTransparency = 1
+                ClickArea.Text = ""
+                ClickArea.ZIndex = 2
+                ClickArea.Parent = PlayerEntry
+                
+                ClickArea.MouseButton1Click:Connect(function()
+                    if SelectedTargets[player.Name] then
+                        SelectedTargets[player.Name] = nil
+                        Checkmark.Visible = false
+                    else
+                        SelectedTargets[player.Name] = player
+                        Checkmark.Visible = true
+                    end
+                    local count = 0
+                    for _ in pairs(SelectedTargets) do count = count + 1 end
+                    if FlingActive then
+                        StatusLabel.Text = "Flinging " .. count .. " target(s)"
+                    else
+                        StatusLabel.Text = count .. " target(s) selected"
+                    end
+                end)
+                
+                PlayerCheckboxes[player.Name] = { Entry = PlayerEntry, Checkmark = Checkmark }
+                yPosition = yPosition + 35
+            end
+        end
+        PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPosition + 5)
+    end
+    
+    local function SkidFling(TargetPlayer)
+        local Character = Player.Character
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+        local RootPart = Humanoid and Humanoid.RootPart
+        local TCharacter = TargetPlayer.Character
+        if not TCharacter then return end
+        
+        local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
+        local TRootPart = THumanoid and THumanoid.RootPart
+        local THead = TCharacter:FindFirstChild("Head")
+        local Accessory = TCharacter:FindFirstChildOfClass("Accessory")
+        local Handle = Accessory and Accessory:FindFirstChild("Handle")
+        
+        if Character and Humanoid and RootPart then
+            if RootPart.Velocity.Magnitude < 50 then
+                OldPosFling = RootPart.CFrame
+            end
+            if THumanoid and THumanoid.Sit then return end
+            
+            if THead then Camera.CameraSubject = THead
+            elseif Handle then Camera.CameraSubject = Handle
+            elseif THumanoid and TRootPart then Camera.CameraSubject = THumanoid end
+            
+            local FPos = function(BasePart, Pos, Ang)
+                RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+                Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+                RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+                RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+            end
+            
+            local SFBasePart = function(BasePart)
+                local TimeToWait = 2
+                local Time = tick()
+                local Angle = 0
+                repeat
+                    if RootPart and THumanoid then
+                        Angle = Angle + 100
+                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                    end
+                until Time + TimeToWait < tick() or not FlingActive
+            end
+            
+            Workspace.FallenPartsDestroyHeight = 0/0
+            local BV = Instance.new("BodyVelocity")
+            BV.Parent = RootPart
+            BV.Velocity = Vector3.new(0, 0, 0)
+            BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+            Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+            
+            if TRootPart then SFBasePart(TRootPart)
+            elseif THead then SFBasePart(THead)
+            elseif Handle then SFBasePart(Handle) end
+            
+            BV:Destroy()
+            Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+            Camera.CameraSubject = Humanoid
+            
+            if OldPosFling then
+                repeat
+                    RootPart.CFrame = OldPosFling * CFrame.new(0, .5, 0)
+                    Character:SetPrimaryPartCFrame(OldPosFling * CFrame.new(0, .5, 0))
+                    Humanoid:ChangeState("GettingUp")
+                    task.wait()
+                until (RootPart.Position - OldPosFling.p).Magnitude < 25
+                Workspace.FallenPartsDestroyHeight = FPDH
+            end
+        end
+    end
+    
+    StartButton.MouseButton1Click:Connect(function()
+        if FlingActive then return end
+        local count = 0 for _ in pairs(SelectedTargets) do count = count + 1 end
+        if count == 0 then return end
+        FlingActive = true
+        StatusLabel.Text = "Flinging " .. count .. " target(s)"
+        
+        task.spawn(function()
+            while FlingActive do
+                for name, player in pairs(SelectedTargets) do
+                    if player and player.Parent and FlingActive then
+                        SkidFling(player)
+                        task.wait(0.1)
+                    else
+                        SelectedTargets[name] = nil
+                    end
+                end
+                task.wait(0.5)
+            end
+        end)
+    end)
+    
+    StopButton.MouseButton1Click:Connect(function()
+        FlingActive = false
+        StatusLabel.Text = "Fling stopped"
+    end)
+    
+    SelectAllButton.MouseButton1Click:Connect(function()
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= Player then SelectedTargets[p.Name] = p end
+        end
+        RefreshPlayerList()
+    end)
+    
+    DeselectAllButton.MouseButton1Click:Connect(function()
+        SelectedTargets = {}
+        RefreshPlayerList()
+    end)
+    
+    CloseBtnFling.MouseButton1Click:Connect(function()
+        FlingActive = false
+        ScreenGui:Destroy()
+    end)
+    
+    RefreshPlayerList()
+end)
+
+createStandardButton(MiscTab, "Server Hop (Find New Lobbies)", function()
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    pcall(function()
+        for _, s in ipairs(HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")).data) do
+            if s.playing < s.maxPlayers and s.id ~= game.JobId then
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, Player)
+                break
+            end
+        end
+    end)
+end)
+
+createStandardButton(MiscTab, "Rejoin Current Server", function()
+    local TeleportService = game:GetService("TeleportService")
+    TeleportService:Teleport(game.PlaceId, Player)
+end)
