@@ -398,6 +398,79 @@ createToggleButton(MainTab, "Auto Coin Collector (Fast Farm)", function(state)
 end)
 
 -- ==========================================
+-- NEXUS ADDON: AUTO GRAB GUN
+-- ==========================================
+_G.NexusAutoGrabGun = _G.NexusAutoGrabGun or false
+
+local function NexusFindGunDrop()
+    local direct = Workspace:FindFirstChild("GunDrop")
+    if direct then return direct end
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        local n = obj.Name:lower()
+        if n == "gundrop" or n == "gun drop" then
+            return obj
+        end
+    end
+end
+
+local function NexusGetPart(obj)
+    if not obj then return nil end
+    if obj:IsA("BasePart") then return obj end
+    if obj:IsA("Model") then
+        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart", true)
+    end
+    return obj:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function NexusTryEquipGun()
+    local char = Player.Character
+    local backpack = Player:FindFirstChildOfClass("Backpack")
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    local gun = char:FindFirstChild("Gun") or char:FindFirstChild("SheriffGun")
+    if gun and gun:IsA("Tool") then
+        pcall(function() hum:EquipTool(gun) end)
+        return
+    end
+
+    if backpack then
+        for _, tool in ipairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                local n = tool.Name:lower()
+                if n:find("gun") or n:find("revolver") or n:find("sheriff") or n:find("peacemaker") then
+                    pcall(function() hum:EquipTool(tool) end)
+                    break
+                end
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.12) do
+        if _G.NexusAutoGrabGun then
+            pcall(function()
+                local char = Player.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                local gunDrop = NexusFindGunDrop()
+                local gunPart = NexusGetPart(gunDrop)
+                if root and gunPart then
+                    root.CFrame = gunPart.CFrame + Vector3.new(0, 2.5, 0)
+                    task.wait(0.08)
+                    NexusTryEquipGun()
+                end
+            end)
+        end
+    end
+end)
+
+createToggleButton(MainTab, "Auto Grab Gun", function(state)
+    _G.NexusAutoGrabGun = state
+end)
+
+-- ==========================================
 -- TAB 2: VISUALS & ESP
 -- ==========================================
 
@@ -485,6 +558,100 @@ RunService.RenderStepped:Connect(function()
                     end
                 end
             end
+        end
+    end
+end)
+
+-- ==========================================
+-- NEXUS ADDON: KNIFE AURA (ALL PLAYERS)
+-- Targets every live player. Uses normal Tool:Activate only.
+-- MM2 server-side validation still applies.
+-- ==========================================
+
+_G.NexusKnifeAura = _G.NexusKnifeAura or false
+_G.NexusKnifeAuraBusy = false
+
+local function NexusGetKnifeTool()
+    local char = Player.Character
+    local backpack = Player:FindFirstChildOfClass("Backpack")
+    local function findKnife(container)
+        if not container then return nil end
+        for _, tool in ipairs(container:GetChildren()) do
+            if tool:IsA("Tool") then
+                local n = tool.Name:lower()
+                if n:find("knife") or n:find("dagger") or n:find("murder") or n:find("godly") or n:find("chroma") then
+                    return tool
+                end
+            end
+        end
+    end
+    return findKnife(char) or findKnife(backpack)
+end
+
+local function NexusGetAllLiveTargets()
+    local targets = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character then
+            local root = p.Character:FindFirstChild("HumanoidRootPart")
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            if root and hum and hum.Health > 0 then table.insert(targets, p) end
+        end
+    end
+    return targets
+end
+
+local function NexusTPAndAttack(target)
+    local char = Player.Character
+    local myRoot = char and char:FindFirstChild("HumanoidRootPart")
+    local targetChar = target and target.Character
+    local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+    local knife = NexusGetKnifeTool()
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+    if not myRoot or not targetRoot or not targetHum or targetHum.Health <= 0 or not knife or not hum then
+        return false
+    end
+
+    -- Hedefin hemen yanına ışınlan; sonra hedefe dönüp bıçağı etkinleştir.
+    local attackPos = targetRoot.Position - targetRoot.CFrame.LookVector * 2.0 + Vector3.new(0, 0.5, 0)
+    myRoot.CFrame = CFrame.lookAt(attackPos, targetRoot.Position)
+
+    if knife.Parent ~= char then
+        pcall(function() hum:EquipTool(knife) end)
+        task.wait(0.08)
+    end
+
+    if knife.Parent ~= char then return false end
+
+    myRoot.CFrame = CFrame.lookAt(
+        targetRoot.Position - targetRoot.CFrame.LookVector * 2.0 + Vector3.new(0, 0.5, 0),
+        targetRoot.Position
+    )
+
+    pcall(function() knife:Activate() end)
+    task.wait(0.08)
+    return true
+end
+
+createToggleButton(CombatTab, "Knife Aura (TP + Attack)", function(state)
+    _G.NexusKnifeAura = state
+end)
+
+task.spawn(function()
+    while task.wait(0.15) do
+        if _G.NexusKnifeAura and not _G.NexusKnifeAuraBusy then
+            _G.NexusKnifeAuraBusy = true
+            pcall(function()
+                for _, target in ipairs(NexusGetAllLiveTargets()) do
+                    if not _G.NexusKnifeAura then break end
+                    if target.Parent and target.Character then
+                        NexusTPAndAttack(target)
+                        task.wait(0.12)
+                    end
+                end
+            end)
+            _G.NexusKnifeAuraBusy = false
         end
     end
 end)
