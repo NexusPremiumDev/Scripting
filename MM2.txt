@@ -397,262 +397,351 @@ createToggleButton(MainTab, "Auto Coin Collector (Fast Farm)", function(state)
     end)
 end)
 
+
 -- ==========================================
--- NEXUS ADDON: AUTO GRAB GUN
+-- AUTO GRAB GUN
 -- ==========================================
-_G.NexusAutoGrabGun = _G.NexusAutoGrabGun or false
+if _G.NexusAutoGrabGun == nil then _G.NexusAutoGrabGun = false end
 
 local function NexusFindGunDrop()
     local direct = Workspace:FindFirstChild("GunDrop")
     if direct then return direct end
     for _, obj in ipairs(Workspace:GetDescendants()) do
         local n = obj.Name:lower()
-        if n == "gundrop" or n == "gun drop" then
+        if n == "gundrop" or n == "gun drop" or n == "gun_drop" then
             return obj
         end
     end
+    return nil
 end
 
 local function NexusGetPart(obj)
     if not obj then return nil end
     if obj:IsA("BasePart") then return obj end
     if obj:IsA("Model") then
-        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart", true)
+        return obj.PrimaryPart or obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
     end
-    return obj:FindFirstChildWhichIsA("BasePart", true)
+    return obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
 end
 
 local function NexusTryEquipGun()
     local char = Player.Character
     local backpack = Player:FindFirstChildOfClass("Backpack")
-    if not char then return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then return end
+    if not char or not backpack then return false end
 
-    local gun = char:FindFirstChild("Gun") or char:FindFirstChild("SheriffGun")
-    if gun and gun:IsA("Tool") then
-        pcall(function() hum:EquipTool(gun) end)
-        return
+    local function isGun(tool)
+        if not tool:IsA("Tool") then return false end
+        local n = tool.Name:lower()
+        return n:find("gun") or n:find("revolver") or n:find("sheriff") or n:find("peacemaker")
     end
 
-    if backpack then
-        for _, tool in ipairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") then
-                local n = tool.Name:lower()
-                if n:find("gun") or n:find("revolver") or n:find("sheriff") or n:find("peacemaker") then
-                    pcall(function() hum:EquipTool(tool) end)
-                    break
-                end
-            end
+    for _, tool in ipairs(char:GetChildren()) do
+        if isGun(tool) then return true end
+    end
+    for _, tool in ipairs(backpack:GetChildren()) do
+        if isGun(tool) then
+            pcall(function() tool.Parent = char end)
+            return true
         end
     end
+    return false
 end
-
-task.spawn(function()
-    while task.wait(0.12) do
-        if _G.NexusAutoGrabGun then
-            pcall(function()
-                local char = Player.Character
-                local root = char and char:FindFirstChild("HumanoidRootPart")
-                local gunDrop = NexusFindGunDrop()
-                local gunPart = NexusGetPart(gunDrop)
-                if root and gunPart then
-                    root.CFrame = gunPart.CFrame + Vector3.new(0, 2.5, 0)
-                    task.wait(0.08)
-                    NexusTryEquipGun()
-                end
-            end)
-        end
-    end
-end)
 
 createToggleButton(MainTab, "Auto Grab Gun", function(state)
     _G.NexusAutoGrabGun = state
+    if state then
+        task.spawn(function()
+            while _G.NexusAutoGrabGun do
+                task.wait(0.15)
+                pcall(function()
+                    if NexusTryEquipGun() then return end
+                    local drop = NexusFindGunDrop()
+                    local part = NexusGetPart(drop)
+                    local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                    if part and root then
+                        root.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+                        task.wait(0.08)
+                        NexusTryEquipGun()
+                    end
+                end)
+            end
+        end)
+    end
 end)
+
 
 -- ==========================================
 -- TAB 2: VISUALS & ESP
 -- ==========================================
 
 if _G.NexusESPActive == nil then _G.NexusESPActive = false end
+if _G.NexusESPNames == nil then _G.NexusESPNames = false end
+if _G.NexusESPDistance == nil then _G.NexusESPDistance = false end
+
+local NexusESPObjects = {}
+
+local function NexusClearESP(p)
+    local data = NexusESPObjects[p]
+    if data then
+        for _, obj in ipairs(data) do
+            pcall(function() obj:Destroy() end)
+        end
+        NexusESPObjects[p] = nil
+    end
+    if p.Character then
+        for _, name in ipairs({"NexusHighlight","NexusESPBillboard"}) do
+            local old = p.Character:FindFirstChild(name)
+            if old then old:Destroy() end
+        end
+    end
+end
+
+local function NexusApplyESP(p)
+    if p == Player or not _G.NexusESPActive or not p.Character then return end
+    local char = p.Character
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+
+    local role, color = getMM2Role(p)
+    local objects = NexusESPObjects[p] or {}
+    NexusESPObjects[p] = objects
+
+    local highlight = char:FindFirstChild("NexusHighlight")
+    if not highlight then
+        highlight = Instance.new("Highlight")
+        highlight.Name = "NexusHighlight"
+        highlight.Adornee = char
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = char
+        table.insert(objects, highlight)
+    end
+    highlight.FillColor = color
+    highlight.OutlineColor = Color3.fromRGB(255,255,255)
+    highlight.FillTransparency = 0.55
+    highlight.OutlineTransparency = 0
+
+    local billboard = char:FindFirstChild("NexusESPBillboard")
+    if (_G.NexusESPNames or _G.NexusESPDistance) and not billboard then
+        billboard = Instance.new("BillboardGui")
+        billboard.Name = "NexusESPBillboard"
+        billboard.Adornee = head
+        billboard.AlwaysOnTop = true
+        billboard.Size = UDim2.new(0, 220, 0, 45)
+        billboard.StudsOffset = Vector3.new(0, 3.1, 0)
+        billboard.Parent = char
+        table.insert(objects, billboard)
+
+        local label = Instance.new("TextLabel")
+        label.Name = "Info"
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 12
+        label.TextStrokeTransparency = 0.25
+        label.Parent = billboard
+    end
+
+    if billboard then
+        local label = billboard:FindFirstChild("Info")
+        if label then
+            local root = char:FindFirstChild("HumanoidRootPart")
+            local myRoot = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+            local distance = (root and myRoot) and math.floor((root.Position-myRoot.Position).Magnitude) or 0
+            local parts = {}
+            if _G.NexusESPNames then table.insert(parts, p.Name) end
+            if _G.NexusESPActive then table.insert(parts, role) end
+            if _G.NexusESPDistance and root and myRoot then table.insert(parts, distance.."m") end
+            label.Text = table.concat(parts, " • ")
+            label.TextColor3 = color
+        end
+    end
+end
+
 createToggleButton(VisualsTab, "MM2 Role ESP Highlights", function(state)
     _G.NexusESPActive = state
     if not state then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p.Character and p.Character:FindFirstChild("NexusHighlight") then
-                p.Character.NexusHighlight:Destroy()
+        for _, p in ipairs(Players:GetPlayers()) do NexusClearESP(p) end
+    end
+end)
+
+createToggleButton(VisualsTab, "ESP Player Names", function(state)
+    _G.NexusESPNames = state
+end)
+
+createToggleButton(VisualsTab, "ESP Distance", function(state)
+    _G.NexusESPDistance = state
+end)
+
+createToggleButton(VisualsTab, "Murderer Only ESP", function(state)
+    _G.NexusMurdererOnlyESP = state
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not _G.NexusESPActive then return end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character then
+            if _G.NexusMurdererOnlyESP then
+                local role = getMM2Role(p)
+                if role == "Murderer" then
+                    NexusApplyESP(p)
+                else
+                    NexusClearESP(p)
+                end
+            else
+                NexusApplyESP(p)
             end
         end
     end
 end)
-RunService.RenderStepped:Connect(function()
-    if not _G.NexusESPActive then return end
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= Player and p.Character and p.Character:FindFirstChild("Head") then
-            local char = p.Character
-            local _, color = getMM2Role(p)
-            local highlight = char:FindFirstChild("NexusHighlight")
-            if not highlight then
-                highlight = Instance.new("Highlight")
-                highlight.Name = "NexusHighlight"
-                highlight.Adornee = char
-                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                highlight.Parent = char
-            end
-            highlight.FillColor = color
-            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        end
-    end
+
+Players.PlayerRemoving:Connect(function(p)
+    NexusClearESP(p)
 end)
 
 -- ==========================================
 -- TAB 3: COMBAT & AIMBOT
 -- ==========================================
 
-if _G.NexusAimbot == nil then _G.NexusAimbot = false end
-createToggleButton(CombatTab, "Aimbot Lock (Strictly Murderer Only)", function(state) _G.NexusAimbot = state end)
+local function NexusGetMurderer()
+    local best, bestDist = nil, math.huge
+    local mousePos = UserInputService:GetMouseLocation()
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            local role = getMM2Role(p)
+            if role == "Murderer" and hum and hum.Health > 0 then
+                local head = p.Character:FindFirstChild("Head") or p.Character.HumanoidRootPart
+                local point, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local d = (Vector2.new(point.X, point.Y) - mousePos).Magnitude
+                    if d < bestDist then
+                        bestDist = d
+                        best = p
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
+
+_G.NexusAimbot = _G.NexusAimbot or false
+_G.NexusSilentAim = _G.NexusSilentAim or false
+_G.NexusSilentTarget = nil
+
+createToggleButton(CombatTab, "Aimbot Lock (Strictly Murderer Only)", function(state)
+    _G.NexusAimbot = state
+end)
+
 RunService.RenderStepped:Connect(function()
     if _G.NexusAimbot then
-        local targetHead = nil
-        local shortestDist = math.huge
-        local mousePos = UserInputService:GetMouseLocation()
-
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local role, _ = getMM2Role(p)
-                if role == "Murderer" then
-                    local head = p.Character:FindFirstChild("Head") or p.Character.HumanoidRootPart
-                    local screenPoint, onScreen = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen then
-                        local dist = (Vector2.new(screenPoint.X, screenPoint.Y) - mousePos).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            targetHead = head
-                        end
-                    end
-                end
-            end
-        end
-
-        if targetHead then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetHead.Position)
+        local target = NexusGetMurderer()
+        local head = target and target.Character and target.Character:FindFirstChild("Head")
+        if head then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
         end
     end
 end)
 
-if _G.NexusAutoShoot == nil then _G.NexusAutoShoot = false end
-createToggleButton(CombatTab, "Sheriff Instant Auto-Shoot Murderer", function(state) _G.NexusAutoShoot = state end)
+createToggleButton(CombatTab, "Silent Aim (Murderer Only)", function(state)
+    _G.NexusSilentAim = state
+    if not state then _G.NexusSilentTarget = nil end
+end)
+
 RunService.RenderStepped:Connect(function()
-    if _G.NexusAutoShoot then
-        local role, _ = getMM2Role(Player)
-        if role == "Sheriff" then
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= Player then
-                    local pRole, _ = getMM2Role(p)
-                    if pRole == "Murderer" and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                        local gun = Player.Character:FindFirstChildOfClass("Tool") or Player.Backpack:FindFirstChildOfClass("Tool")
-                        if gun then
-                            if gun.Parent == Player.Backpack then gun.Parent = Player.Character end
-                            pcall(function() gun:Activate() end)
-                        end
-                    end
-                end
-            end
-        end
+    if _G.NexusSilentAim then
+        _G.NexusSilentTarget = NexusGetMurderer()
+    else
+        _G.NexusSilentTarget = nil
     end
 end)
-
--- ==========================================
--- NEXUS ADDON: KNIFE AURA (ALL PLAYERS)
--- Targets every live player. Uses normal Tool:Activate only.
--- MM2 server-side validation still applies.
--- ==========================================
-
-_G.NexusKnifeAura = _G.NexusKnifeAura or false
-_G.NexusKnifeAuraBusy = false
-
-local function NexusGetKnifeTool()
-    local char = Player.Character
-    local backpack = Player:FindFirstChildOfClass("Backpack")
-    local function findKnife(container)
-        if not container then return nil end
-        for _, tool in ipairs(container:GetChildren()) do
-            if tool:IsA("Tool") then
-                local n = tool.Name:lower()
-                if n:find("knife") or n:find("dagger") or n:find("murder") or n:find("godly") or n:find("chroma") then
-                    return tool
-                end
-            end
-        end
-    end
-    return findKnife(char) or findKnife(backpack)
-end
-
-local function NexusGetAllLiveTargets()
-    local targets = {}
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= Player and p.Character then
-            local root = p.Character:FindFirstChild("HumanoidRootPart")
-            local hum = p.Character:FindFirstChildOfClass("Humanoid")
-            if root and hum and hum.Health > 0 then table.insert(targets, p) end
-        end
-    end
-    return targets
-end
-
-local function NexusTPAndAttack(target)
-    local char = Player.Character
-    local myRoot = char and char:FindFirstChild("HumanoidRootPart")
-    local targetChar = target and target.Character
-    local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
-    local knife = NexusGetKnifeTool()
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-
-    if not myRoot or not targetRoot or not targetHum or targetHum.Health <= 0 or not knife or not hum then
-        return false
-    end
-
-    -- Hedefin hemen yanına ışınlan; sonra hedefe dönüp bıçağı etkinleştir.
-    local attackPos = targetRoot.Position - targetRoot.CFrame.LookVector * 2.0 + Vector3.new(0, 0.5, 0)
-    myRoot.CFrame = CFrame.lookAt(attackPos, targetRoot.Position)
-
-    if knife.Parent ~= char then
-        pcall(function() hum:EquipTool(knife) end)
-        task.wait(0.08)
-    end
-
-    if knife.Parent ~= char then return false end
-
-    myRoot.CFrame = CFrame.lookAt(
-        targetRoot.Position - targetRoot.CFrame.LookVector * 2.0 + Vector3.new(0, 0.5, 0),
-        targetRoot.Position
-    )
-
-    pcall(function() knife:Activate() end)
-    task.wait(0.08)
-    return true
-end
 
 createToggleButton(CombatTab, "Knife Aura (TP + Attack)", function(state)
     _G.NexusKnifeAura = state
+    if state then
+        task.spawn(function()
+            while _G.NexusKnifeAura do
+                task.wait(0.15)
+                pcall(function()
+                    local char = Player.Character
+                    local hum = char and char:FindFirstChildOfClass("Humanoid")
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if not hum or not root or hum.Health <= 0 then return end
+
+                    local knife = char:FindFirstChildOfClass("Tool")
+                    if not knife or not knife.Name:lower():find("knife") then
+                        local backpack = Player:FindFirstChildOfClass("Backpack")
+                        if backpack then
+                            for _, tool in ipairs(backpack:GetChildren()) do
+                                if tool:IsA("Tool") and tool.Name:lower():find("knife") then
+                                    tool.Parent = char
+                                    knife = tool
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    if not knife then return end
+
+                    local targets = {}
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        if p ~= Player and p.Character then
+                            local th = p.Character:FindFirstChildOfClass("Humanoid")
+                            local tr = p.Character:FindFirstChild("HumanoidRootPart")
+                            if th and tr and th.Health > 0 then
+                                table.insert(targets, p)
+                            end
+                        end
+                    end
+
+                    for _, target in ipairs(targets) do
+                        if not _G.NexusKnifeAura then break end
+                        local tr = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+                        if tr and root then
+                            root.CFrame = tr.CFrame * CFrame.new(0, 0, 2.5)
+                            pcall(function() knife:Activate() end)
+                            task.wait(0.04)
+                        end
+                    end
+                end)
+            end
+        end)
+    end
 end)
 
-task.spawn(function()
-    while task.wait(0.15) do
-        if _G.NexusKnifeAura and not _G.NexusKnifeAuraBusy then
-            _G.NexusKnifeAuraBusy = true
-            pcall(function()
-                for _, target in ipairs(NexusGetAllLiveTargets()) do
-                    if not _G.NexusKnifeAura then break end
-                    if target.Parent and target.Character then
-                        NexusTPAndAttack(target)
-                        task.wait(0.12)
+createToggleButton(CombatTab, "Auto Knife Attack (Murderer)", function(state)
+    _G.NexusAutoKnifeAttack = state
+    if state then
+        task.spawn(function()
+            while _G.NexusAutoKnifeAttack do
+                task.wait(0.18)
+                pcall(function()
+                    local role = getMM2Role(Player)
+                    if role ~= "Murderer" then return end
+                    local char = Player.Character
+                    local knife = char and char:FindFirstChildOfClass("Tool")
+                    if knife and knife.Name:lower():find("knife") then
+                        knife:Activate()
                     end
-                end
-            end)
-            _G.NexusKnifeAuraBusy = false
-        end
+                end)
+            end
+        end)
+    end
+end)
+
+createToggleButton(CombatTab, "Auto Sprint", function(state)
+    _G.NexusAutoSprint = state
+end)
+
+RunService.RenderStepped:Connect(function()
+    if _G.NexusAutoSprint then
+        pcall(function()
+            local hum = Player.Character and Player.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.MoveDirection.Magnitude > 0 then
+                hum.WalkSpeed = math.max(hum.WalkSpeed, 20)
+            end
+        end)
     end
 end)
 
@@ -1040,6 +1129,35 @@ createStandardButton(MiscTab, "⚔️ Open Multi-Target Fling GUI", function()
     end)
     
     RefreshPlayerList()
+end)
+
+createToggleButton(MiscTab, "Anti AFK", function(state)
+    _G.NexusAntiAFK = state
+end)
+
+Player.Idled:Connect(function()
+    if _G.NexusAntiAFK then
+        pcall(function()
+            local VirtualUser = game:GetService("VirtualUser")
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end)
+    end
+end)
+
+createToggleButton(MiscTab, "Low Graphics / FPS Boost", function(state)
+    _G.NexusFPSBoost = state
+    pcall(function()
+        if state then
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 100000
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") then
+                    obj.Enabled = false
+                end
+            end
+        end
+    end)
 end)
 
 createStandardButton(MiscTab, "Server Hop (Find New Lobbies)", function()
