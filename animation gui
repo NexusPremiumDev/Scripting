@@ -1,0 +1,473 @@
+-- Nexus Animation GUI (Updated & Modernized)
+
+-- Objects
+
+local Nexus = Instance.new("ScreenGui")
+local SideFrame = Instance.new("Frame")
+local OpenGUI = Instance.new("TextButton")
+local SideFrameTitle = Instance.new("TextLabel")
+local MainFrame = Instance.new("Frame")
+local GuiBottomFrame = Instance.new("Frame")
+local Credits = Instance.new("TextLabel")
+local ScrollingFrame = Instance.new("ScrollingFrame")
+local CheckR = Instance.new("TextLabel")
+local ScrollingFrameR15 = Instance.new("ScrollingFrame")
+
+-- Buttons (R6)
+local CrazySlash = Instance.new("TextButton")
+local Open = Instance.new("TextButton")
+local R15Spinner = Instance.new("TextButton")
+local ArmsOut = Instance.new("TextButton")
+local FloatSlash = Instance.new("TextButton")
+local WeirdZombie = Instance.new("TextButton")
+local DownSlash = Instance.new("TextButton")
+local Pull = Instance.new("TextButton")
+local CircleArm = Instance.new("TextButton")
+local Bend = Instance.new("TextButton")
+local RotateSlash = Instance.new("TextButton")
+local FlingArms = Instance.new("TextButton")
+
+local FullSwing = Instance.new("TextButton")
+local GlitchLevitate = Instance.new("TextButton")
+local MoonDance = Instance.new("TextButton")
+local FullPunch = Instance.new("TextButton")
+local Crouch = Instance.new("TextButton")
+local SpinDance = Instance.new("TextButton")
+local FloorFaint = Instance.new("TextButton")
+local JumpingJacks = Instance.new("TextButton")
+local Spinner = Instance.new("TextButton")
+local MegaInsane = Instance.new("TextButton")
+local ArmDetach = Instance.new("TextButton")
+local WeirdMove = Instance.new("TextButton")
+local Faint = Instance.new("TextButton")
+local CloneIllusion = Instance.new("TextButton")
+local Levitate = Instance.new("TextButton")
+local DinoWalk = Instance.new("TextButton")
+local FloorCrawl = Instance.new("TextButton")
+local SwordSlam = Instance.new("TextButton")
+local LoopHead = Instance.new("TextButton")
+local HeroJump = Instance.new("TextButton")
+local Insane = Instance.new("TextButton")
+local FloatingHead = Instance.new("TextButton")
+local HeadThrow = Instance.new("TextButton")
+local MovingDance = Instance.new("TextButton")
+local SuperPunch = Instance.new("TextButton")
+local ArmTurbine = Instance.new("TextButton")
+local Dab = Instance.new("TextButton")
+local FloatSit = Instance.new("TextButton")
+local SuperFaint = Instance.new("TextButton")
+local BarrelRoll = Instance.new("TextButton")
+local Scared = Instance.new("TextButton")
+local InsaneArms = Instance.new("TextButton")
+local SwordSlice = Instance.new("TextButton")
+local SpinDance2 = Instance.new("TextButton")
+local BowDown = Instance.new("TextButton")
+local LoopSlam = Instance.new("TextButton")
+
+local GuiTopFrame = Instance.new("Frame")
+local CloseGUI = Instance.new("TextButton")
+local Title = Instance.new("TextLabel")
+
+-- Properties (Modern Dark Theme Styling)
+
+Nexus.Name = "NexusPremium"
+Nexus.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+SideFrame.Name = "SideFrame"
+SideFrame.Parent = Nexus
+SideFrame.Active = true
+SideFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+SideFrame.BorderSizePixel = 0
+SideFrame.Draggable = true
+SideFrame.Position = UDim2.new(0, 376, 0, 125)
+SideFrame.Size = UDim2.new(0, 460, 0, 32)
+SideFrame.Visible = false
+
+OpenGUI.Name = "OpenGUI"
+OpenGUI.Parent = SideFrame
+OpenGUI.BackgroundColor3 = Color3.new(1, 1, 1)
+OpenGUI.BackgroundTransparency = 1
+OpenGUI.Position = UDim2.new(0, 426, 0, 0)
+OpenGUI.Size = UDim2.new(0, 34, 0, 32)
+OpenGUI.Font = Enum.Font.SourceSansBold
+OpenGUI.Text = "+"
+OpenGUI.TextColor3 = Color3.fromRGB(0, 255, 128)
+OpenGUI.TextSize = 22
+
+SideFrameTitle.Name = "SideFrameTitle"
+SideFrameTitle.Parent = SideFrame
+SideFrameTitle.BackgroundColor3 = Color3.new(1, 1, 1)
+SideFrameTitle.BackgroundTransparency = 1
+SideFrameTitle.Position = UDim2.new(0, 15, 0, 0)
+SideFrameTitle.Size = UDim2.new(0, 150, 0, 32)
+SideFrameTitle.Font = Enum.Font.GothamBold
+SideFrameTitle.Text = "Nexus Premium"
+SideFrameTitle.TextColor3 = Color3.fromRGB(240, 240, 240)
+SideFrameTitle.TextSize = 14
+SideFrameTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = Nexus
+MainFrame.Active = true
+MainFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+MainFrame.BackgroundTransparency = 1
+MainFrame.Draggable = true
+MainFrame.Position = UDim2.new(0, 376, 0, 125)
+MainFrame.Size = UDim2.new(0, 444, 0, 280)
+
+GuiBottomFrame.Name = "Gui BottomFrame"
+GuiBottomFrame.Parent = MainFrame
+GuiBottomFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+GuiBottomFrame.BorderSizePixel = 0
+GuiBottomFrame.Position = UDim2.new(0, 0, 0, 247)
+GuiBottomFrame.Size = UDim2.new(0, 460, 0, 32)
+
+Credits.Name = "Credits"
+Credits.Parent = GuiBottomFrame
+Credits.BackgroundColor3 = Color3.new(1, 1, 1)
+Credits.BackgroundTransparency = 1
+Credits.Size = UDim2.new(0, 460, 0, 32)
+Credits.Font = Enum.Font.Gotham
+Credits.Text = "Nexus Premium - FE Animations"
+Credits.TextColor3 = Color3.fromRGB(150, 150, 160)
+Credits.TextSize = 12
+
+ScrollingFrame.Parent = MainFrame
+ScrollingFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+ScrollingFrame.BorderSizePixel = 0
+ScrollingFrame.Position = UDim2.new(0, 0, 0, 32)
+ScrollingFrame.Size = UDim2.new(0, 460, 0, 215)
+ScrollingFrame.ScrollBarThickness = 8
+
+-- Helper function to style animation buttons nicely
+local function styleButton(btn, text, isR15)
+	btn.Parent = isR15 and ScrollingFrameR15 or ScrollingFrame
+	btn.BackgroundColor3 = isR15 and Color3.fromRGB(55, 65, 85) or Color3.fromRGB(45, 45, 55)
+	btn.BorderColor3 = Color3.fromRGB(70, 70, 85)
+	btn.Font = Enum.Font.GothamSemibold
+	btn.Text = text
+	btn.TextColor3 = Color3.fromRGB(230, 230, 230)
+	btn.TextSize = 13
+	btn.TextWrapped = true
+end
+
+-- Apply styling to all buttons programmatically for a cleaner look
+styleButton(FullSwing, "Full Swing", false)
+styleButton(GlitchLevitate, "Glitch Levitate", false)
+styleButton(MoonDance, "Moon Dance", false)
+styleButton(FullPunch, "Full Punch", false)
+styleButton(Crouch, "Crouch", false)
+styleButton(SpinDance, "Spin Dance", false)
+styleButton(FloorFaint, "Floor Faint", false)
+styleButton(JumpingJacks, "Jumping Jacks", false)
+styleButton(Spinner, "Spinner", false)
+styleButton(MegaInsane, "Mega Insane", false)
+styleButton(ArmDetach, "Arm Detach", false)
+styleButton(WeirdMove, "Weird Move", false)
+styleButton(Faint, "Faint", false)
+styleButton(CloneIllusion, "Clone Illusion", false)
+styleButton(Levitate, "Levitate", false)
+styleButton(DinoWalk, "Dino Walk", false)
+styleButton(FloorCrawl, "Floor Crawl", false)
+styleButton(SwordSlam, "Sword Slam", false)
+styleButton(LoopHead, "Loop Head", false)
+styleButton(HeroJump, "Hero Jump", false)
+styleButton(Insane, "Insane", false)
+styleButton(FloatingHead, "Floating Head", false)
+styleButton(HeadThrow, "Head Throw", false)
+styleButton(MovingDance, "Moving Dance", false)
+styleButton(SuperPunch, "Super Punch", false)
+styleButton(ArmTurbine, "Arm Turbine", false)
+styleButton(Dab, "Dab", false)
+styleButton(FloatSit, "Float Sit", false)
+styleButton(SuperFaint, "Super Faint", false)
+styleButton(BarrelRoll, "Barrel Roll", false)
+styleButton(Scared, "Scared", false)
+styleButton(InsaneArms, "Insane Arms", false)
+styleButton(SwordSlice, "Sword Slice", false)
+styleButton(SpinDance2, "Spin Dance 2", false)
+styleButton(BowDown, "Bow Down", false)
+styleButton(LoopSlam, "Loop Slam", false)
+
+-- Positions for R6 buttons
+FullSwing.Position = UDim2.new(0, 17, 0, 322)
+FullSwing.Size = UDim2.new(0, 119, 0, 34)
+GlitchLevitate.Position = UDim2.new(0, 319, 0, 322)
+GlitchLevitate.Size = UDim2.new(0, 119, 0, 34)
+MoonDance.Position = UDim2.new(0, 319, 0, 280)
+MoonDance.Size = UDim2.new(0, 119, 0, 34)
+FullPunch.Position = UDim2.new(0, 17, 0, 280)
+FullPunch.Size = UDim2.new(0, 119, 0, 34)
+Crouch.Position = UDim2.new(0, 168, 0, 280)
+Crouch.Size = UDim2.new(0, 119, 0, 34)
+SpinDance.Position = UDim2.new(0, 168, 0, 236)
+SpinDance.Size = UDim2.new(0, 119, 0, 34)
+FloorFaint.Position = UDim2.new(0, 17, 0, 236)
+FloorFaint.Size = UDim2.new(0, 119, 0, 34)
+JumpingJacks.Position = UDim2.new(0, 319, 0, 236)
+JumpingJacks.Size = UDim2.new(0, 119, 0, 34)
+Spinner.Position = UDim2.new(0, 17, 0, 192)
+Spinner.Size = UDim2.new(0, 119, 0, 34)
+MegaInsane.Position = UDim2.new(0, 168, 0, 192)
+MegaInsane.Size = UDim2.new(0, 119, 0, 34)
+ArmDetach.Position = UDim2.new(0, 319, 0, 192)
+ArmDetach.Size = UDim2.new(0, 119, 0, 34)
+WeirdMove.Position = UDim2.new(0, 168, 0, 148)
+WeirdMove.Size = UDim2.new(0, 119, 0, 34)
+Faint.Position = UDim2.new(0, 17, 0, 148)
+Faint.Size = UDim2.new(0, 119, 0, 34)
+CloneIllusion.Position = UDim2.new(0, 319, 0, 148)
+CloneIllusion.Size = UDim2.new(0, 119, 0, 34)
+Levitate.Position = UDim2.new(0, 17, 0, 104)
+Levitate.Size = UDim2.new(0, 119, 0, 34)
+DinoWalk.Position = UDim2.new(0, 168, 0, 104)
+DinoWalk.Size = UDim2.new(0, 119, 0, 34)
+FloorCrawl.Position = UDim2.new(0, 319, 0, 104)
+FloorCrawl.Size = UDim2.new(0, 119, 0, 34)
+SwordSlam.Position = UDim2.new(0, 319, 0, 60)
+SwordSlam.Size = UDim2.new(0, 119, 0, 34)
+LoopHead.Position = UDim2.new(0, 168, 0, 60)
+LoopHead.Size = UDim2.new(0, 119, 0, 34)
+HeroJump.Position = UDim2.new(0, 17, 0, 60)
+HeroJump.Size = UDim2.new(0, 119, 0, 34)
+Insane.Position = UDim2.new(0, 319, 0, 16)
+Insane.Size = UDim2.new(0, 119, 0, 34)
+FloatingHead.Position = UDim2.new(0, 168, 0, 16)
+FloatingHead.Size = UDim2.new(0, 119, 0, 34)
+HeadThrow.Position = UDim2.new(0, 17, 0, 16)
+HeadThrow.Size = UDim2.new(0, 119, 0, 34)
+MovingDance.Position = UDim2.new(0, 168, 0, 324)
+MovingDance.Size = UDim2.new(0, 119, 0, 34)
+SuperPunch.Position = UDim2.new(0, 168, 0, 366)
+SuperPunch.Size = UDim2.new(0, 119, 0, 34)
+ArmTurbine.Position = UDim2.new(0, 319, 0, 366)
+ArmTurbine.Size = UDim2.new(0, 119, 0, 34)
+Dab.Position = UDim2.new(0, 17, 0, 366)
+Dab.Size = UDim2.new(0, 119, 0, 34)
+FloatSit.Position = UDim2.new(0, 168, 0, 410)
+FloatSit.Size = UDim2.new(0, 119, 0, 34)
+SuperFaint.Position = UDim2.new(0, 17, 0, 498)
+SuperFaint.Size = UDim2.new(0, 119, 0, 34)
+BarrelRoll.Position = UDim2.new(0, 319, 0, 410)
+BarrelRoll.Size = UDim2.new(0, 119, 0, 34)
+Scared.Position = UDim2.new(0, 319, 0, 454)
+Scared.Size = UDim2.new(0, 119, 0, 34)
+InsaneArms.Position = UDim2.new(0, 17, 0, 454)
+InsaneArms.Size = UDim2.new(0, 119, 0, 34)
+SwordSlice.Position = UDim2.new(0, 168, 0, 454)
+SwordSlice.Size = UDim2.new(0, 119, 0, 34)
+SpinDance2.Position = UDim2.new(0, 168, 0, 498)
+SpinDance2.Size = UDim2.new(0, 119, 0, 34)
+BowDown.Position = UDim2.new(0, 319, 0, 498)
+BowDown.Size = UDim2.new(0, 119, 0, 34)
+LoopSlam.Position = UDim2.new(0, 17, 0, 410)
+LoopSlam.Size = UDim2.new(0, 119, 0, 34)
+
+GuiTopFrame.Name = "Gui TopFrame"
+GuiTopFrame.Parent = MainFrame
+GuiTopFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+GuiTopFrame.BorderSizePixel = 0
+GuiTopFrame.Size = UDim2.new(0, 460, 0, 32)
+
+CloseGUI.Name = "CloseGUI"
+CloseGUI.Parent = GuiTopFrame
+CloseGUI.BackgroundColor3 = Color3.new(1, 1, 1)
+CloseGUI.BackgroundTransparency = 1
+CloseGUI.Position = UDim2.new(0, 426, 0, 0)
+CloseGUI.Size = UDim2.new(0, 34, 0, 32)
+CloseGUI.Font = Enum.Font.SourceSansBold
+CloseGUI.Text = "-"
+CloseGUI.TextColor3 = Color3.fromRGB(200, 200, 200)
+CloseGUI.TextSize = 22
+
+Title.Name = "Title"
+Title.Parent = GuiTopFrame
+Title.BackgroundColor3 = Color3.new(1, 1, 1)
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.Size = UDim2.new(0, 200, 0, 32)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "Nexus Premium"
+Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+CheckR.Name = "CheckR"
+CheckR.Parent = GuiTopFrame
+CheckR.BackgroundColor3 = Color3.new(1, 1, 1)
+CheckR.BackgroundTransparency = 1
+CheckR.Position = UDim2.new(0, 220, 0, 0)
+CheckR.Size = UDim2.new(0, 200, 0, 32)
+CheckR.Font = Enum.Font.Gotham
+CheckR.TextColor3 = Color3.fromRGB(150, 150, 160)
+CheckR.TextSize = 11
+CheckR.TextXAlignment = Enum.TextXAlignment.Right
+
+ScrollingFrameR15.Name = "ScrollingFrameR15"
+ScrollingFrameR15.Parent = MainFrame
+ScrollingFrameR15.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+ScrollingFrameR15.BorderSizePixel = 0
+ScrollingFrameR15.Position = UDim2.new(0, 0, 0, 32)
+ScrollingFrameR15.Size = UDim2.new(0, 460, 0, 215)
+ScrollingFrameR15.Visible = false
+ScrollingFrameR15.ScrollBarThickness = 8
+
+styleButton(CrazySlash, "CrazySlash", true)
+styleButton(Open, "Open", true)
+styleButton(R15Spinner, "Spinner", true)
+styleButton(ArmsOut, "ArmsOut", true)
+styleButton(FloatSlash, "FloatSlash", true)
+styleButton(WeirdZombie, "WeirdZombie", true)
+styleButton(DownSlash, "DownSlash", true)
+styleButton(Pull, "Pull", true)
+styleButton(CircleArm, "CircleArm", true)
+styleButton(Bend, "Bend", true)
+styleButton(RotateSlash, "RotateSlash", true)
+styleButton(FlingArms, "FlingArms", true)
+
+CrazySlash.Position = UDim2.new(0, 17, 0, 16)
+CrazySlash.Size = UDim2.new(0, 119, 0, 34)
+Open.Position = UDim2.new(0, 168, 0, 16)
+Open.Size = UDim2.new(0, 119, 0, 34)
+R15Spinner.Position = UDim2.new(0, 17, 0, 60)
+R15Spinner.Size = UDim2.new(0, 119, 0, 34)
+ArmsOut.Position = UDim2.new(0, 319, 0, 16)
+ArmsOut.Size = UDim2.new(0, 119, 0, 34)
+FloatSlash.Position = UDim2.new(0, 168, 0, 148)
+FloatSlash.Size = UDim2.new(0, 119, 0, 34)
+WeirdZombie.Position = UDim2.new(0, 17, 0, 148)
+WeirdZombie.Size = UDim2.new(0, 119, 0, 34)
+DownSlash.Position = UDim2.new(0, 319, 0, 148)
+DownSlash.Size = UDim2.new(0, 119, 0, 34)
+Pull.Position = UDim2.new(0, 17, 0, 104)
+Pull.Size = UDim2.new(0, 119, 0, 34)
+CircleArm.Position = UDim2.new(0, 168, 0, 104)
+CircleArm.Size = UDim2.new(0, 119, 0, 34)
+Bend.Position = UDim2.new(0, 319, 0, 104)
+Bend.Size = UDim2.new(0, 119, 0, 34)
+RotateSlash.Position = UDim2.new(0, 319, 0, 60)
+RotateSlash.Size = UDim2.new(0, 119, 0, 34)
+FlingArms.Position = UDim2.new(0, 168, 0, 60)
+FlingArms.Size = UDim2.new(0, 119, 0, 34)
+
+-- Colors for active states (modern muted neon accents)
+col = Color3.fromRGB(45, 45, 55)
+loc = Color3.fromRGB(60, 120, 210)
+rcol = Color3.fromRGB(55, 65, 85)
+rloc = Color3.fromRGB(70, 140, 230)
+
+CloseGUI.MouseButton1Click:connect(function()
+	MainFrame.Visible = false
+	SideFrame.Visible = true
+	SideFrame.Position = MainFrame.Position
+end)
+
+OpenGUI.MouseButton1Click:connect(function()
+	MainFrame.Visible = true
+	SideFrame.Visible = false
+	MainFrame.Position = SideFrame.Position
+end)
+
+if (game:GetService"Players".LocalPlayer.Character:WaitForChild("Humanoid").RigType == Enum.HumanoidRigType.R15) then
+	ScrollingFrame.Visible = false
+	ScrollingFrameR15.Visible = true
+	CheckR.Text = "R15 Mode"
+else
+	ScrollingFrame.Visible = true
+	ScrollingFrameR15.Visible = false
+	CheckR.Text = "R6 Mode"
+end
+
+-- Animation Logic Handlers
+local function setupAnim(button, assetId, speed, weight, loopType, isR15)
+	local Anim = Instance.new("Animation")
+	Anim.AnimationId = "rbxassetid://" .. assetId
+	local track = game.Players.LocalPlayer.Character.Humanoid:LoadAnimation(Anim)
+	local active = false
+	
+	button.MouseButton1Click:connect(function()
+		active = not active
+		local activeColor = isR15 and rloc or loc
+		local defaultColor = isR15 and rcol or col
+		
+		if active then
+			button.BackgroundColor3 = activeColor
+			if loopType == "loop" then
+				task.spawn(function()
+					while active do
+						if not track.IsPlaying then
+							track:Play(.1, 1, speed or 1)
+						end
+						task.wait()
+					end
+				end)
+			elseif loopType == "fastloop" then
+				task.spawn(function()
+					while active do
+						if not track.IsPlaying then
+							track:Play(.5, 1, speed or 1e6)
+						end
+						task.wait()
+					end
+				end)
+			else
+				track:Play(.1, weight or 1, speed or 1)
+			end
+		else
+			track:Stop()
+			button.BackgroundColor3 = defaultColor
+		end
+	end)
+end
+
+-- Registering Animations
+setupAnim(HeadThrow, "35154961", 1, 1, "loop", false)
+setupAnim(FloatingHead, "121572214", 1, 1, "normal", false)
+setupAnim(Crouch, "182724289", 1, 1, "normal", false)
+setupAnim(FloorCrawl, "282574440", 1, 1, "normal", false)
+setupAnim(DinoWalk, "204328711", 1, 1, "normal", false)
+setupAnim(JumpingJacks, "429681631", 1, 1, "normal", false)
+setupAnim(LoopHead, "35154961", 1e6, 1, "fastloop", false)
+setupAnim(HeroJump, "184574340", 1, 1, "loop", false)
+setupAnim(Faint, "181526230", 1, 1, "normal", false)
+setupAnim(FloorFaint, "181525546", 2, 1, "loop", false)
+setupAnim(SuperFaint, "181525546", 40, 0.5, "loop", false)
+setupAnim(Levitate, "313762630", 1, 1, "normal", false)
+setupAnim(Dab, "183412246", 1, 1, "loop", false)
+setupAnim(Spinner, "188632011", 2, 1, "loop", false)
+setupAnim(FloatSit, "179224234", 1, 1, "normal", false)
+setupAnim(MovingDance, "429703734", 1, 1, "loop", false)
+setupAnim(WeirdMove, "215384594", 1, 1, "normal", false)
+setupAnim(CloneIllusion, "215384594", 1e7, 1, "normal", false)
+setupAnim(GlitchLevitate, "313762630", 1e7, 1, "normal", false)
+setupAnim(SpinDance, "429730430", 1, 1, "loop", false)
+setupAnim(MoonDance, "45834924", 1, 1, "loop", false)
+setupAnim(FullPunch, "204062532", 1, 1, "loop", false)
+setupAnim(SpinDance2, "186934910", 1, 1, "loop", false)
+setupAnim(BowDown, "204292303", 3, 1, "loop", false)
+setupAnim(SwordSlam, "204295235", 1, 1, "loop", false)
+setupAnim(LoopSlam, "204295235", 1e4, 1, "loop", false)
+setupAnim(MegaInsane, "184574340", 40, 0.5, "loop", false)
+setupAnim(SuperPunch, "126753849", 3, 1, "loop", false)
+setupAnim(FullSwing, "218504594", 1, 1, "loop", false)
+setupAnim(ArmTurbine, "259438880", 1e3, 1, "normal", false)
+setupAnim(BarrelRoll, "136801964", 1, 1, "loop", false)
+setupAnim(Scared, "180612465", 1, 1, "loop", false)
+setupAnim(Insane, "33796059", 1e8, 1, "normal", false)
+setupAnim(ArmDetach, "33169583", 1e6, 1, "loop", false)
+setupAnim(SwordSlice, "35978879", 1, 1, "normal", false)
+setupAnim(InsaneArms, "27432691", 1e4, 1, "loop", false)
+
+-- R15 Animations
+setupAnim(CrazySlash, "674871189", 1, 1, "loop", true)
+setupAnim(Open, "582855105", 1, 1, "loop", true)
+setupAnim(R15Spinner, "754658275", 1, 1, "loop", true)
+setupAnim(ArmsOut, "582384156", 1, 1, "loop", true)
+setupAnim(FloatSlash, "717879555", 1, 1, "loop", true)
+setupAnim(WeirdZombie, "708553116", 1, 1, "loop", true)
+setupAnim(DownSlash, "746398327", 1, 1, "loop", true)
+setupAnim(Pull, "675025795", 1, 1, "loop", true)
+setupAnim(CircleArm, "698251653", 1, 1, "loop", true)
+setupAnim(Bend, "696096087", 1, 1, "loop", true)
+setupAnim(RotateSlash, "675025570", 1, 1, "loop", true)
+setupAnim(FlingArms, "754656200", 10, 1, "loop", true)
