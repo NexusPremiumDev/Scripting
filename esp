@@ -1,0 +1,354 @@
+-- ── ESP SCRIPT ───────────────────────────────────────────
+local Players          = game:GetService("Players")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService       = game:GetService("RunService")
+
+local player    = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local espEnabled   = false
+local showNames    = true
+local showHealth   = true
+local showBox      = false
+local showBoxESP   = false
+local espMaxDist   = 300
+local showDistance = true
+local espColor     = Color3.fromRGB(80, 200, 255)
+local espObjects   = {}
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "EspGui"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = playerGui
+
+local bgBox = Instance.new("Frame")
+bgBox.Name = "BgBox"
+bgBox.Size = UDim2.new(0, 280, 0, 360)
+bgBox.Position = UDim2.new(0.633, 0, 0.084, 0)
+bgBox.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+bgBox.BorderSizePixel = 0
+bgBox.Active = true
+bgBox.Parent = screenGui
+Instance.new("UICorner", bgBox).CornerRadius = UDim.new(0, 12)
+
+local bgStroke = Instance.new("UIStroke")
+bgStroke.Color = Color3.fromRGB(45, 45, 55)
+bgStroke.Thickness = 1
+bgStroke.Parent = bgBox
+
+local dragBar = Instance.new("Frame")
+dragBar.Size = UDim2.new(1, 0, 0, 40)
+dragBar.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+dragBar.BorderSizePixel = 0
+dragBar.Parent = bgBox
+Instance.new("UICorner", dragBar).CornerRadius = UDim.new(0, 12)
+
+local dragIcon = Instance.new("TextLabel")
+dragIcon.Size = UDim2.new(1, -40, 1, 0)
+dragIcon.Position = UDim2.new(0, 12, 0, 0)
+dragIcon.BackgroundTransparency = 1
+dragIcon.Text = "🛡️  ESP Panel"
+dragIcon.TextColor3 = Color3.fromRGB(200, 200, 220)
+dragIcon.Font = Enum.Font.GothamBold
+dragIcon.TextSize = 13
+dragIcon.TextXAlignment = Enum.TextXAlignment.Left
+dragIcon.Parent = dragBar
+
+-- Küçültme / Büyütme Butonu (-)
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+minimizeBtn.Position = UDim2.new(1, -35, 0.5, -15)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+minimizeBtn.BorderSizePixel = 0
+minimizeBtn.Text = "-"
+minimizeBtn.TextColor3 = Color3.fromRGB(200, 200, 220)
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.TextSize = 16
+minimizeBtn.Parent = dragBar
+Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 6)
+
+local espScroll = Instance.new("ScrollingFrame")
+espScroll.Size = UDim2.new(1, 0, 1, -45)
+espScroll.Position = UDim2.new(0, 0, 0, 45)
+espScroll.BackgroundTransparency = 1
+espScroll.BorderSizePixel = 0
+espScroll.ScrollBarThickness = 3
+espScroll.CanvasSize = UDim2.new(0, 0, 0, 380)
+espScroll.Parent = bgBox
+
+-- Küçültme Mantığı
+local isMinimized = false
+minimizeBtn.MouseButton1Click:Connect(function()
+	isMinimized = not isMinimized
+	if isMinimized then
+		minimizeBtn.Text = "+"
+		TweenService:Create(bgBox, TweenInfo.new(0.2), { Size = UDim2.new(0, 280, 0, 40) }):Play()
+		espScroll.Visible = false
+	else
+		minimizeBtn.Text = "-"
+		TweenService:Create(bgBox, TweenInfo.new(0.2), { Size = UDim2.new(0, 280, 0, 360) }):Play()
+		task.wait(0.1)
+		espScroll.Visible = true
+	end
+end)
+
+local function makeToggle(parent, yPos, labelText, defaultState, callback)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -30, 0, 32)
+	row.Position = UDim2.new(0, 15, 0, yPos)
+	row.BackgroundTransparency = 1
+	row.Parent = parent
+
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(1, -50, 1, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = labelText
+	lbl.TextColor3 = Color3.fromRGB(180, 180, 200)
+	lbl.Font = Enum.Font.Gotham
+	lbl.TextSize = 12
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Parent = row
+
+	local tBg = Instance.new("Frame")
+	tBg.Size = UDim2.new(0, 40, 0, 20)
+	tBg.Position = UDim2.new(1, -40, 0.5, -10)
+	tBg.BackgroundColor3 = defaultState and Color3.fromRGB(80, 200, 120) or Color3.fromRGB(45, 45, 55)
+	tBg.BorderSizePixel = 0
+	tBg.Parent = row
+	Instance.new("UICorner", tBg).CornerRadius = UDim.new(1, 0)
+
+	local tKnob = Instance.new("Frame")
+	tKnob.Size = UDim2.new(0, 14, 0, 14)
+	tKnob.Position = defaultState and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
+	tKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	tKnob.BorderSizePixel = 0
+	tKnob.Parent = tBg
+	Instance.new("UICorner", tKnob).CornerRadius = UDim.new(1, 0)
+
+	local state = defaultState
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, 0, 1, 0)
+	btn.BackgroundTransparency = 1
+	btn.Text = ""
+	btn.Parent = row
+
+	btn.MouseButton1Click:Connect(function()
+		state = not state
+		TweenService:Create(tBg,   TweenInfo.new(0.15), { BackgroundColor3 = state and Color3.fromRGB(80,200,120) or Color3.fromRGB(45,45,55) }):Play()
+		TweenService:Create(tKnob, TweenInfo.new(0.15), { Position = state and UDim2.new(1,-17,0.5,-7) or UDim2.new(0,3,0.5,-7) }):Play()
+		callback(state)
+	end)
+end
+
+local espToggleBtn = Instance.new("TextButton")
+espToggleBtn.Size = UDim2.new(1, -30, 0, 36)
+espToggleBtn.Position = UDim2.new(0, 15, 0, 10)
+espToggleBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+espToggleBtn.BorderSizePixel = 0
+espToggleBtn.Text = "ESP: OFF"
+espToggleBtn.TextColor3 = Color3.fromRGB(160, 160, 180)
+espToggleBtn.Font = Enum.Font.GothamBold
+espToggleBtn.TextSize = 13
+espToggleBtn.Parent = espScroll
+Instance.new("UICorner", espToggleBtn).CornerRadius = UDim.new(0, 8)
+
+local espToggleStroke = Instance.new("UIStroke")
+espToggleStroke.Color = Color3.fromRGB(55, 55, 65)
+espToggleStroke.Thickness = 1
+espToggleStroke.Parent = espToggleBtn
+
+makeToggle(espScroll, 56,  "Show Names",    showNames,    function(v) showNames    = v end)
+makeToggle(espScroll, 94,  "Show Health",   showHealth,   function(v) showHealth   = v end)
+makeToggle(espScroll, 132, "Show Distance", showDistance, function(v) showDistance = v end)
+makeToggle(espScroll, 170, "Model Highlight", showBox,    function(v)
+	showBox = v
+	for _, data in pairs(espObjects) do
+		if data.highlight then data.highlight.Enabled = showBox and espEnabled end
+	end
+end)
+makeToggle(espScroll, 208, "Box Outline",   showBoxESP,   function(v)
+	showBoxESP = v
+	for _, data in pairs(espObjects) do
+		if data.selectionBox then data.selectionBox.Visible = showBoxESP and espEnabled end
+	end
+end)
+
+local playerCountLabel = Instance.new("TextLabel")
+playerCountLabel.Size = UDim2.new(1, -30, 0, 20)
+playerCountLabel.Position = UDim2.new(0, 15, 0, 255)
+playerCountLabel.BackgroundTransparency = 1
+playerCountLabel.Text = "Tracked Players: 0"
+playerCountLabel.TextColor3 = Color3.fromRGB(120, 120, 140)
+playerCountLabel.Font = Enum.Font.Code
+playerCountLabel.TextSize = 11
+playerCountLabel.TextXAlignment = Enum.TextXAlignment.Left
+playerCountLabel.Parent = espScroll
+
+local function removeESP(plr)
+	local d = espObjects[plr]
+	if not d then return end
+	if d.bill then d.bill:Destroy() end
+	if d.highlight then d.highlight:Destroy() end
+	if d.selectionBox then d.selectionBox:Destroy() end
+	espObjects[plr] = nil
+end
+
+local function createESP(plr)
+	if plr == player then return end
+	removeESP(plr)
+	local char = plr.Character
+	if not char then return end
+	local head = char:FindFirstChild("Head")
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not head or not hrp or not hum then return end
+
+	local bill = Instance.new("BillboardGui")
+	bill.Adornee = hrp
+	bill.AlwaysOnTop = true
+	bill.Size = UDim2.new(0, 130, 0, 50)
+	bill.StudsOffset = Vector3.new(0, 3, 0)
+	bill.Parent = playerGui
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = plr.DisplayName
+	nameLabel.TextColor3 = espColor
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.TextSize = 12
+	nameLabel.TextStrokeTransparency = 0.4
+	nameLabel.Parent = bill
+
+	local healthBg = Instance.new("Frame")
+	healthBg.Size = UDim2.new(0.8, 0, 0, 4)
+	healthBg.Position = UDim2.new(0.1, 0, 0.55, 0)
+	healthBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+	healthBg.BorderSizePixel = 0
+	Instance.new("UICorner", healthBg).CornerRadius = UDim.new(1, 0)
+	healthBg.Parent = bill
+
+	local healthBar = Instance.new("Frame")
+	healthBar.Size = UDim2.new(hum.Health / math.max(hum.MaxHealth, 1), 0, 1, 0)
+	healthBar.BackgroundColor3 = Color3.fromRGB(80, 220, 120)
+	healthBar.BorderSizePixel = 0
+	Instance.new("UICorner", healthBar).CornerRadius = UDim.new(1, 0)
+	healthBar.Parent = healthBg
+
+	local distLabel = Instance.new("TextLabel")
+	distLabel.Size = UDim2.new(1, 0, 0.4, 0)
+	distLabel.Position = UDim2.new(0, 0, 0.65, 0)
+	distLabel.BackgroundTransparency = 1
+	distLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
+	distLabel.Font = Enum.Font.Code
+	distLabel.TextSize = 10
+	distLabel.TextStrokeTransparency = 0.5
+	distLabel.Parent = bill
+
+	local highlight = Instance.new("Highlight")
+	highlight.Adornee = char
+	highlight.FillColor = espColor
+	highlight.FillTransparency = 0.85
+	highlight.OutlineColor = espColor
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Enabled = showBox and espEnabled
+	highlight.Parent = char
+
+	local selectionBox = Instance.new("BoxHandleAdornment")
+	selectionBox.Adornee = hrp
+	selectionBox.AlwaysOnTop = true
+	selectionBox.Size = Vector3.new(4, 5.5, 4)
+	selectionBox.Color3 = espColor
+	selectionBox.Transparency = 0.3
+	selectionBox.Visible = showBoxESP and espEnabled
+	selectionBox.Parent = workspace
+
+	espObjects[plr] = {
+		bill = bill, nameLabel = nameLabel, healthBar = healthBar,
+		healthBg = healthBg, distLabel = distLabel, highlight = highlight,
+		selectionBox = selectionBox, hrp = hrp, hum = hum, char = char
+	}
+end
+
+local function refreshAllESP()
+	for plr in pairs(espObjects) do removeESP(plr) end
+	if not espEnabled then return end
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player then createESP(plr) end
+	end
+end
+
+espToggleBtn.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	if espEnabled then
+		espToggleBtn.Text = "ESP: ON"
+		espToggleBtn.TextColor3 = Color3.fromRGB(80, 220, 120)
+		TweenService:Create(espToggleBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(20, 40, 25) }):Play()
+	else
+		espToggleBtn.Text = "ESP: OFF"
+		espToggleBtn.TextColor3 = Color3.fromRGB(160, 160, 180)
+		TweenService:Create(espToggleBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(28, 28, 36) }):Play()
+	end
+	refreshAllESP()
+end)
+
+RunService.RenderStepped:Connect(function()
+	local localChar = player.Character
+	local localHrp  = localChar and localChar:FindFirstChild("HumanoidRootPart")
+	local count = 0
+
+	for plr, data in pairs(espObjects) do
+		if not plr.Character or not data.hrp or not data.hrp.Parent then
+			removeESP(plr)
+			continue
+		end
+		count += 1
+		local withinRange = true
+		if localHrp then
+			if (data.hrp.Position - localHrp.Position).Magnitude > espMaxDist then withinRange = false end
+		end
+
+		data.nameLabel.Visible = showNames and espEnabled and withinRange
+		data.healthBg.Visible  = showHealth and espEnabled and withinRange
+		data.distLabel.Visible = showDistance and espEnabled and withinRange
+		if data.highlight then data.highlight.Enabled = showBox and espEnabled and withinRange end
+		if data.selectionBox then data.selectionBox.Visible = showBoxESP and espEnabled and withinRange end
+
+		if espEnabled and withinRange then
+			local hum = data.hum
+			if hum then
+				local pct = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
+				data.healthBar.Size = UDim2.new(pct, 0, 1, 0)
+			end
+			if localHrp then
+				data.distLabel.Text = math.floor((data.hrp.Position - localHrp.Position).Magnitude) .. " studs"
+			end
+		end
+	end
+	playerCountLabel.Text = "Tracked Players: " .. count
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+	plr.CharacterAdded:Connect(function() task.wait(1); if espEnabled then createESP(plr) end end)
+end)
+Players.PlayerRemoving:Connect(function(plr) removeESP(plr) end)
+
+local draggingWindow, dragStartMouse, dragStartPos = false, nil, nil
+dragBar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingWindow = true
+		dragStartMouse = Vector2.new(input.Position.X, input.Position.Y)
+		dragStartPos = bgBox.Position
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingWindow = false end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if draggingWindow and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = Vector2.new(input.Position.X, input.Position.Y) - dragStartMouse
+		bgBox.Position = UDim2.new(dragStartPos.X.Scale, dragStartPos.X.Offset + delta.X, dragStartPos.Y.Scale, dragStartPos.Y.Offset + delta.Y)
+	end
+end)
