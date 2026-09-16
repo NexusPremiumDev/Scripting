@@ -10,7 +10,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 local aimbotEnabled = false
 local aimbotFov     = 150
-local aimbotSmooth  = 0.05
+local aimbotSmooth  = 65 -- Sert kilitlenme için optimize edildi
 local aimbotMaxDist = 150
 
 local fovGui = Instance.new("ScreenGui")
@@ -231,7 +231,8 @@ RunService.RenderStepped:Connect(function()
 
 	local current = UserInputService:GetMouseLocation()
 	local goal = Vector2.new(screenPos.X, screenPos.Y)
-	local delta = (goal - current) * (1 - aimbotSmooth)
+	-- Değer küçültülerek ve çarpan eklenerek çok daha sert/hızlı kilitlenmesi sağlandı
+	local delta = (goal - current) / math.max(1, (aimbotSmooth / 10))
 	mousemoverel(delta.X, delta.Y)
 end)
 
