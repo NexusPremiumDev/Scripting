@@ -1,0 +1,193 @@
+--[[
+
+WARNING: Editing below may break the script!
+
+]]--
+
+
+players = game:GetService("Players")
+local player = players.LocalPlayer
+local mouse = player:GetMouse()
+local isAiming = false
+
+mouse.Button2Down:connect(function(key)
+    isAiming = true
+end)
+
+mouse.Button2Up:connect(function(key)
+    isAiming = false
+end)
+
+function UniversalGetCharPosition(character)
+	local targetPos = nil
+	
+	if character.Head then
+		targetPos = character.Head.Position
+	elseif character.Torso then
+		targetPos = character.Torso.Position
+	elseif character.UpperTorso then
+		targetPos = character.UpperTorso.Position
+	elseif character.HumanoidRootPart then
+		targetPos = character.HumanoidRootPart.Position
+	end
+	
+	return targetPos
+end
+
+--Checks a part's parents for a character
+function GetPlayerFromPart(part)
+	--part should be specified
+	if not part then
+		return nil
+	end
+
+	--Ends the looped parent check if it reaches game
+	if part.Parent == game then
+		return nil
+	end
+
+	local plr = game.Players:GetPlayerFromCharacter(part.Parent)
+	
+	if not plr then
+		--Basically checks every single parent until it finds a player
+		return GetPlayerFromPart(part.Parent)
+	end
+	
+	return plr
+end
+
+--Ray casting checks if theres a wall in front of the target.
+--nil if no player in view. For example, a wall in front of a player will reject
+function PlayerInView(direction)
+	--Ray casting checks if theres a wall in front of the target.
+	--Good to prevent aiming at people who are really close but out of view while someone else can shoot you, but is in view.
+	local Camera = workspace.CurrentCamera
+	local ScreenSize = Camera.ViewportSize
+	
+	local unitRay = Camera:ScreenPointToRay(ScreenSize.x/2, ScreenSize.y/2)
+	local ray = Ray.new(unitRay.Origin, direction * 500)
+	local rayhitpart, rayhitposition = workspace:FindPartOnRay(ray, player.Character, false, true)
+	
+	return GetPlayerFromPart(rayhitpart)
+end
+
+function GetClosestPlayer()
+	local lastPlr = nil
+	local clostestDist = nil
+	
+	--Your character should exist first
+	local myChar = player.Character
+	if not myChar then
+		return
+	end
+	
+	for _,v in pairs(players:GetPlayers()) do
+		if v ~= player then
+			local self = UniversalGetCharPosition(myChar)
+			local target = UniversalGetCharPosition(v.Character)
+			
+			if self and target then --Be sure that they exist
+				local isClosest = true
+				local distance = (self - target).magnitude
+				
+				--Good to prevent aiming at people who are really close but out of view while someone is further, but in view
+				if _G.WRDAimBotWallcheck then
+					local Camera = workspace.CurrentCamera
+					local direction = CFrame.new(Camera.Focus.p, target)
+					
+					if not PlayerInView(direction.LookVector) then
+						isClosest = false
+					end
+				end
+				
+				--Prevents selecting people in the same team
+				if _G.WRDAimbotTeamCheck and player.Team == v.Team then
+					isClosest = false
+				end
+				
+				--Rejects if player is further than the last closest player
+				if clostestDist ~= nil and distance > clostestDist then
+					isClosest = false
+				end
+				
+				if isClosest == true then
+					lastPlr = v
+					clostestDist = distance
+				end
+			end
+		end
+	end
+	
+	return lastPlr
+end
+
+function AimAtClosest()
+	local closestPlr = GetClosestPlayer()
+	if closestPlr then
+		local Camera = workspace.CurrentCamera
+		local ScreenSize = Camera.ViewportSize
+		
+		--Character should be in game in order to aim at them
+		local character = closestPlr.Character
+		if not character then
+			return
+		end
+		
+		--Get target position
+		local targetPos = UniversalGetCharPosition(character)
+		if not targetPos then
+			return
+		end
+		
+		--The direction your camera should be looking at
+		local direction = CFrame.new(Camera.Focus.p, targetPos)
+		
+		if not _G.WRDAimbotBypass then 
+			--Use camera to aim
+			Camera.CFrame = direction
+		else 
+			--Simulate normal mouse movement
+			if isRobloxFocused() then
+				local Point, inViewport  = Camera:WorldToViewportPoint(targetPos)
+				
+				local goalX = ScreenSize.x / 2
+				local goalY = ScreenSize.y / 2
+				local shiftX = 0
+				local shiftY = 0
+
+				if Point.X > goalX then --Head is left of center
+					shiftX = Point.X - goalX --Move cursor to the right by shiftX pixels
+					shiftX = shiftX / 4 --Idk why, but when zoomed in, mousemoverel is emphasized 400%. /4 to compensate
+				end
+
+				if Point.X < goalX then --Head is right of center
+					shiftX = -(goalX - Point.X) --Move cursor to the left by shiftX pixels
+					shiftX = shiftX / 4
+				end
+
+				if Point.Y > goalY then
+					shiftY = Point.Y - goalY
+					shiftY = shiftY / 4
+				end
+
+				if Point.Y < goalY then
+					shiftY = -(goalY - Point.Y)
+					shiftY = shiftY / 4
+				end
+				
+				mousemoverel(shiftX, shiftY)
+			end
+		end
+	end
+end
+
+--Starts aimbot, but only once so movement isn't being doubled
+--The stuff above doesn't really matter if redefined 
+if _G.WRDAimbotStarted == nil then
+	_G.WRDAimbotStarted = true
+	game:GetService("RunService").RenderStepped:connect(function()
+		if isAiming then
+			AimAtClosest()
+		end
+	end)
+end
