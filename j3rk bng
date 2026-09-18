@@ -1,8 +1,7 @@
--- Nexus Premium Ultimate Hub s3x)
+-- Nexus Premium Ultimate Hub
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
-local TextChatService = game:GetService("TextChatService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -194,7 +193,7 @@ local UBoxCorner = Instance.new("UICorner")
 UBoxCorner.Parent = UsernameBox
 UBoxCorner.CornerRadius = UDim.new(0, 6)
 
--- 3. Get Sucked Modülü Butonu (Yerleşik & Hatasız Mantık)
+-- 3. Get Sucked Modülü Butonu
 local GetSuckBtn = Instance.new("TextButton")
 GetSuckBtn.Parent = ScrollingContainer
 GetSuckBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 80)
@@ -292,7 +291,7 @@ JerkBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Fonksiyonalite: Get Sucked (Tam Entegre ve Güvenli Mantık)
+-- Fonksiyonalite: Get Sucked
 GetSuckBtn.MouseButton1Click:Connect(function()
 	if not guiUnlocked then return end
 	
