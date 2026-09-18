@@ -450,8 +450,3 @@ ContinueButton.MouseButton1Click:Connect(function()
 	minimizeGUI()
 	openGUI()
 end)
-
--- Sohbet Bildirim Mesajı
-if TextChatService.TextChannels:FindFirstChild("RBXSystem") then
-	TextChatService.TextChannels.RBXSystem:DisplaySystemMessage("Loaded by <font color=\"#FF557F\">Jamarmoss73</font> the owner AKA <font color=\"#FF557F\">SyncScripts</font>")
-end
