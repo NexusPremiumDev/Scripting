@@ -1,16 +1,27 @@
--- Nexus Premium: Jerk & Bang Entegre Modül (Minimize/Maximize Özellikli)
+-- Nexus Premium Ultimate Hub s3x)
 local Players = game:GetService("Players")
-local TextChatService = game:GetService("TextChatService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local TextChatService = game:GetService("TextChatService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Eğer daha önce açık kaldıysa temizle
-if playerGui:FindFirstChild("BangGuiSus") then
-	playerGui["BangGuiSus"]:Destroy()
+if playerGui:FindFirstChild("NexusPremiumUltimateHub") then
+	playerGui["NexusPremiumUltimateHub"]:Destroy()
 end
+
+local guiUnlocked = false
+local isMinimized = false
+
+-- Durum Değişkenleri
+local isJorking = false
+local jerkTrack = nil
+local running = false
+local originalGravity
+local attachmentLoop
+local animTrack
+local targetPlayer
 
 local function isR15(plr)
 	local char = plr.Character
@@ -20,15 +31,9 @@ local function isR15(plr)
 	return false
 end
 
-local looping = false
-local targetPlayer = nil
-local currentTime = 0
-local guiUnlocked = false
-local isMinimized = false
-
 -- ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "BangGuiSus"
+ScreenGui.Name = "NexusPremiumUltimateHub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = playerGui
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -50,7 +55,7 @@ UICorner1.CornerRadius = UDim.new(0, 15)
 local IntroTitle = Instance.new("TextLabel")
 IntroTitle.Parent = IntroFrame
 IntroTitle.BackgroundTransparency = 1
-IntroTitle.Position = UDim2.new(0, 0, 0.2, 0)
+IntroTitle.Position = UDim2.new(0, 0, 0.15, 0)
 IntroTitle.Size = UDim2.new(1, 0, 0, 60)
 IntroTitle.Font = Enum.Font.GothamBold
 IntroTitle.Text = "NEXUS"
@@ -61,10 +66,10 @@ IntroTitle.TextStrokeTransparency = 0.8
 local IntroSubtitle = Instance.new("TextLabel")
 IntroSubtitle.Parent = IntroFrame
 IntroSubtitle.BackgroundTransparency = 1
-IntroSubtitle.Position = UDim2.new(0, 0, 0.45, 0)
+IntroSubtitle.Position = UDim2.new(0, 0, 0.4, 0)
 IntroSubtitle.Size = UDim2.new(1, 0, 0, 30)
 IntroSubtitle.Font = Enum.Font.Gotham
-IntroSubtitle.Text = "Nexus Premium - Jerk & Bang Modülü"
+IntroSubtitle.Text = "Nexus Premium - Ultimate Hub"
 IntroSubtitle.TextColor3 = Color3.fromRGB(200, 200, 200)
 IntroSubtitle.TextSize = 16
 
@@ -72,7 +77,7 @@ IntroSubtitle.TextSize = 16
 local ContinueButton = Instance.new("TextButton")
 ContinueButton.Parent = IntroFrame
 ContinueButton.BackgroundColor3 = Color3.fromRGB(255, 85, 127)
-ContinueButton.Position = UDim2.new(0.5, -80, 0.7, 0)
+ContinueButton.Position = UDim2.new(0.5, -80, 0.65, 0)
 ContinueButton.Size = UDim2.new(0, 160, 0, 45)
 ContinueButton.Font = Enum.Font.GothamBold
 ContinueButton.Text = "CONTINUE"
@@ -90,8 +95,8 @@ MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0.5, -110, 0.5, -130)
-MainFrame.Size = UDim2.new(0, 220, 0, 260)
+MainFrame.Position = UDim2.new(0.5, -130, 0.5, -150)
+MainFrame.Size = UDim2.new(0, 260, 0, 310)
 MainFrame.Visible = false
 MainFrame.BackgroundTransparency = 1
 MainFrame.Active = true
@@ -102,7 +107,7 @@ local UICorner3 = Instance.new("UICorner")
 UICorner3.Parent = MainFrame
 UICorner3.CornerRadius = UDim.new(0, 12)
 
--- Top Bar (Başlık Çubuğu)
+-- Top Bar
 local TopBar = Instance.new("Frame")
 TopBar.Parent = MainFrame
 TopBar.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
@@ -120,13 +125,13 @@ Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.Size = UDim2.new(1, -45, 1, 0)
 Title.Font = Enum.Font.GothamBold
-Title.Text = "Nexus Premium"
+Title.Text = "Nexus Premium Hub"
 Title.TextColor3 = Color3.fromRGB(255, 85, 127)
 Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.ZIndex = 2
 
--- Minimize / Maximize Button (-)
+-- Minimize / Maximize Button
 local MinButton = Instance.new("TextButton")
 MinButton.Parent = TopBar
 MinButton.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
@@ -142,37 +147,123 @@ local UICorner5 = Instance.new("UICorner")
 UICorner5.Parent = MinButton
 UICorner5.CornerRadius = UDim.new(0, 6)
 
--- İçerik Alanı (ScrollingFrame)
-local ContentContainer = Instance.new("ScrollingFrame")
-ContentContainer.Parent = MainFrame
-ContentContainer.BackgroundTransparency = 1
-ContentContainer.Position = UDim2.new(0, 8, 0, 42)
-ContentContainer.Size = UDim2.new(1, -16, 1, -50)
-ContentContainer.CanvasSize = UDim2.new(0, 0, 0, 230)
-ContentContainer.ScrollBarThickness = 4
+-- Scrolling Container for Options
+local ScrollingContainer = Instance.new("ScrollingFrame")
+ScrollingContainer.Parent = MainFrame
+ScrollingContainer.BackgroundTransparency = 1
+ScrollingContainer.Position = UDim2.new(0, 10, 0, 42)
+ScrollingContainer.Size = UDim2.new(1, -20, 1, -50)
+ScrollingContainer.CanvasSize = UDim2.new(0, 0, 0, 310)
+ScrollingContainer.ScrollBarThickness = 4
 
--- Jerk Butonu
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = ScrollingContainer
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 8)
+
+-- 1. Jerk Modülü Butonu
 local JerkBtn = Instance.new("TextButton")
-JerkBtn.Parent = ContentContainer
+JerkBtn.Parent = ScrollingContainer
 JerkBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 200)
-JerkBtn.Position = UDim2.new(0, 0, 0, 5)
 JerkBtn.Size = UDim2.new(1, 0, 0, 35)
 JerkBtn.Font = Enum.Font.GothamSemibold
 JerkBtn.Text = "Toggle Jerk Off"
 JerkBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 JerkBtn.TextSize = 13
+JerkBtn.LayoutOrder = 1
 
 local JCorner = Instance.new("UICorner")
 JCorner.Parent = JerkBtn
 JCorner.CornerRadius = UDim.new(0, 6)
 
-local isJorking = false
-local jerkTrack = nil
+-- 2. Hedef Kullanıcı Adı Girişi
+local UsernameBox = Instance.new("TextBox")
+UsernameBox.Parent = ScrollingContainer
+UsernameBox.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+UsernameBox.Size = UDim2.new(1, 0, 0, 32)
+UsernameBox.Font = Enum.Font.Gotham
+UsernameBox.PlaceholderText = "Target's Username..."
+UsernameBox.Text = ""
+UsernameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+UsernameBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+UsernameBox.TextSize = 12
+UsernameBox.ClearTextOnFocus = false
+UsernameBox.LayoutOrder = 2
 
+local UBoxCorner = Instance.new("UICorner")
+UBoxCorner.Parent = UsernameBox
+UBoxCorner.CornerRadius = UDim.new(0, 6)
+
+-- 3. Get Sucked Modülü Butonu (Yerleşik & Hatasız Mantık)
+local GetSuckBtn = Instance.new("TextButton")
+GetSuckBtn.Parent = ScrollingContainer
+GetSuckBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 80)
+GetSuckBtn.Size = UDim2.new(1, 0, 0, 35)
+GetSuckBtn.Font = Enum.Font.GothamBold
+GetSuckBtn.Text = "START GET SUCKED"
+GetSuckBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+GetSuckBtn.TextSize = 12
+GetSuckBtn.AutoButtonColor = false
+GetSuckBtn.LayoutOrder = 3
+
+local GSBtnCorner = Instance.new("UICorner")
+GSBtnCorner.Parent = GetSuckBtn
+GSBtnCorner.CornerRadius = UDim.new(0, 6)
+
+-- 4. Bang V2 Butonu
+local BangV2Btn = Instance.new("TextButton")
+BangV2Btn.Parent = ScrollingContainer
+BangV2Btn.BackgroundColor3 = Color3.fromRGB(180, 80, 200)
+BangV2Btn.Size = UDim2.new(1, 0, 0, 35)
+BangV2Btn.Font = Enum.Font.GothamBold
+BangV2Btn.Text = "Start Bang V2"
+BangV2Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+BangV2Btn.TextSize = 12
+BangV2Btn.AutoButtonColor = false
+BangV2Btn.LayoutOrder = 4
+
+local BV2Corner = Instance.new("UICorner")
+BV2Corner.Parent = BangV2Btn
+BV2Corner.CornerRadius = UDim.new(0, 6)
+
+-- 5. Get Banged Butonu
+local GetBangBtn = Instance.new("TextButton")
+GetBangBtn.Parent = ScrollingContainer
+GetBangBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 40)
+GetBangBtn.Size = UDim2.new(1, 0, 0, 35)
+GetBangBtn.Font = Enum.Font.GothamBold
+GetBangBtn.Text = "Start Get Banged"
+GetBangBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+GetBangBtn.TextSize = 12
+GetBangBtn.AutoButtonColor = false
+GetBangBtn.LayoutOrder = 5
+
+local GBCorner = Instance.new("UICorner")
+GBCorner.Parent = GetBangBtn
+GBCorner.CornerRadius = UDim.new(0, 6)
+
+-- 6. Suck Butonu
+local SuckBtn = Instance.new("TextButton")
+SuckBtn.Parent = ScrollingContainer
+SuckBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 100)
+SuckBtn.Size = UDim2.new(1, 0, 0, 35)
+SuckBtn.Font = Enum.Font.GothamBold
+SuckBtn.Text = "Start Suck"
+SuckBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SuckBtn.TextSize = 12
+SuckBtn.AutoButtonColor = false
+SuckBtn.LayoutOrder = 6
+
+local SCorner = Instance.new("UICorner")
+SCorner.Parent = SuckBtn
+SCorner.CornerRadius = UDim.new(0, 6)
+
+-- Fonksiyonalite: Jerk
 JerkBtn.MouseButton1Click:Connect(function()
 	if not guiUnlocked then return end
 	isJorking = not isJorking
 	JerkBtn.BackgroundColor3 = isJorking and Color3.fromRGB(40, 180, 80) or Color3.fromRGB(50, 120, 200)
+	JerkBtn.Text = isJorking and "Toggle Jerk On" or "Toggle Jerk Off"
 	
 	if isJorking then
 		task.spawn(function()
@@ -201,77 +292,130 @@ JerkBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Bang Oyuncu Kutusu (TextBox)
-local BangBox = Instance.new("TextBox")
-BangBox.Parent = ContentContainer
-BangBox.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
-BangBox.Position = UDim2.new(0, 0, 0, 48)
-BangBox.Size = UDim2.new(1, 0, 0, 35)
-BangBox.Font = Enum.Font.Gotham
-BangBox.PlaceholderText = "Hedef Oyuncu Ismi..."
-BangBox.Text = ""
-BangBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-BangBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-BangBox.TextSize = 12
-BangBox.ClearTextOnFocus = false
+-- Fonksiyonalite: Get Sucked (Tam Entegre ve Güvenli Mantık)
+GetSuckBtn.MouseButton1Click:Connect(function()
+	if not guiUnlocked then return end
+	
+	if not running then
+		local victim = UsernameBox.Text:lower()
+		targetPlayer = nil
+		
+		for _, p in pairs(Players:GetPlayers()) do
+			if string.find(p.Name:lower(), victim) or string.find(p.DisplayName:lower(), victim) then
+				targetPlayer = p
+				break
+			end
+		end
+		
+		if targetPlayer and targetPlayer.Character then
+			local char = player.Character
+			local targetChar = targetPlayer.Character
+			
+			local humanoidRootPart = char and char:FindFirstChild("HumanoidRootPart")
+			local targetRootPart = targetChar:FindFirstChild("HumanoidRootPart")
+			
+			if humanoidRootPart and targetRootPart then
+				running = true
+				GetSuckBtn.Text = "STOP GET SUCKED"
+				GetSuckBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+				
+				originalGravity = workspace.Gravity
+				workspace.Gravity = 0
+				
+				task.spawn(function()
+					while running and humanoidRootPart and targetRootPart and humanoidRootPart.Position.Y <= 44 do
+						task.wait()
+						if not running then break end
+						humanoidRootPart.CFrame = humanoidRootPart.CFrame * CFrame.new(0, 1.5, 0)
+					end
+					
+					task.wait(1)
+					if not running then return end
+					
+					attachmentLoop = RunService.Stepped:Connect(function()
+						if running and humanoidRootPart and targetRootPart then
+							humanoidRootPart.CFrame = targetRootPart.CFrame * CFrame.new(0, 2.3, -1.1) * CFrame.Angles(0, math.pi, 0)
+							if humanoidRootPart.AssemblyLinearVelocity then
+								humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+							else
+								humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+							end
+						end
+					end)
+					
+					task.wait(1)
+					if not running then return end
+					
+					local r15Check = isR15(player)
+					local animationId = r15Check and "rbxassetid://5918726674" or "rbxassetid://148840371"
+					local animation = Instance.new('Animation')
+					animation.AnimationId = animationId
+					
+					local humanoid = char:FindFirstChildOfClass("Humanoid")
+					if humanoid then
+						local animator = humanoid:FindFirstChildOfClass("Animator") or humanoid
+						pcall(function()
+							animTrack = animator:LoadAnimation(animation)
+							animTrack:Play()
+							animTrack:AdjustSpeed(r15Check and 1 or 3)
+						end)
+					end
+				end)
+			end
+		end
+	else
+		running = false
+		GetSuckBtn.Text = "START GET SUCKED"
+		GetSuckBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 80)
+		
+		if originalGravity then
+			workspace.Gravity = originalGravity
+			originalGravity = nil
+		end
+		
+		if attachmentLoop then
+			attachmentLoop:Disconnect()
+			attachmentLoop = nil
+		end
+		
+		if animTrack then
+			animTrack:Stop()
+			animTrack = nil
+		end
+	end
+end)
 
-local BBoxCorner = Instance.new("UICorner")
-BBoxCorner.Parent = BangBox
-BBoxCorner.CornerRadius = UDim.new(0, 6)
+-- Diğer Modüller İçin Harici Bağlantılar
+BangV2Btn.MouseButton1Click:Connect(function()
+	if not guiUnlocked then return end
+	local r15 = isR15(player)
+	local url = r15 and "https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/bang%20r15" or "https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/bang%20r6"
+	pcall(function() loadstring(game:HttpGet(url))() end)
+end)
 
--- Bang Başlat/Durdur Butonları
-local StartButton = Instance.new("TextButton")
-StartButton.Parent = ContentContainer
-StartButton.BackgroundColor3 = Color3.fromRGB(85, 255, 127)
-StartButton.Position = UDim2.new(0, 0, 0, 90)
-StartButton.Size = UDim2.new(0.48, 0, 0, 35)
-StartButton.Font = Enum.Font.GothamBold
-StartButton.Text = "START BANG"
-StartButton.TextColor3 = Color3.fromRGB(20, 20, 20)
-StartButton.TextSize = 12
-StartButton.AutoButtonColor = false
+GetBangBtn.MouseButton1Click:Connect(function()
+	if not guiUnlocked then return end
+	local r15 = isR15(player)
+	local url = r15 and "https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/get%20bang%20r15" or "https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/get%20bang%20r6"
+	pcall(function() loadstring(game:HttpGet(url))() end)
+end)
 
-local StartCorner = Instance.new("UICorner")
-StartCorner.Parent = StartButton
-StartCorner.CornerRadius = UDim.new(0, 6)
+SuckBtn.MouseButton1Click:Connect(function()
+	if not guiUnlocked then return end
+	local r15 = isR15(player)
+	local url = r15 and "https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/suck%20r15" or "https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/suck%20r6"
+	pcall(function() loadstring(game:HttpGet(url))() end)
+end)
 
-local StopButton = Instance.new("TextButton")
-StopButton.Parent = ContentContainer
-StopButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
-StopButton.Position = UDim2.new(0.52, 0, 0, 90)
-StopButton.Size = UDim2.new(0.48, 0, 0, 35)
-StopButton.Font = Enum.Font.GothamBold
-StopButton.Text = "STOP BANG"
-StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-StopButton.TextSize = 12
-StopButton.AutoButtonColor = false
-
-local StopCorner = Instance.new("UICorner")
-StopCorner.Parent = StopButton
-StopCorner.CornerRadius = UDim.new(0, 6)
-
--- Durum Etiketi (Status)
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Parent = ContentContainer
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Position = UDim2.new(0, 0, 0, 135)
-StatusLabel.Size = UDim2.new(1, 0, 0, 50)
-StatusLabel.Font = Enum.Font.Gotham
-StatusLabel.Text = "Status: Idle"
-StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-StatusLabel.TextSize = 11
-StatusLabel.TextWrapped = true
-StatusLabel.TextYAlignment = Enum.TextYAlignment.Top
-
--- Menü Açma / Kapatma (Minimize / Expand) Mantığı
+-- Menü Açma / Kapatma
 local function openGUI()
 	if not guiUnlocked then return end
 	MainFrame.Visible = true
 	MainFrame.BackgroundTransparency = 0
 	TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Size = UDim2.new(0, 220, 0, 260)
+		Size = UDim2.new(0, 260, 0, 310)
 	}):Play()
-	ContentContainer.Visible = true
+	ScrollingContainer.Visible = true
 	MinButton.Text = "-"
 	isMinimized = false
 end
@@ -279,19 +423,15 @@ end
 local function minimizeGUI()
 	isMinimized = true
 	MinButton.Text = "+"
-	ContentContainer.Visible = false
+	ScrollingContainer.Visible = false
 	TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Size = UDim2.new(0, 220, 0, 35)
+		Size = UDim2.new(0, 260, 0, 35)
 	}):Play()
 end
 
 MinButton.MouseButton1Click:Connect(function()
 	if not guiUnlocked then return end
-	if isMinimized then
-		openGUI()
-	else
-		minimizeGUI()
-	end
+	if isMinimized then openGUI() else minimizeGUI() end
 end)
 
 -- Intro Devam Et Butonu
@@ -306,74 +446,12 @@ ContinueButton.MouseButton1Click:Connect(function()
 
 	guiUnlocked = true
 	MainFrame.Visible = true
-	MainFrame.Size = UDim2.new(0, 220, 0, 35) -- Önce sadece başlık çubuğu boyutuyla aç
+	MainFrame.Size = UDim2.new(0, 260, 0, 35)
 	minimizeGUI()
-	openGUI() -- Şık açılış animasyonuyla tam boyuta getir
+	openGUI()
 end)
 
--- Bang Mantığı
-local function findPlayer(name)
-	if name == "" then return nil end
-	name = string.lower(name)
-	for _, p in ipairs(Players:GetPlayers()) do
-		if string.lower(p.Name):find(name) or string.lower(p.DisplayName):find(name) then
-			return p
-		end
-	end
-	return nil
-end
-
-local function updateStatus(text, color)
-	StatusLabel.Text = "Status: " .. text
-	StatusLabel.TextColor3 = color or Color3.fromRGB(180, 180, 180)
-end
-
-local function stopLoop()
-	looping = false
-	updateStatus("Loop stopped", Color3.fromRGB(255, 170, 85))
-end
-
-local function startBang(targetName)
-	if not guiUnlocked then return end
-	local target = findPlayer(targetName)
-	if not target or target == player then
-		updateStatus("Error: Invalid target!", Color3.fromRGB(255, 85, 85))
-		return
-	end
-
-	targetPlayer = target
-	looping = true
-	updateStatus("Banging " .. target.DisplayName, Color3.fromRGB(85, 255, 127))
-
-	task.spawn(function()
-		currentTime = 0
-		while looping and targetPlayer and targetPlayer.Character and player.Character do
-			local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-			local myHRP = player.Character:FindFirstChild("HumanoidRootPart")
-			if targetHRP and myHRP then
-				local amplitude = 1.6
-				local frequency = 12
-				local offsetZ = amplitude * math.sin(currentTime * frequency)
-				myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 1.0 + offsetZ)
-			end
-			currentTime = currentTime + RunService.Heartbeat:Wait()
-		end
-	end)
-end
-
-StartButton.MouseButton1Click:Connect(function()
-	if BangBox.Text == "" then
-		updateStatus("Error: Enter username!", Color3.fromRGB(255, 85, 85))
-		return
-	end
-	startBang(BangBox.Text)
-end)
-
-StopButton.MouseButton1Click:Connect(function()
-	stopLoop()
-end)
-
--- Bildirim Mesajı
+-- Sohbet Bildirim Mesajı
 if TextChatService.TextChannels:FindFirstChild("RBXSystem") then
 	TextChatService.TextChannels.RBXSystem:DisplaySystemMessage("Loaded by <font color=\"#FF557F\">Jamarmoss73</font> the owner AKA <font color=\"#FF557F\">SyncScripts</font>")
 end
