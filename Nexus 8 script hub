@@ -11990,7 +11990,7 @@ local kill = Troll:AddSection({Name = "Click Kill Methods"})
 
 Troll:AddButton({
   Name = "Click Fling Portas [Beta]",
-Description = "Para Usar, Recomendo chegar perto de outras portas, apos ela ir até você, clique no jogador que deseja flingar",
+Description = "Get close to the doors while using this.",
   Callback = function()
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -14195,7 +14195,7 @@ ddnsfbfwewefe.BorderSizePixel = 0
 ddnsfbfwewefe.Position = UDim2.new(-0.000210968778, 0, -0.00395679474, 0)
 ddnsfbfwewefe.Size = UDim2.new(0, 237, 0, 27)
 ddnsfbfwewefe.Font = Enum.Font.SourceSans
-ddnsfbfwewefe.Text = "by Lusquinha_067"
+ddnsfbfwewefe.Text = "by Nexus"
 ddnsfbfwewefe.TextColor3 = Color3.fromRGB(255, 255, 255)
 ddnsfbfwewefe.TextScaled = true
 ddnsfbfwewefe.TextSize = 14.000
@@ -14566,7 +14566,7 @@ local Section = ChildTab:AddSection({
 
 local chasingplayer = nil
 local playerChild = ChildTab:AddDropdown({
-    Name = "Selecione um player para perseguir",
+    Name = "Select a player",
     Options = players,
     Default = "",
     Callback = function(selected)
@@ -14846,7 +14846,7 @@ end
 
 LocalPlayerTab:AddTextBox({
     Name = "Enter text",
-    PlaceholderText = "Digite a mensagem",
+    PlaceholderText = "text",
     Callback = function(text)
         TextSave = text
     end
@@ -15917,7 +15917,7 @@ local Vehicles = workspace:WaitForChild("Vehicles")
 -- Aviso no chat
 if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then 
     TextChatService.TextChannels.RBXGeneral:SendAsync(
-        "hi\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r[ UM TORNADO SURGIU! LYRA HUB ON TOP ]"
+        "hi\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r[ UM TORNADO SURGIU! Nexus HUB ON TOP ]"
     )
 else 
     print("Nadaa")
@@ -16154,7 +16154,7 @@ local function createNameESP(player)
     txt.TextStrokeTransparency = 0.5
     txt.Font = Enum.Font.SourceSansBold
     txt.TextSize = 14
-    txt.Text = player.Name.." | "..player.AccountAge.." dias"
+    txt.Text = player.Name.." | "..player.AccountAge.." m"
     txt.TextColor3 = getESPColor()
 
     _G.ESPData.billboardGuis[player] = gui
