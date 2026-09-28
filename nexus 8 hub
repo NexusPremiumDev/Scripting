@@ -31,6 +31,99 @@ end
 
 local Nexus = makeParent()
 
+-- Premium launcher splash: appears on every execution before the hub is built.
+local Splash = Instance.new("Frame")
+Splash.Name = "NexusLaunchScreen"
+Splash.Size = UDim2.fromScale(1, 1)
+Splash.BackgroundColor3 = Color3.fromRGB(5, 6, 12)
+Splash.BorderSizePixel = 0
+Splash.ZIndex = 100
+Splash.Parent = Nexus
+
+local SplashGlow = Instance.new("Frame")
+SplashGlow.Size = UDim2.fromOffset(5, 132)
+SplashGlow.Position = UDim2.new(0.5, -220, 0.5, -66)
+SplashGlow.BackgroundColor3 = Color3.fromRGB(129, 140, 248)
+SplashGlow.BorderSizePixel = 0
+SplashGlow.ZIndex = 101
+SplashGlow.Parent = Splash
+Instance.new("UICorner", SplashGlow).CornerRadius = UDim.new(1, 0)
+
+local SplashCard = Instance.new("Frame")
+SplashCard.Size = UDim2.fromOffset(430, 190)
+SplashCard.Position = UDim2.new(0.5, -215, 0.5, -95)
+SplashCard.BackgroundColor3 = Color3.fromRGB(15, 17, 27)
+SplashCard.BorderSizePixel = 0
+SplashCard.ZIndex = 101
+SplashCard.Parent = Splash
+Instance.new("UICorner", SplashCard).CornerRadius = UDim.new(0, 20)
+local SplashStroke = Instance.new("UIStroke", SplashCard)
+SplashStroke.Color = Color3.fromRGB(129, 140, 248)
+SplashStroke.Transparency = 0.2
+SplashStroke.Thickness = 1.2
+
+local SplashLogo = Instance.new("TextLabel", SplashCard)
+SplashLogo.Size = UDim2.fromOffset(76, 76)
+SplashLogo.Position = UDim2.fromOffset(26, 35)
+SplashLogo.BackgroundColor3 = Color3.fromRGB(99, 102, 241)
+SplashLogo.Text = "N"
+SplashLogo.TextColor3 = Color3.fromRGB(255, 255, 255)
+SplashLogo.Font = Enum.Font.GothamBlack
+SplashLogo.TextSize = 38
+SplashLogo.ZIndex = 102
+Instance.new("UICorner", SplashLogo).CornerRadius = UDim.new(0, 19)
+local SplashLogoGradient = Instance.new("UIGradient", SplashLogo)
+SplashLogoGradient.Color = ColorSequence.new(Color3.fromRGB(99, 102, 241), Color3.fromRGB(56, 189, 248))
+SplashLogoGradient.Rotation = 35
+
+local SplashTitle = Instance.new("TextLabel", SplashCard)
+SplashTitle.BackgroundTransparency = 1
+SplashTitle.Position = UDim2.fromOffset(124, 38)
+SplashTitle.Size = UDim2.new(1, -145, 0, 32)
+SplashTitle.Text = "NEXUS PREMIUM"
+SplashTitle.TextColor3 = Color3.fromRGB(246, 247, 255)
+SplashTitle.Font = Enum.Font.GothamBold
+SplashTitle.TextSize = 22
+SplashTitle.TextXAlignment = Enum.TextXAlignment.Left
+SplashTitle.ZIndex = 102
+
+local SplashSub = Instance.new("TextLabel", SplashCard)
+SplashSub.BackgroundTransparency = 1
+SplashSub.Position = UDim2.fromOffset(126, 72)
+SplashSub.Size = UDim2.new(1, -148, 0, 20)
+SplashSub.Text = "Control center  •  initializing workspace"
+SplashSub.TextColor3 = Color3.fromRGB(151, 158, 184)
+SplashSub.Font = Enum.Font.Gotham
+SplashSub.TextSize = 10
+SplashSub.TextXAlignment = Enum.TextXAlignment.Left
+SplashSub.ZIndex = 102
+
+local SplashStatus = Instance.new("TextLabel", SplashCard)
+SplashStatus.BackgroundTransparency = 1
+SplashStatus.Position = UDim2.fromOffset(126, 106)
+SplashStatus.Size = UDim2.new(1, -148, 0, 20)
+SplashStatus.Text = "Preparing modules..."
+SplashStatus.TextColor3 = Color3.fromRGB(129, 140, 248)
+SplashStatus.Font = Enum.Font.GothamSemibold
+SplashStatus.TextSize = 10
+SplashStatus.TextXAlignment = Enum.TextXAlignment.Left
+SplashStatus.ZIndex = 102
+
+local SplashBar = Instance.new("Frame", SplashCard)
+SplashBar.Size = UDim2.new(0, 0, 0, 3)
+SplashBar.Position = UDim2.new(0, 26, 1, -23)
+SplashBar.BackgroundColor3 = Color3.fromRGB(129, 140, 248)
+SplashBar.BorderSizePixel = 0
+SplashBar.ZIndex = 102
+Instance.new("UICorner", SplashBar).CornerRadius = UDim.new(1, 0)
+local SplashBarGradient = Instance.new("UIGradient", SplashBar)
+SplashBarGradient.Color = ColorSequence.new(Color3.fromRGB(129, 140, 248), Color3.fromRGB(56, 189, 248))
+TweenService:Create(SplashBar, TweenInfo.new(1.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, -52, 0, 3)}):Play()
+task.delay(0.52, function() if SplashStatus.Parent then SplashStatus.Text = "Loading module library..." end end)
+task.delay(0.92, function() if SplashStatus.Parent then SplashStatus.Text = "Workspace ready" end end)
+task.wait(1.18)
+pcall(function() Splash:Destroy() end)
+
 local Main = Instance.new("Frame")
 Main.Name = "Main"
 Main.Size = UDim2.fromOffset(820, 540)
@@ -53,6 +146,8 @@ Accent.Size = UDim2.new(1, 0, 0, 2)
 Accent.BackgroundColor3 = Color3.fromRGB(120, 95, 255)
 Accent.BorderSizePixel = 0
 Accent.Parent = Main
+local AccentGradient = Instance.new("UIGradient", Accent)
+AccentGradient.Color = ColorSequence.new(Color3.fromRGB(129, 140, 248), Color3.fromRGB(56, 189, 248))
 
 local Top = Instance.new("Frame")
 Top.Name = "Top"
@@ -76,7 +171,7 @@ Sub.BackgroundTransparency = 1
 Sub.Position = UDim2.fromOffset(30, 45)
 Sub.Size = UDim2.fromOffset(330, 22)
 Sub.Font = Enum.Font.Gotham
-Sub.Text = "NEXUS  •  8 MODULES"
+Sub.Text = "NEXUS  •  24 MODULES  •  2 LIBRARIES"
 Sub.TextColor3 = Color3.fromRGB(135, 141, 165)
 Sub.TextSize = 11
 Sub.TextXAlignment = Enum.TextXAlignment.Left
@@ -138,18 +233,69 @@ Search.ClearTextOnFocus = false
 Search.Parent = Top
 Instance.new("UICorner", Search).CornerRadius = UDim.new(0, 10)
 
-local Body = Instance.new("Frame")
+local TabBar = Instance.new("Frame")
+TabBar.Name = "TabBar"
+TabBar.BackgroundTransparency = 1
+TabBar.Position = UDim2.fromOffset(24, 55)
+TabBar.Size = UDim2.fromOffset(360, 34)
+TabBar.Parent = Main
+
+local GameTab = Instance.new("TextButton")
+GameTab.Size = UDim2.fromOffset(166, 30)
+GameTab.Position = UDim2.fromOffset(0, 0)
+GameTab.BackgroundColor3 = Color3.fromRGB(56, 48, 84)
+GameTab.BorderSizePixel = 0
+GameTab.AutoButtonColor = false
+GameTab.Text = "GAME MODULES"
+GameTab.Font = Enum.Font.GothamSemibold
+GameTab.TextSize = 9
+GameTab.TextColor3 = Color3.fromRGB(239, 235, 255)
+GameTab.Parent = TabBar
+Instance.new("UICorner", GameTab).CornerRadius = UDim.new(0, 9)
+
+local UtilityTab = Instance.new("TextButton")
+UtilityTab.Size = UDim2.fromOffset(166, 30)
+UtilityTab.Position = UDim2.fromOffset(174, 0)
+UtilityTab.BackgroundColor3 = Color3.fromRGB(22, 25, 34)
+UtilityTab.BorderSizePixel = 0
+UtilityTab.AutoButtonColor = false
+UtilityTab.Text = "UTILITY SCRIPTS"
+UtilityTab.Font = Enum.Font.GothamSemibold
+UtilityTab.TextSize = 9
+UtilityTab.TextColor3 = Color3.fromRGB(145, 151, 174)
+UtilityTab.Parent = TabBar
+Instance.new("UICorner", UtilityTab).CornerRadius = UDim.new(0, 9)
+
+local Body = Instance.new("ScrollingFrame")
 Body.Name = "Body"
 Body.BackgroundTransparency = 1
-Body.Position = UDim2.fromOffset(24, 94)
-Body.Size = UDim2.new(1, -48, 1, -132)
+Body.Position = UDim2.fromOffset(24, 96)
+Body.Size = UDim2.new(1, -48, 1, -134)
+Body.BorderSizePixel = 0
+Body.ScrollBarThickness = 5
+Body.ScrollBarImageColor3 = Color3.fromRGB(106, 111, 150)
+Body.ScrollBarImageTransparency = 0.18
+Body.ScrollingEnabled = true
+Body.ScrollingDirection = Enum.ScrollingDirection.Y
+Body.CanvasSize = UDim2.new(0, 0, 0, 0)
+Body.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Body.ClipsDescendants = true
 Body.Parent = Main
 
 local Grid = Instance.new("UIGridLayout")
-Grid.CellSize = UDim2.new(0.333333, -9, 0, 125)
+Grid.CellSize = UDim2.new(0.5, -6, 0, 125)
 Grid.CellPadding = UDim2.fromOffset(12, 12)
 Grid.SortOrder = Enum.SortOrder.LayoutOrder
 Grid.Parent = Body
+Grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Body.CanvasSize = UDim2.fromOffset(0, Grid.AbsoluteContentSize.Y + 24)
+end)
+
+local BodyPadding = Instance.new("UIPadding")
+BodyPadding.PaddingLeft = UDim.new(0, 2)
+BodyPadding.PaddingRight = UDim.new(0, 2)
+BodyPadding.PaddingBottom = UDim.new(0, 18)
+BodyPadding.Parent = Body
 
 local Empty = Instance.new("TextLabel")
 Empty.BackgroundTransparency = 1
@@ -174,8 +320,9 @@ local moduleMeta = {
 }
 
 local moduleCards = {}
-local function addButton(order, title, subtitle)
-    local meta = moduleMeta[order] or {icon = "•", color = Color3.fromRGB(120, 125, 150)}
+local activeButtons = {}
+local function addButton(order, title, subtitle, customMeta)
+    local meta = customMeta or moduleMeta[order] or {icon = "•", color = Color3.fromRGB(120, 125, 150)}
     local b = Instance.new("TextButton")
     b.Name = title
     b.LayoutOrder = order
@@ -284,7 +431,7 @@ end)
 Search:GetPropertyChangedSignal("Text"):Connect(function()
     local q = string.lower(Search.Text or "")
     local visible = 0
-    for _, card in ipairs(moduleCards) do
+    for _, card in ipairs(activeButtons) do
         local title = string.lower(card.Name)
         local show = q == "" or string.find(title, q, 1, true) ~= nil
         card.Visible = show
@@ -17121,39 +17268,204 @@ local buttons = {
     addButton(8, "NDS SURVIVAL", "Nexus Natural Disaster Survival helper"),
 }
 
-local SOURCES = {SOURCE_1, SOURCE_2, SOURCE_3, SOURCE_4, SOURCE_5, SOURCE_6, SOURCE_7, SOURCE_8}
+local ModuleLaunchThemes = {
+    [1] = {name = "TSB", icon = "⚡", color = Color3.fromRGB(129, 140, 248), sub = "Combat / Visual / Utility"},
+    [2] = {name = "RIVALS LEGIT", icon = "◈", color = Color3.fromRGB(88, 180, 255), sub = "Clean competitive toolkit"},
+    [3] = {name = "RIVALS RAGE", icon = "◆", color = Color3.fromRGB(251, 113, 133), sub = "Aggressive combat suite"},
+    [4] = {name = "RIVALS ULTRA RAGE", icon = "☄", color = Color3.fromRGB(251, 146, 60), sub = "Maximum control profile"},
+    [5] = {name = "MM2", icon = "◉", color = Color3.fromRGB(192, 132, 252), sub = "Murder Mystery toolkit"},
+    [6] = {name = "DOORS SCRIPT", icon = "◇", color = Color3.fromRGB(52, 211, 153), sub = "Doors utility workspace"},
+    [7] = {name = "BROOKHAVEN", icon = "⌂", color = Color3.fromRGB(250, 204, 21), sub = "Roleplay / Couch / Tools"},
+    [8] = {name = "NDS SURVIVAL", icon = "☁", color = Color3.fromRGB(56, 189, 248), sub = "Natural Disaster Survival"},
+}
 
+local UtilityLaunchThemes = {
+    [1] = {name = "AIMBOT", icon = "◎", color = Color3.fromRGB(248, 113, 113), sub = "Precision targeting utility"},
+    [2] = {name = "ESP", icon = "◉", color = Color3.fromRGB(74, 222, 128), sub = "Visual awareness overlay"},
+    [3] = {name = "WRD ESP", icon = "◌", color = Color3.fromRGB(45, 212, 191), sub = "WRD visual overlay"},
+    [4] = {name = "WRD AIMBOT", icon = "✧", color = Color3.fromRGB(244, 114, 182), sub = "WRD targeting utility"},
+    [5] = {name = "CLICK TP", icon = "⌖", color = Color3.fromRGB(96, 165, 250), sub = "Point-and-click movement"},
+    [6] = {name = "NEXUS FLING", icon = "↯", color = Color3.fromRGB(251, 146, 60), sub = "Physics interaction tool"},
+    [7] = {name = "FREAKY HUB", icon = "✦", color = Color3.fromRGB(192, 132, 252), sub = "Freaky utility collection"},
+    [8] = {name = "FLY / WALK SPEED", icon = "➤", color = Color3.fromRGB(56, 189, 248), sub = "Movement controls"},
+    [9] = {name = "INFINITE YIELD", icon = "⌘", color = Color3.fromRGB(129, 140, 248), sub = "Command utility"},
+    [10] = {name = "ANTI AFK", icon = "◷", color = Color3.fromRGB(52, 211, 153), sub = "Keep your session active"},
+    [11] = {name = "DEX++", icon = "▦", color = Color3.fromRGB(250, 204, 21), sub = "Explorer utility"},
+    [12] = {name = "NOCLIP", icon = "◇", color = Color3.fromRGB(34, 211, 238), sub = "Collision control"},
+    [13] = {name = "GOD MODE", icon = "✚", color = Color3.fromRGB(239, 68, 68), sub = "Character protection"},
+    [14] = {name = "ANIMATION GUI", icon = "◒", color = Color3.fromRGB(167, 139, 250), sub = "Animation collection"},
+    [15] = {name = "FULLBRIGHT", icon = "☀", color = Color3.fromRGB(253, 224, 71), sub = "Lighting utility"},
+    [16] = {name = "FPS BOOST", icon = "⚡", color = Color3.fromRGB(134, 239, 172), sub = "Performance profile"},
+}
+
+local function showModuleIntro(index)
+    local theme = ModuleLaunchThemes[index] or UtilityLaunchThemes[index - 8] or {name = "NEXUS MODULE", icon = "✦", color = Color3.fromRGB(129, 140, 248), sub = "Dedicated workspace"}
+    local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+    pcall(function()
+        local old = playerGui:FindFirstChild("NexusModuleIntro")
+        if old then old:Destroy() end
+        local oldCore = CoreGui:FindFirstChild("NexusModuleIntro")
+        if oldCore then oldCore:Destroy() end
+    end)
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "NexusModuleIntro"
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.DisplayOrder = 100000
+    local ok = pcall(function() gui.Parent = CoreGui end)
+    if not ok or not gui.Parent then gui.Parent = playerGui end
+    local shade = Instance.new("Frame", gui)
+    shade.Size = UDim2.fromScale(1, 1)
+    shade.BackgroundColor3 = Color3.fromRGB(4, 5, 9)
+    shade.BackgroundTransparency = 0.35
+    shade.BorderSizePixel = 0
+    local card = Instance.new("Frame", gui)
+    card.Size = UDim2.fromOffset(430, 178)
+    card.Position = UDim2.new(0.5, -215, 0.5, -89)
+    card.BackgroundColor3 = Color3.fromRGB(14, 16, 24)
+    card.BorderSizePixel = 0
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 18)
+    local stroke = Instance.new("UIStroke", card)
+    stroke.Color = theme.color
+    stroke.Transparency = 0.18
+    stroke.Thickness = 1.25
+    local accent = Instance.new("Frame", card)
+    accent.Size = UDim2.new(0, 4, 1, -38)
+    accent.Position = UDim2.fromOffset(0, 19)
+    accent.BackgroundColor3 = theme.color
+    accent.BorderSizePixel = 0
+    Instance.new("UICorner", accent).CornerRadius = UDim.new(1, 0)
+    local iconBox = Instance.new("Frame", card)
+    iconBox.Size = UDim2.fromOffset(72, 72)
+    iconBox.Position = UDim2.fromOffset(24, 30)
+    iconBox.BackgroundColor3 = theme.color
+    iconBox.BorderSizePixel = 0
+    Instance.new("UICorner", iconBox).CornerRadius = UDim.new(0, 18)
+    local icon = Instance.new("TextLabel", iconBox)
+    icon.Size = UDim2.fromScale(1, 1)
+    icon.BackgroundTransparency = 1
+    icon.Text = theme.icon
+    icon.TextColor3 = Color3.fromRGB(255, 255, 255)
+    icon.Font = Enum.Font.GothamBold
+    icon.TextSize = 32
+    local eyebrow = Instance.new("TextLabel", card)
+    eyebrow.BackgroundTransparency = 1
+    eyebrow.Position = UDim2.fromOffset(120, 25)
+    eyebrow.Size = UDim2.new(1, -145, 0, 18)
+    eyebrow.Text = "NEXUS MODULE  •  INITIALIZING"
+    eyebrow.TextColor3 = theme.color
+    eyebrow.Font = Enum.Font.GothamSemibold
+    eyebrow.TextSize = 9
+    eyebrow.TextXAlignment = Enum.TextXAlignment.Left
+    local title = Instance.new("TextLabel", card)
+    title.BackgroundTransparency = 1
+    title.Position = UDim2.fromOffset(120, 47)
+    title.Size = UDim2.new(1, -145, 0, 32)
+    title.Text = theme.name
+    title.TextColor3 = Color3.fromRGB(246, 247, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 20
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    local sub = Instance.new("TextLabel", card)
+    sub.BackgroundTransparency = 1
+    sub.Position = UDim2.fromOffset(120, 81)
+    sub.Size = UDim2.new(1, -145, 0, 20)
+    sub.Text = theme.sub
+    sub.TextColor3 = Color3.fromRGB(147, 153, 176)
+    sub.Font = Enum.Font.Gotham
+    sub.TextSize = 10
+    sub.TextXAlignment = Enum.TextXAlignment.Left
+    local status = Instance.new("TextLabel", card)
+    status.BackgroundTransparency = 1
+    status.Position = UDim2.fromOffset(120, 113)
+    status.Size = UDim2.new(1, -145, 0, 18)
+    status.Text = "Preparing dedicated interface..."
+    status.TextColor3 = Color3.fromRGB(182, 188, 210)
+    status.Font = Enum.Font.GothamMedium
+    status.TextSize = 10
+    status.TextXAlignment = Enum.TextXAlignment.Left
+    local bar = Instance.new("Frame", card)
+    bar.Size = UDim2.new(0, 0, 0, 3)
+    bar.Position = UDim2.new(0, 24, 1, -17)
+    bar.BackgroundColor3 = theme.color
+    bar.BorderSizePixel = 0
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+    local grow = TweenService:Create(bar, TweenInfo.new(1.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, -48, 0, 3)})
+    grow:Play()
+    task.delay(0.62, function() if status.Parent then status.Text = "Loading dedicated interface..." end end)
+    task.delay(1.08, function() if status.Parent then status.Text = "Launching " .. theme.name .. "..." end end)
+    task.delay(1.42, function() pcall(function() gui:Destroy() end) end)
+end
+
+local function showUtilityIntro(index)
+    showModuleIntro(index + 8)
+end
+
+local UTILITY_SOURCES = {
+    [=[loadstring(game:HttpGet('https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/aimbot'))()]=],
+    [=[loadstring(game:HttpGet('https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/esp'))()]=],
+    [=[loadstring(game:HttpGet('https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/wrd%20esp'))()]=],
+    [=[loadstring(game:HttpGet('https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/wrd%20aimbot'))()]=],
+    [=[loadstring(game:HttpGet('https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/wrd%20click%20tp'))()]=],
+    [=[loadstring(game:HttpGet('https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/nexus%20fling'))()]=],
+    [=[loadstring(game:HttpGet("https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/j3rk%20bng"))()]=],
+    [=[loadstring(game:HttpGet('https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/fly%20walk%20speed'))()]=],
+    [=[loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()]=],
+    [=[local vu=game:GetService('VirtualUser') game:GetService('Players').LocalPlayer.Idled:Connect(function() vu:CaptureController() vu:ClickButton2(Vector2.new()) end)]=],
+    [=[loadstring(game:HttpGet('https://github.com/AZYsGithub/DexPlusPlus/releases/latest/download/out.lua'))()]=],
+    [=[_G.NexusNoclip=true game:GetService('RunService').Stepped:Connect(function() if not _G.NexusNoclip then return end local c=game:GetService('Players').LocalPlayer.Character if c then for _,p in ipairs(c:GetDescendants()) do if p:IsA('BasePart') then p.CanCollide=false end end end end)]=],
+    [=[_G.NexusGod=true task.spawn(function() while _G.NexusGod do task.wait(0.1) pcall(function() local h=game:GetService('Players').LocalPlayer.Character and game:GetService('Players').LocalPlayer.Character:FindFirstChildOfClass('Humanoid') if h then h.Health=math.huge end end) end end)]=],
+    [=[loadstring(game:HttpGet('https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/animation%20gui'))()]=],
+    [=[local L=game:GetService('Lighting') L.Brightness=2 L.ClockTime=14 L.FogEnd=9e9 L.GlobalShadows=false]=],
+    [=[pcall(function() settings().Rendering.QualityLevel=Enum.QualityLevel.Level01 end)]=],
+}
+
+local utilityButtons = {}
+for i, name in ipairs({"AIMBOT", "ESP", "WRD ESP", "WRD AIMBOT", "CLICK TP", "NEXUS FLING", "FREAKY HUB", "FLY / WALK SPEED", "INFINITE YIELD", "ANTI AFK", "DEX++", "NOCLIP", "GOD MODE", "ANIMATION GUI", "FULLBRIGHT", "FPS BOOST"}) do
+    utilityButtons[i] = addButton(i, name, UtilityLaunchThemes[i].sub, UtilityLaunchThemes[i])
+    utilityButtons[i].Visible = false
+end
+
+local SOURCES = {SOURCE_1, SOURCE_2, SOURCE_3, SOURCE_4, SOURCE_5, SOURCE_6, SOURCE_7, SOURCE_8}
+local activeSources = SOURCES
+activeButtons = buttons
 local launching = false
+
+local function setTab(tab)
+    activeTab = tab
+    activeButtons = tab == "GAME" and buttons or utilityButtons
+    activeSources = tab == "GAME" and SOURCES or UTILITY_SOURCES
+    for _, b in ipairs(buttons) do b.Visible = tab == "GAME" end
+    for _, b in ipairs(utilityButtons) do b.Visible = tab == "UTILITY" end
+    GameTab.BackgroundColor3 = tab == "GAME" and Color3.fromRGB(56, 48, 84) or Color3.fromRGB(22, 25, 34)
+    GameTab.TextColor3 = tab == "GAME" and Color3.fromRGB(239, 235, 255) or Color3.fromRGB(145, 151, 174)
+    UtilityTab.BackgroundColor3 = tab == "UTILITY" and Color3.fromRGB(45, 66, 72) or Color3.fromRGB(22, 25, 34)
+    UtilityTab.TextColor3 = tab == "UTILITY" and Color3.fromRGB(210, 255, 242) or Color3.fromRGB(145, 151, 174)
+    Search.Text = ""
+    Body.CanvasPosition = Vector2.new(0, 0)
+    Footer.Text = tab == "GAME" and "NEXUS  •  SELECT A GAME MODULE TO START" or "NEXUS  •  UTILITY LIBRARY  •  SELECT A TOOL TO START"
+end
 
 local function launch(index)
     if launching then return end
     launching = true
-
-    -- Close Nexus BEFORE the selected script starts.
     Nexus.Enabled = false
     pcall(function() Nexus:Destroy() end)
-
-    task.defer(function()
-        local source = SOURCES[index]
+    if activeTab == "UTILITY" then showUtilityIntro(index) else showModuleIntro(index) end
+    task.delay(1.25, function()
+        local source = activeSources[index]
         local fn, compileError = loadstring(source)
-
-        if not fn then
-            warn("[Nexus] "..tostring(compileError))
-            return
-        end
-
+        if not fn then warn("[Nexus] "..tostring(compileError)); return end
         local ok, runtimeError = pcall(fn)
-        if not ok then
-            warn("[Nexus] Module "..tostring(index).." error: "..tostring(runtimeError))
-        end
+        if not ok then warn("[Nexus] Module "..tostring(index).." error: "..tostring(runtimeError)) end
     end)
 end
 
-for i, button in ipairs(buttons) do
-    button.MouseButton1Click:Connect(function()
-        launch(i)
-    end)
-end
+GameTab.MouseButton1Click:Connect(function() setTab("GAME") end)
+UtilityTab.MouseButton1Click:Connect(function() setTab("UTILITY") end)
+for i, button in ipairs(buttons) do button.MouseButton1Click:Connect(function() launch(i) end) end
+for i, button in ipairs(utilityButtons) do button.MouseButton1Click:Connect(function() launch(i) end) end
+setTab("GAME")
 
 Close.MouseButton1Click:Connect(function()
     pcall(function() Nexus:Destroy() end)
