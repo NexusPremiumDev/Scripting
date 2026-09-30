@@ -1964,7 +1964,7 @@ repeat task.wait() until LocalPlayer.Character
 if   getgenv().ScriptLibrary ~= "Linoria" then
 getgenv().ScriptLibrary = getgenv().ScriptLibrary or "Linoria"
 end
-repo = getgenv().ScriptLibrary == "Obsidian" and 'https://raw.githubusercontent.com/' or getgenv().ScriptLibrary == "Linoria" and 'https://raw.githubusercontent.com/'
+repo = getgenv().ScriptLibrary == "Obsidian" and 'https://raw.githubusercontent.com/mstudio45/Obsidian/main/' or getgenv().ScriptLibrary == "Linoria" and 'https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/'
 Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 getgenv().Library = Library
 task.wait()
