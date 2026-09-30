@@ -1,0 +1,416 @@
+--[[
+Nexus Premium Terminal v28.0 - Elite Edition
+Fullbright + ESP + Custom Speed
+]]
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local Camera = workspace.CurrentCamera
+
+local LocalPlayer = Players.LocalPlayer
+
+pcall(function()
+if getgenv then getgenv().NEXUS_LOADED = true end
+end)
+
+if CoreGui:FindFirstChild("NexusPremiumHub") then
+CoreGui.NexusPremiumHub:Destroy()
+end
+
+local function protectGui(gui)
+pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
+local parent = CoreGui
+pcall(function() if gethui then parent = gethui() end end)
+gui.Parent = parent
+end
+
+local function getRoot(char)
+return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso"))
+end
+local function getHum(char)
+return char and char:FindFirstChildOfClass("Humanoid")
+end
+local function lpChar() return LocalPlayer.Character end
+local function lpRoot() return getRoot(lpChar()) end
+local function lpHum() return getHum(lpChar()) end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NexusPremiumHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 1e9
+ScreenGui.IgnoreGuiInset = true
+protectGui(ScreenGui)
+
+-- Ana Konsol Konteyneri (Cyberpunk Neon Tasarım)
+local ConsoleContainer = Instance.new("Frame")
+ConsoleContainer.Size = UDim2.new(0, 360, 0, 190)
+ConsoleContainer.Position = UDim2.new(1, -380, 1, -210)
+ConsoleContainer.BackgroundColor3 = Color3.fromRGB(8, 10, 14)
+ConsoleContainer.BackgroundTransparency = 0.08
+ConsoleContainer.BorderSizePixel = 0
+ConsoleContainer.Parent = ScreenGui
+Instance.new("UICorner", ConsoleContainer).CornerRadius = UDim.new(0, 8)
+
+local ContainerStroke = Instance.new("UIStroke")
+ContainerStroke.Color = Color3.fromRGB(0, 255, 120)
+ContainerStroke.Thickness = 1.5
+ContainerStroke.Parent = ConsoleContainer
+
+-- Başlık Çubuğu
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 26)
+TopBar.BackgroundColor3 = Color3.fromRGB(12, 15, 20)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = ConsoleContainer
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 8)
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -12, 1, 0)
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "nexus-v28.0 // elite_terminal [ONLINE]"
+TitleLabel.TextColor3 = Color3.fromRGB(0, 255, 120)
+TitleLabel.TextSize = 10
+TitleLabel.Font = Enum.Font.Code
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TopBar
+
+-- Sürükleme Mantığı
+local dragging, dragInput, dragStart, startPos
+TopBar.InputBegan:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+dragging = true
+dragStart = input.Position
+startPos = ConsoleContainer.Position
+input.Changed:Connect(function()
+if input.UserInputState == Enum.UserInputState.End then dragging = false end
+end)
+end
+end)
+TopBar.InputChanged:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+dragInput = input
+end
+end)
+UserInputService.InputChanged:Connect(function(input)
+if input == dragInput and dragging then
+local delta = input.Position - dragStart
+ConsoleContainer.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+end)
+
+-- Sağdaki Hızlı Komut / Script Paneli
+local SidePanel = Instance.new("ScrollingFrame")
+SidePanel.Size = UDim2.new(0, 130, 1, -32)
+SidePanel.Position = UDim2.new(1, 6, 0, 0)
+SidePanel.BackgroundColor3 = Color3.fromRGB(10, 12, 16)
+SidePanel.BackgroundTransparency = 0.15
+SidePanel.BorderSizePixel = 0
+SidePanel.CanvasSize = UDim2.new(0, 0, 0, 0)
+SidePanel.ScrollBarThickness = 3
+SidePanel.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 120)
+SidePanel.Parent = ConsoleContainer
+Instance.new("UICorner", SidePanel).CornerRadius = UDim.new(0, 6)
+local SideStroke = Instance.new("UIStroke")
+SideStroke.Color = Color3.fromRGB(0, 180, 80)
+SideStroke.Thickness = 1
+SideStroke.Parent = SidePanel
+
+local SideLayout = Instance.new("UIListLayout")
+SideLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SideLayout.Padding = UDim.new(0, 4)
+SideLayout.Parent = SidePanel
+
+SideLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+SidePanel.CanvasSize = UDim2.new(0, 0, 0, SideLayout.AbsoluteContentSize.Y + 8)
+end)
+
+-- Ana Çıktı Penceresi
+local ScrollingOutput = Instance.new("ScrollingFrame")
+ScrollingOutput.Size = UDim2.new(1, -145, 1, -62)
+ScrollingOutput.Position = UDim2.new(0, 6, 0, 30)
+ScrollingOutput.BackgroundTransparency = 1
+ScrollingOutput.BorderSizePixel = 0
+ScrollingOutput.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollingOutput.ScrollBarThickness = 3
+ScrollingOutput.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 120)
+ScrollingOutput.Parent = ConsoleContainer
+
+local OutputLayout = Instance.new("UIListLayout")
+OutputLayout.SortOrder = Enum.SortOrder.LayoutOrder
+OutputLayout.Padding = UDim.new(0, 2)
+OutputLayout.Parent = ScrollingOutput
+
+OutputLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+ScrollingOutput.CanvasSize = UDim2.new(0, 0, 0, OutputLayout.AbsoluteContentSize.Y + 6)
+ScrollingOutput.CanvasPosition = Vector2.new(0, ScrollingOutput.CanvasSize.Y.Offset)
+end)
+
+local function logMessage(msg, isError)
+local lbl = Instance.new("TextLabel")
+lbl.Size = UDim2.new(1, 0, 0, 15)
+lbl.BackgroundTransparency = 1
+lbl.Text = " > " .. msg
+lbl.TextColor3 = isError and Color3.fromRGB(255, 60, 60) or Color3.fromRGB(0, 255, 120)
+lbl.TextSize = 10
+lbl.Font = Enum.Font.Code
+lbl.TextXAlignment = Enum.TextXAlignment.Left
+lbl.Parent = ScrollingOutput
+end
+
+-- Komut Giriş Alanı & Ghost Text Autocomplete
+local InputBackground = Instance.new("Frame")
+InputBackground.Size = UDim2.new(1, -145, 0, 24)
+InputBackground.Position = UDim2.new(0, 6, 1, -28)
+InputBackground.BackgroundColor3 = Color3.fromRGB(6, 8, 12)
+InputBackground.BorderSizePixel = 0
+InputBackground.Parent = ConsoleContainer
+Instance.new("UICorner", InputBackground).CornerRadius = UDim.new(0, 4)
+local InputStroke = Instance.new("UIStroke")
+InputStroke.Color = Color3.fromRGB(0, 200, 90)
+InputStroke.Thickness = 1
+InputStroke.Parent = InputBackground
+
+local SuggestionLabel = Instance.new("TextLabel")
+SuggestionLabel.Size = UDim2.new(1, -6, 1, 0)
+SuggestionLabel.Position = UDim2.new(0, 4, 0, 0)
+SuggestionLabel.BackgroundTransparency = 1
+SuggestionLabel.Text = ""
+SuggestionLabel.TextColor3 = Color3.fromRGB(50, 90, 70)
+SuggestionLabel.TextSize = 10
+SuggestionLabel.Font = Enum.Font.Code
+SuggestionLabel.TextXAlignment = Enum.TextXAlignment.Left
+SuggestionLabel.Parent = InputBackground
+
+local CommandBar = Instance.new("TextBox")
+CommandBar.Size = UDim2.new(1, -6, 1, 0)
+CommandBar.Position = UDim2.new(0, 4, 0, 0)
+CommandBar.BackgroundTransparency = 1
+CommandBar.PlaceholderText = "enter command..."
+CommandBar.Text = ""
+CommandBar.TextColor3 = Color3.fromRGB(220, 255, 235)
+CommandBar.PlaceholderColor3 = Color3.fromRGB(60, 100, 80)
+CommandBar.TextSize = 10
+CommandBar.Font = Enum.Font.Code
+CommandBar.TextXAlignment = Enum.TextXAlignment.Left
+CommandBar.ClearTextOnFocus = false
+CommandBar.Parent = InputBackground
+
+logMessage("Nexus v28.0 Online. Type 'help'.")
+
+local conn = {}
+local function bind(key, c)
+if conn[key] then pcall(function() conn[key]:Disconnect() end) end
+conn[key] = c
+end
+local function unbind(key)
+if conn[key] then pcall(function() conn[key]:Disconnect() end) conn[key] = nil end
+end
+
+-- ==================== KOMUTLAR VE SCRIPTLER ====================
+local CustomScripts = {
+["fullbright"] = {
+desc = "Fullbright",
+payload = function()
+Lighting.Brightness = 2
+Lighting.ClockTime = 14
+Lighting.GlobalShadows = false
+Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+bind("fullbright", Lighting.Changed:Connect(function()
+Lighting.Brightness = 2
+Lighting.ClockTime = 14
+Lighting.GlobalShadows = false
+end))
+logMessage("Fullbright enabled.")
+end
+},
+["unfullbright"] = {
+desc = "Stop Bright",
+payload = function()
+unbind("fullbright")
+Lighting.GlobalShadows = true
+Lighting.Brightness = 1
+logMessage("Fullbright disabled.")
+end
+},
+["esp"] = {
+desc = "ESP Player",
+payload = function()
+if ScreenGui:FindFirstChild("NexusESPFolder") then
+ScreenGui.NexusESPFolder:Destroy()
+unbind("esp")
+logMessage("ESP disabled.")
+return
+end
+
+		local ESPFolder = Instance.new("Folder")
+		ESPFolder.Name = "NexusESPFolder"
+		ESPFolder.Parent = ScreenGui
+
+		bind("esp", RunService.RenderStepped:Connect(function()
+			for _, c in ipairs(ESPFolder:GetChildren()) do c:Destroy() end
+
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= LocalPlayer and p.Character and getRoot(p.Character) and getHum(p.Character) and getHum(p.Character).Health > 0 then
+					local char = p.Character
+					local root = getRoot(char)
+					local vector, onScreen = Camera:WorldToViewportPoint(root.Position)
+					
+					if onScreen then
+						local dist = (Camera.CFrame.Position - root.Position).Magnitude
+						local topPos = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, 3, 0))
+						local btmPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
+						local height = math.abs(topPos.Y - btmPos.Y)
+						local width = height / 2
+
+						local box = Instance.new("Frame")
+						box.Size = UDim2.new(0, width, 0, height)
+						box.Position = UDim2.new(0, vector.X - width/2, 0, vector.Y - height/2)
+						box.BackgroundTransparency = 1
+						box.Parent = ESPFolder
+
+						local stroke = Instance.new("UIStroke")
+						stroke.Color = Color3.fromRGB(0, 255, 120)
+						stroke.Thickness = 1.2
+						stroke.Parent = box
+
+						local tag = Instance.new("TextLabel")
+						tag.Size = UDim2.new(0, 120, 0, 16)
+						tag.Position = UDim2.new(0.5, -60, 0, -18)
+						tag.BackgroundTransparency = 1
+						tag.Text = string.format("[%s] (%dm)", p.Name, math.floor(dist))
+						tag.TextColor3 = Color3.fromRGB(0, 255, 120)
+						tag.TextSize = 9
+						tag.Font = Enum.Font.Code
+						tag.TextXAlignment = Enum.TextXAlignment.Center
+						tag.Parent = box
+					end
+				end
+			end
+		end))
+		logMessage("ESP active.")
+	end
+},
+["unesp"] = {
+	desc = "Stop ESP",
+	payload = function()
+		unbind("esp")
+		if ScreenGui:FindFirstChild("NexusESPFolder") then
+			ScreenGui.NexusESPFolder:Destroy()
+		end
+		logMessage("ESP disabled.")
+	end
+},
+["speed"] = {
+	desc = "WalkSpeed",
+	payload = function(a)
+		local h = lpHum() 
+		local val = tonumber(a[1]) or 60
+		if h then 
+			h.WalkSpeed = val 
+			logMessage("WalkSpeed set to " .. val) 
+		end
+	end
+},
+["unspeed"] = {
+	desc = "Reset Speed",
+	payload = function()
+		local h = lpHum() 
+		if h then 
+			h.WalkSpeed = 16 
+			logMessage("WalkSpeed reset to 16.") 
+		end
+	end
+}
+
+
+}
+
+
+for name, data in pairs(CustomScripts) do
+local btn = Instance.new("TextButton")
+btn.Size = UDim2.new(1, -6, 0, 20)
+btn.BackgroundColor3 = Color3.fromRGB(12, 16, 22)
+btn.BorderSizePixel = 0
+btn.Text = " " .. data.desc
+btn.TextColor3 = Color3.fromRGB(0, 255, 120)
+btn.TextSize = 9
+btn.Font = Enum.Font.Code
+btn.TextXAlignment = Enum.TextXAlignment.Left
+btn.Parent = SidePanel
+Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 3)
+
+btn.MouseButton1Click:Connect(function()
+	logMessage("> " .. name)
+	pcall(function() data.payload({}) end)
+end)
+
+
+end
+
+
+CommandBar:GetPropertyChangedSignal("Text"):Connect(function()
+local txt = string.lower(CommandBar.Text)
+if txt == "" then SuggestionLabel.Text = "" return end
+for name, _ in pairs(CustomScripts) do
+if string.sub(name, 1, string.len(txt)) == txt then
+SuggestionLabel.Text = name
+return
+end
+end
+SuggestionLabel.Text = ""
+end)
+
+-- Tab ile Tamamlama
+UserInputService.InputBegan:Connect(function(input, gp)
+if input.KeyCode == Enum.KeyCode.Tab and CommandBar.IsFocused then
+if SuggestionLabel.Text ~= "" then
+CommandBar.Text = SuggestionLabel.Text
+CommandBar.CursorPosition = string.len(CommandBar.Text) + 1
+end
+end
+end)
+
+local function executeCommand(text)
+text = string.lower(text or "")
+logMessage("> " .. text)
+local args = {}
+for word in string.gmatch(text, "%S+") do table.insert(args, word) end
+if #args == 0 then return end
+local cmdName = args[1] table.remove(args, 1)
+
+if CustomScripts[cmdName] then
+	local success, err = pcall(function() CustomScripts[cmdName].payload(args) end)
+	if not success then logMessage("Error: " .. tostring(err), true) end
+else
+	logMessage("Unknown cmd: " .. cmdName, true)
+end
+
+
+end
+
+CommandBar.FocusLost:Connect(function(enterPressed)
+if enterPressed then
+local txt = CommandBar.Text
+CommandBar.Text = ""
+SuggestionLabel.Text = ""
+if txt ~= "" then executeCommand(txt) end
+CommandBar:CaptureFocus()
+end
+end)
+
+CustomScripts["help"] = {
+desc = "Help",
+payload = function() logMessage("Cmds: fullbright, unfullbright, esp, unesp, speed , unspeed") end
+}
+CustomScripts["clear"] = {
+desc = "Clear",
+payload = function() for _, c in ipairs(ScrollingOutput:GetChildren()) do if c:IsA("TextLabel") then c:Destroy() end end end
+}
+CustomScripts["exit"] = {
+desc = "Exit",
+payload = function() for k in pairs(conn) do unbind(k) end ScreenGui:Destroy() end
+}
