@@ -1,41 +1,71 @@
---[[
-Nexus Premium Terminal v28.0 - Elite Edition
-Fullbright + ESP + Custom Speed
-]]
 
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
-local Camera = workspace.CurrentCamera
+local Players           = game:GetService("Players")
+local CoreGui           = game:GetService("CoreGui")
+local RunService        = game:GetService("RunService")
+local UserInputService  = game:GetService("UserInputService")
+local TweenService      = game:GetService("TweenService")
+local Lighting          = game:GetService("Lighting")
+local StarterGui        = game:GetService("StarterGui")
+local HttpService       = game:GetService("HttpService")
+local Workspace         = game:GetService("Workspace")
+local TeleportService   = game:GetService("TeleportService")
+local Debris            = game:GetService("Debris")
+local VirtualUser       = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
+local Camera      = Workspace.CurrentCamera
 
-pcall(function()
-if getgenv then getgenv().NEXUS_LOADED = true end
-end)
+pcall(function() if getgenv then getgenv().NEXUS_LOADED = true end end)
 
 if CoreGui:FindFirstChild("NexusPremiumHub") then
-CoreGui.NexusPremiumHub:Destroy()
+    CoreGui.NexusPremiumHub:Destroy()
 end
 
 local function protectGui(gui)
-pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
-local parent = CoreGui
-pcall(function() if gethui then parent = gethui() end end)
-gui.Parent = parent
+    pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
+    local parent = CoreGui
+    pcall(function() if gethui then parent = gethui() end end)
+    gui.Parent = parent
 end
 
-local function getRoot(char)
-return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso"))
+    local function getRoot(char)
+    if not char then return nil end
+    return char:FindFirstChild("HumanoidRootPart")
+        or char:FindFirstChild("Torso")
+        or char:FindFirstChild("UpperTorso")
+        or char:FindFirstChild("Head")
 end
+
 local function getHum(char)
-return char and char:FindFirstChildOfClass("Humanoid")
+    return char and char:FindFirstChildOfClass("Humanoid")
 end
+
 local function lpChar() return LocalPlayer.Character end
 local function lpRoot() return getRoot(lpChar()) end
-local function lpHum() return getHum(lpChar()) end
+local function lpHum()  return getHum(lpChar()) end
+
+local function safeCall(fn, ...)
+    local ok, err = pcall(fn, ...)
+    if not ok then
+        if Nexus_Log then Nexus_Log("Error: " .. tostring(err), true) end
+        warn("[Nexus] " .. tostring(err))
+    end
+    return ok, err
+end
+
+local function findPlayer(query)
+    if not query or query == "" then return nil end
+    query = string.lower(query)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and string.lower(p.Name) == query then return p end
+    end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and string.find(string.lower(p.Name), query, 1, true) then
+            return p
+        end
+    end
+    return nil
+end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "NexusPremiumHub"
@@ -44,100 +74,183 @@ ScreenGui.DisplayOrder = 1e9
 ScreenGui.IgnoreGuiInset = true
 protectGui(ScreenGui)
 
--- Ana Konsol Konteyneri (Cyberpunk Neon Tasarım)
 local ConsoleContainer = Instance.new("Frame")
-ConsoleContainer.Size = UDim2.new(0, 360, 0, 190)
-ConsoleContainer.Position = UDim2.new(1, -380, 1, -210)
+ConsoleContainer.Name = "Container"
+ConsoleContainer.Size = UDim2.new(0, 620, 0, 380)
+ConsoleContainer.Position = UDim2.new(1, -650, 1, -410)
 ConsoleContainer.BackgroundColor3 = Color3.fromRGB(8, 10, 14)
-ConsoleContainer.BackgroundTransparency = 0.08
+ConsoleContainer.BackgroundTransparency = 0.05
 ConsoleContainer.BorderSizePixel = 0
 ConsoleContainer.Parent = ScreenGui
-Instance.new("UICorner", ConsoleContainer).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", ConsoleContainer).CornerRadius = UDim.new(0, 10)
 
 local ContainerStroke = Instance.new("UIStroke")
 ContainerStroke.Color = Color3.fromRGB(0, 255, 120)
 ContainerStroke.Thickness = 1.5
 ContainerStroke.Parent = ConsoleContainer
 
--- Başlık Çubuğu
 local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 26)
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 30)
 TopBar.BackgroundColor3 = Color3.fromRGB(12, 15, 20)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = ConsoleContainer
-Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 10)
+
+local TopBarFill = Instance.new("Frame")
+TopBarFill.Size = UDim2.new(1, 0, 0, 10)
+TopBarFill.Position = UDim2.new(0, 0, 1, -10)
+TopBarFill.BackgroundColor3 = Color3.fromRGB(12, 15, 20)
+TopBarFill.BorderSizePixel = 0
+TopBarFill.Parent = TopBar
 
 local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Size = UDim2.new(1, -12, 1, 0)
-TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.Size = UDim2.new(1, -110, 1, 0)
+TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "nexus-v28.0 // elite_terminal [ONLINE]"
+TitleLabel.Text = "NEXUS TERMINAL v31.2  //  ELITE"
 TitleLabel.TextColor3 = Color3.fromRGB(0, 255, 120)
-TitleLabel.TextSize = 10
+TitleLabel.TextSize = 11
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = TopBar
 
--- Sürükleme Mantığı
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 22, 0, 22)
+CloseBtn.Position = UDim2.new(1, -26, 0, 4)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 25)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 120, 120)
+CloseBtn.TextSize = 12
+CloseBtn.Font = Enum.Font.Code
+CloseBtn.BorderSizePixel = 0
+CloseBtn.AutoButtonColor = false
+CloseBtn.Parent = TopBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 5)
+CloseBtn.MouseEnter:Connect(function() CloseBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 40) end)
+CloseBtn.MouseLeave:Connect(function() CloseBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 25) end)
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 22, 0, 22)
+MinBtn.Position = UDim2.new(1, -52, 0, 4)
+MinBtn.BackgroundColor3 = Color3.fromRGB(25, 40, 30)
+MinBtn.Text = "—"
+MinBtn.TextColor3 = Color3.fromRGB(120, 255, 160)
+MinBtn.TextSize = 12
+MinBtn.Font = Enum.Font.Code
+MinBtn.BorderSizePixel = 0
+MinBtn.AutoButtonColor = false
+MinBtn.Parent = TopBar
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 5)
+MinBtn.MouseEnter:Connect(function() MinBtn.BackgroundColor3 = Color3.fromRGB(40, 65, 48) end)
+MinBtn.MouseLeave:Connect(function() MinBtn.BackgroundColor3 = Color3.fromRGB(25, 40, 30) end)
+
+local MaxBtn = Instance.new("TextButton")
+MaxBtn.Size = UDim2.new(0, 22, 0, 22)
+MaxBtn.Position = UDim2.new(1, -78, 0, 4)
+MaxBtn.BackgroundColor3 = Color3.fromRGB(20, 32, 48)
+MaxBtn.Text = "⛶"
+MaxBtn.TextColor3 = Color3.fromRGB(130, 200, 255)
+MaxBtn.TextSize = 12
+MaxBtn.Font = Enum.Font.Code
+MaxBtn.BorderSizePixel = 0
+MaxBtn.AutoButtonColor = false
+MaxBtn.Parent = TopBar
+Instance.new("UICorner", MaxBtn).CornerRadius = UDim.new(0, 5)
+MaxBtn.MouseEnter:Connect(function() MaxBtn.BackgroundColor3 = Color3.fromRGB(30, 48, 72) end)
+MaxBtn.MouseLeave:Connect(function() MaxBtn.BackgroundColor3 = Color3.fromRGB(20, 32, 48) end)
+
 local dragging, dragInput, dragStart, startPos
 TopBar.InputBegan:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-dragging = true
-dragStart = input.Position
-startPos = ConsoleContainer.Position
-input.Changed:Connect(function()
-if input.UserInputState == Enum.UserInputState.End then dragging = false end
-end)
-end
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = ConsoleContainer.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
 end)
 TopBar.InputChanged:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-dragInput = input
-end
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
 end)
 UserInputService.InputChanged:Connect(function(input)
-if input == dragInput and dragging then
-local delta = input.Position - dragStart
-ConsoleContainer.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        ConsoleContainer.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
 end)
 
--- Sağdaki Hızlı Komut / Script Paneli
 local SidePanel = Instance.new("ScrollingFrame")
-SidePanel.Size = UDim2.new(0, 130, 1, -32)
-SidePanel.Position = UDim2.new(1, 6, 0, 0)
+SidePanel.Name = "SidePanel"
+SidePanel.Size = UDim2.new(0, 220, 1, -66)
+SidePanel.Position = UDim2.new(0, 6, 0, 34)
 SidePanel.BackgroundColor3 = Color3.fromRGB(10, 12, 16)
 SidePanel.BackgroundTransparency = 0.15
 SidePanel.BorderSizePixel = 0
 SidePanel.CanvasSize = UDim2.new(0, 0, 0, 0)
-SidePanel.ScrollBarThickness = 3
+SidePanel.ScrollBarThickness = 4
 SidePanel.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 120)
+SidePanel.ScrollBarImageTransparency = 0.3
 SidePanel.Parent = ConsoleContainer
-Instance.new("UICorner", SidePanel).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", SidePanel).CornerRadius = UDim.new(0, 8)
 local SideStroke = Instance.new("UIStroke")
 SideStroke.Color = Color3.fromRGB(0, 180, 80)
 SideStroke.Thickness = 1
+SideStroke.Transparency = 0.3
 SideStroke.Parent = SidePanel
+
+local SidePadding = Instance.new("UIPadding")
+SidePadding.PaddingTop = UDim.new(0, 6)
+SidePadding.PaddingBottom = UDim.new(0, 6)
+SidePadding.PaddingLeft = UDim.new(0, 4)
+SidePadding.PaddingRight = UDim.new(0, 4)
+SidePadding.Parent = SidePanel
 
 local SideLayout = Instance.new("UIListLayout")
 SideLayout.SortOrder = Enum.SortOrder.LayoutOrder
-SideLayout.Padding = UDim.new(0, 4)
+SideLayout.Padding = UDim.new(0, 3)
 SideLayout.Parent = SidePanel
 
 SideLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-SidePanel.CanvasSize = UDim2.new(0, 0, 0, SideLayout.AbsoluteContentSize.Y + 8)
+    SidePanel.CanvasSize = UDim2.new(0, 0, 0, SideLayout.AbsoluteContentSize.Y + 12)
 end)
 
--- Ana Çıktı Penceresi
+local OutputFrame = Instance.new("Frame")
+OutputFrame.Size = UDim2.new(1, -238, 1, -66)
+OutputFrame.Position = UDim2.new(0, 232, 0, 34)
+OutputFrame.BackgroundColor3 = Color3.fromRGB(10, 12, 16)
+OutputFrame.BackgroundTransparency = 0.15
+OutputFrame.BorderSizePixel = 0
+OutputFrame.Parent = ConsoleContainer
+Instance.new("UICorner", OutputFrame).CornerRadius = UDim.new(0, 8)
+local OutStroke = Instance.new("UIStroke")
+OutStroke.Color = Color3.fromRGB(0, 180, 80)
+OutStroke.Thickness = 1
+OutStroke.Transparency = 0.3
+OutStroke.Parent = OutputFrame
+
 local ScrollingOutput = Instance.new("ScrollingFrame")
-ScrollingOutput.Size = UDim2.new(1, -145, 1, -62)
-ScrollingOutput.Position = UDim2.new(0, 6, 0, 30)
+ScrollingOutput.Size = UDim2.new(1, -12, 1, -38)
+ScrollingOutput.Position = UDim2.new(0, 6, 0, 6)
 ScrollingOutput.BackgroundTransparency = 1
 ScrollingOutput.BorderSizePixel = 0
 ScrollingOutput.CanvasSize = UDim2.new(0, 0, 0, 0)
 ScrollingOutput.ScrollBarThickness = 3
 ScrollingOutput.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 120)
-ScrollingOutput.Parent = ConsoleContainer
+ScrollingOutput.Parent = OutputFrame
+
+local OutputPadding = Instance.new("UIPadding")
+OutputPadding.PaddingTop = UDim.new(0, 2)
+OutputPadding.PaddingLeft = UDim.new(0, 4)
+OutputPadding.PaddingRight = UDim.new(0, 4)
+OutputPadding.Parent = ScrollingOutput
 
 local OutputLayout = Instance.new("UIListLayout")
 OutputLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -145,272 +258,993 @@ OutputLayout.Padding = UDim.new(0, 2)
 OutputLayout.Parent = ScrollingOutput
 
 OutputLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-ScrollingOutput.CanvasSize = UDim2.new(0, 0, 0, OutputLayout.AbsoluteContentSize.Y + 6)
-ScrollingOutput.CanvasPosition = Vector2.new(0, ScrollingOutput.CanvasSize.Y.Offset)
+    ScrollingOutput.CanvasSize = UDim2.new(0, 0, 0, OutputLayout.AbsoluteContentSize.Y + 8)
+    task.defer(function()
+        ScrollingOutput.CanvasPosition = Vector2.new(0, ScrollingOutput.AbsoluteCanvasSize.Y)
+    end)
 end)
 
-local function logMessage(msg, isError)
-local lbl = Instance.new("TextLabel")
-lbl.Size = UDim2.new(1, 0, 0, 15)
-lbl.BackgroundTransparency = 1
-lbl.Text = " > " .. msg
-lbl.TextColor3 = isError and Color3.fromRGB(255, 60, 60) or Color3.fromRGB(0, 255, 120)
-lbl.TextSize = 10
-lbl.Font = Enum.Font.Code
-lbl.TextXAlignment = Enum.TextXAlignment.Left
-lbl.Parent = ScrollingOutput
-end
-
--- Komut Giriş Alanı & Ghost Text Autocomplete
 local InputBackground = Instance.new("Frame")
-InputBackground.Size = UDim2.new(1, -145, 0, 24)
-InputBackground.Position = UDim2.new(0, 6, 1, -28)
+InputBackground.Size = UDim2.new(1, -12, 0, 26)
+InputBackground.Position = UDim2.new(0, 6, 1, -32)
 InputBackground.BackgroundColor3 = Color3.fromRGB(6, 8, 12)
 InputBackground.BorderSizePixel = 0
-InputBackground.Parent = ConsoleContainer
-Instance.new("UICorner", InputBackground).CornerRadius = UDim.new(0, 4)
+InputBackground.Parent = OutputFrame
+Instance.new("UICorner", InputBackground).CornerRadius = UDim.new(0, 5)
+
 local InputStroke = Instance.new("UIStroke")
 InputStroke.Color = Color3.fromRGB(0, 200, 90)
 InputStroke.Thickness = 1
+InputStroke.Transparency = 0.3
 InputStroke.Parent = InputBackground
 
+local PromptLabel = Instance.new("TextLabel")
+PromptLabel.Size = UDim2.new(0, 16, 1, 0)
+PromptLabel.Position = UDim2.new(0, 6, 0, 0)
+PromptLabel.BackgroundTransparency = 1
+PromptLabel.Text = ">"
+PromptLabel.TextColor3 = Color3.fromRGB(0, 255, 120)
+PromptLabel.TextSize = 11
+PromptLabel.Font = Enum.Font.Code
+PromptLabel.Parent = InputBackground
+
 local SuggestionLabel = Instance.new("TextLabel")
-SuggestionLabel.Size = UDim2.new(1, -6, 1, 0)
-SuggestionLabel.Position = UDim2.new(0, 4, 0, 0)
+SuggestionLabel.Size = UDim2.new(1, -26, 1, 0)
+SuggestionLabel.Position = UDim2.new(0, 22, 0, 0)
 SuggestionLabel.BackgroundTransparency = 1
 SuggestionLabel.Text = ""
 SuggestionLabel.TextColor3 = Color3.fromRGB(50, 90, 70)
-SuggestionLabel.TextSize = 10
+SuggestionLabel.TextSize = 11
 SuggestionLabel.Font = Enum.Font.Code
 SuggestionLabel.TextXAlignment = Enum.TextXAlignment.Left
 SuggestionLabel.Parent = InputBackground
 
 local CommandBar = Instance.new("TextBox")
-CommandBar.Size = UDim2.new(1, -6, 1, 0)
-CommandBar.Position = UDim2.new(0, 4, 0, 0)
+CommandBar.Size = UDim2.new(1, -26, 1, 0)
+CommandBar.Position = UDim2.new(0, 22, 0, 0)
 CommandBar.BackgroundTransparency = 1
-CommandBar.PlaceholderText = "enter command..."
+CommandBar.PlaceholderText = "type a command... ('help' for list)"
 CommandBar.Text = ""
 CommandBar.TextColor3 = Color3.fromRGB(220, 255, 235)
 CommandBar.PlaceholderColor3 = Color3.fromRGB(60, 100, 80)
-CommandBar.TextSize = 10
+CommandBar.TextSize = 11
 CommandBar.Font = Enum.Font.Code
 CommandBar.TextXAlignment = Enum.TextXAlignment.Left
 CommandBar.ClearTextOnFocus = false
 CommandBar.Parent = InputBackground
 
-logMessage("Nexus v28.0 Online. Type 'help'.")
+local MAX_LINES = 200
+local lineCount = 0
 
+function Nexus_Log(msg, isError, isSuccess)
+    if lineCount >= MAX_LINES then
+        local first = ScrollingOutput:FindFirstChildWhichIsA("TextLabel")
+        if first then first:Destroy(); lineCount -= 1 end
+    end
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 16)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = "› " .. tostring(msg)
+    if isError then
+        lbl.TextColor3 = Color3.fromRGB(255, 90, 100)
+    elseif isSuccess then
+        lbl.TextColor3 = Color3.fromRGB(120, 255, 180)
+    else
+        lbl.TextColor3 = Color3.fromRGB(0, 255, 120)
+    end
+    lbl.TextSize = 11
+    lbl.Font = Enum.Font.Code
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextWrapped = false
+    lbl.Parent = ScrollingOutput
+    lineCount += 1
+end
+
+local function log(msg, err) Nexus_Log(msg, err) end
+local function logOk(msg) Nexus_Log(msg, false, true) end
+
+log("Nexus Terminal v31.2 online.")
+log("Type 'help' or click a button.")
+ 
 local conn = {}
 local function bind(key, c)
-if conn[key] then pcall(function() conn[key]:Disconnect() end) end
-conn[key] = c
+    if conn[key] then pcall(function() conn[key]:Disconnect() end) end
+    conn[key] = c
 end
 local function unbind(key)
-if conn[key] then pcall(function() conn[key]:Disconnect() end) conn[key] = nil end
+    if conn[key] then
+        pcall(function() conn[key]:Disconnect() end)
+        conn[key] = nil
+    end
+end
+local function isBound(key) return conn[key] ~= nil end
+
+local respawnConnections = {}
+local function onCharacterAdded(fn)
+    local key = tostring(fn)
+    if respawnConnections[key] then return end
+    respawnConnections[key] = LocalPlayer.CharacterAdded:Connect(function(char)
+        task.wait(0.5)
+        safeCall(fn, char)
+    end)
 end
 
--- ==================== KOMUTLAR VE SCRIPTLER ====================
-local CustomScripts = {
-["fullbright"] = {
-desc = "Fullbright",
-payload = function()
-Lighting.Brightness = 2
-Lighting.ClockTime = 14
-Lighting.GlobalShadows = false
-Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
-bind("fullbright", Lighting.Changed:Connect(function()
-Lighting.Brightness = 2
-Lighting.ClockTime = 14
-Lighting.GlobalShadows = false
-end))
-logMessage("Fullbright enabled.")
-end
-},
-["unfullbright"] = {
-desc = "Stop Bright",
-payload = function()
-unbind("fullbright")
-Lighting.GlobalShadows = true
-Lighting.Brightness = 1
-logMessage("Fullbright disabled.")
-end
-},
-["esp"] = {
-desc = "ESP Player",
-payload = function()
-if ScreenGui:FindFirstChild("NexusESPFolder") then
-ScreenGui.NexusESPFolder:Destroy()
-unbind("esp")
-logMessage("ESP disabled.")
-return
+local Commands = {}
+local CommandOrder = {}
+
+local function register(name, desc, payload)
+    Commands[name] = { desc = desc, payload = payload, name = name }
+    table.insert(CommandOrder, name)
 end
 
-		local ESPFolder = Instance.new("Folder")
-		ESPFolder.Name = "NexusESPFolder"
-		ESPFolder.Parent = ScreenGui
+register("fullbright", "Fullbright", function()
+    Lighting.Brightness = 2
+    Lighting.ClockTime = 14
+    Lighting.GlobalShadows = false
+    Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    Lighting.FogEnd = 1e9
+    Lighting.Ambient = Color3.fromRGB(180, 180, 180)
+    bind("fullbright", Lighting.Changed:Connect(function()
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+        Lighting.GlobalShadows = false
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    end))
+    logOk("Fullbright ON")
+end)
 
-		bind("esp", RunService.RenderStepped:Connect(function()
-			for _, c in ipairs(ESPFolder:GetChildren()) do c:Destroy() end
+register("unfullbright", "Stop Fullbright", function()
+    unbind("fullbright")
+    Lighting.GlobalShadows = true
+    Lighting.Brightness = 1
+    Lighting.ClockTime = 14
+    Lighting.OutdoorAmbient = Color3.fromRGB(70, 70, 70)
+    logOk("Fullbright OFF")
+end)
 
-			for _, p in ipairs(Players:GetPlayers()) do
-				if p ~= LocalPlayer and p.Character and getRoot(p.Character) and getHum(p.Character) and getHum(p.Character).Health > 0 then
-					local char = p.Character
-					local root = getRoot(char)
-					local vector, onScreen = Camera:WorldToViewportPoint(root.Position)
-					
-					if onScreen then
-						local dist = (Camera.CFrame.Position - root.Position).Magnitude
-						local topPos = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, 3, 0))
-						local btmPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
-						local height = math.abs(topPos.Y - btmPos.Y)
-						local width = height / 2
+register("esp", "ESP Players", function()
+    if ScreenGui:FindFirstChild("NexusESPFolder") then
+        ScreenGui.NexusESPFolder:Destroy()
+        unbind("esp")
+    end
 
-						local box = Instance.new("Frame")
-						box.Size = UDim2.new(0, width, 0, height)
-						box.Position = UDim2.new(0, vector.X - width/2, 0, vector.Y - height/2)
-						box.BackgroundTransparency = 1
-						box.Parent = ESPFolder
+    local folder = Instance.new("Folder")
+    folder.Name = "NexusESPFolder"
+    folder.Parent = ScreenGui
 
-						local stroke = Instance.new("UIStroke")
-						stroke.Color = Color3.fromRGB(0, 255, 120)
-						stroke.Thickness = 1.2
-						stroke.Parent = box
+    local cache = {}
 
-						local tag = Instance.new("TextLabel")
-						tag.Size = UDim2.new(0, 120, 0, 16)
-						tag.Position = UDim2.new(0.5, -60, 0, -18)
-						tag.BackgroundTransparency = 1
-						tag.Text = string.format("[%s] (%dm)", p.Name, math.floor(dist))
-						tag.TextColor3 = Color3.fromRGB(0, 255, 120)
-						tag.TextSize = 9
-						tag.Font = Enum.Font.Code
-						tag.TextXAlignment = Enum.TextXAlignment.Center
-						tag.Parent = box
-					end
-				end
-			end
-		end))
-		logMessage("ESP active.")
-	end
-},
-["unesp"] = {
-	desc = "Stop ESP",
-	payload = function()
-		unbind("esp")
-		if ScreenGui:FindFirstChild("NexusESPFolder") then
-			ScreenGui.NexusESPFolder:Destroy()
-		end
-		logMessage("ESP disabled.")
-	end
-},
-["speed"] = {
-	desc = "WalkSpeed",
-	payload = function(a)
-		local h = lpHum() 
-		local val = tonumber(a[1]) or 60
-		if h then 
-			h.WalkSpeed = val 
-			logMessage("WalkSpeed set to " .. val) 
-		end
-	end
-},
-["unspeed"] = {
-	desc = "Reset Speed",
-	payload = function()
-		local h = lpHum() 
-		if h then 
-			h.WalkSpeed = 16 
-			logMessage("WalkSpeed reset to 16.") 
-		end
-	end
-}
+    bind("esp", RunService.Heartbeat:Connect(function()
+        local alive = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                local root = getRoot(p.Character)
+                local hum = getHum(p.Character)
+                if root and hum and hum.Health > 0 then
+                    alive[p] = true
+                    local vector, onScreen = Camera:WorldToViewportPoint(root.Position)
+                    local entry = cache[p]
 
+                    if onScreen then
+                        if not entry then
+                            local box = Instance.new("Frame")
+                            box.BackgroundTransparency = 1
+                            box.Parent = folder
 
-}
+                            local stroke = Instance.new("UIStroke")
+                            stroke.Color = Color3.fromRGB(0, 255, 120)
+                            stroke.Thickness = 1.2
+                            stroke.Parent = box
 
+                            local tag = Instance.new("TextLabel")
+                            tag.Size = UDim2.new(0, 140, 0, 16)
+                            tag.Position = UDim2.new(0.5, -70, 0, -18)
+                            tag.BackgroundTransparency = 1
+                            tag.TextColor3 = Color3.fromRGB(0, 255, 120)
+                            tag.TextSize = 10
+                            tag.Font = Enum.Font.Code
+                            tag.TextXAlignment = Enum.TextXAlignment.Center
+                            tag.Parent = box
 
-for name, data in pairs(CustomScripts) do
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(1, -6, 0, 20)
-btn.BackgroundColor3 = Color3.fromRGB(12, 16, 22)
-btn.BorderSizePixel = 0
-btn.Text = " " .. data.desc
-btn.TextColor3 = Color3.fromRGB(0, 255, 120)
-btn.TextSize = 9
-btn.Font = Enum.Font.Code
-btn.TextXAlignment = Enum.TextXAlignment.Left
-btn.Parent = SidePanel
-Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 3)
+                            cache[p] = { box = box, tag = tag }
+                            entry = cache[p]
+                        end
 
-btn.MouseButton1Click:Connect(function()
-	logMessage("> " .. name)
-	pcall(function() data.payload({}) end)
+                        local dist = (Camera.CFrame.Position - root.Position).Magnitude
+                        local topPos = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, 3, 0))
+                        local btmPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
+                        local height = math.abs(topPos.Y - btmPos.Y)
+                        local width = height / 2
+
+                        entry.box.Visible = true
+                        entry.box.Size = UDim2.new(0, width, 0, height)
+                        entry.box.Position = UDim2.new(0, vector.X - width / 2, 0, vector.Y - height / 2)
+                        entry.tag.Text = string.format("[%s] %dm", p.Name, math.floor(dist))
+                    else
+                        if entry then entry.box.Visible = false end
+                    end
+                end
+            end
+        end
+
+        for p, entry in pairs(cache) do
+            if not alive[p] then
+                entry.box:Destroy()
+                cache[p] = nil
+            end
+        end
+    end))
+
+    logOk("ESP ON")
+end)
+
+register("unesp", "Stop ESP", function()
+    unbind("esp")
+    if ScreenGui:FindFirstChild("NexusESPFolder") then
+        ScreenGui.NexusESPFolder:Destroy()
+    end
+    logOk("ESP OFF")
 end)
 
 
+local flyState = {
+    active = false,
+    speed  = 60,
+    bodyGyro = nil,
+    bodyVel  = nil,
+    keys = { W = false, A = false, S = false, D = false, Space = false, Shift = false }
+}
+
+register("walkspeed", "Set WalkSpeed (e.g. walkspeed 99)", function(args)
+    local val = tonumber(args[1]) or 16
+    local h = lpHum()
+    if h then
+        h.WalkSpeed = val
+        logOk("WalkSpeed → " .. val)
+    else
+        log("No character", true)
+    end
+end)
+
+register("speed", "Set WalkSpeed (alias)", function(args)
+    local val = tonumber(args[1]) or 60
+    local h = lpHum()
+    if h then
+        h.WalkSpeed = val
+        logOk("WalkSpeed → " .. val)
+    else
+        log("No character", true)
+    end
+end)
+
+register("unspeed", "Reset WalkSpeed to 16", function()
+    local h = lpHum()
+    if h then h.WalkSpeed = 16; logOk("WalkSpeed → 16") end
+end)
+
+register("jumppower", "Set JumpPower (e.g. jumppower 22)", function(args)
+    local val = tonumber(args[1]) or 50
+    local h = lpHum()
+    if h then
+        h.UseJumpPower = true
+        h.JumpPower = val
+        logOk("JumpPower → " .. val)
+    else
+        log("No character", true)
+    end
+end)
+
+register("jump", "Set JumpPower (alias)", function(args)
+    local val = tonumber(args[1]) or 100
+    local h = lpHum()
+    if h then
+        h.UseJumpPower = true
+        h.JumpPower = val
+        logOk("JumpPower → " .. val)
+    end
+end)
+
+register("unjump", "Reset JumpPower to 50", function()
+    local h = lpHum()
+    if h then
+        h.UseJumpPower = true
+        h.JumpPower = 50
+        logOk("JumpPower → 50")
+    end
+end)
+
+register("infjump", "Infinite Jump", function()
+    bind("infjump", UserInputService.JumpRequest:Connect(function()
+        local h = lpHum()
+        if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end))
+    logOk("Infinite Jump ON")
+end)
+
+register("uninfjump", "Stop Infinite Jump", function()
+    unbind("infjump")
+    logOk("Infinite Jump OFF")
+end)
+
+register("fly", "Enable Fly (WASD)", function()
+    if flyState.active then
+        log("Fly already active — 'unfly' to stop")
+        return
+    end
+
+    local char = lpChar()
+    if not char then log("No character", true) return end
+    local root = getRoot(char)
+    local hum = getHum(char)
+    if not root or not hum then log("No root/humanoid", true) return end
+
+    flyState.active = true
+
+    flyState.bodyGyro = Instance.new("BodyGyro")
+    flyState.bodyGyro.P = 9e4
+    flyState.bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    flyState.bodyGyro.CFrame = root.CFrame
+    flyState.bodyGyro.Parent = root
+
+    flyState.bodyVel = Instance.new("BodyVelocity")
+    flyState.bodyVel.Velocity = Vector3.new(0, 0, 0)
+    flyState.bodyVel.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    flyState.bodyVel.P = 1250
+    flyState.bodyVel.Parent = root
+
+    local function press(key, state)
+        if key == Enum.KeyCode.W then flyState.keys.W = state
+        elseif key == Enum.KeyCode.A then flyState.keys.A = state
+        elseif key == Enum.KeyCode.S then flyState.keys.S = state
+        elseif key == Enum.KeyCode.D then flyState.keys.D = state
+        elseif key == Enum.KeyCode.Space then flyState.keys.Space = state
+        elseif key == Enum.KeyCode.LeftShift then flyState.keys.Shift = state end
+    end
+
+    bind("fly_input", UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        press(input.KeyCode, true)
+    end))
+    bind("fly_input_end", UserInputService.InputEnded:Connect(function(input)
+        press(input.KeyCode, false)
+    end))
+
+    bind("fly_loop", RunService.RenderStepped:Connect(function()
+        if not flyState.active then return end
+        local r = lpRoot()
+        if not r then return end
+        local cf = Camera.CFrame
+        local move = Vector3.new(0, 0, 0)
+        if flyState.keys.W then move += cf.LookVector end
+        if flyState.keys.S then move -= cf.LookVector end
+        if flyState.keys.A then move -= cf.RightVector end
+        if flyState.keys.D then move += cf.RightVector end
+        if flyState.keys.Space then move += Vector3.new(0, 1, 0) end
+        if flyState.keys.Shift then move -= Vector3.new(0, 1, 0) end
+        local target = (move.Magnitude > 0) and move.Unit * flyState.speed or Vector3.new(0, 0, 0)
+        if flyState.bodyGyro then flyState.bodyGyro.CFrame = cf end
+        if flyState.bodyVel then flyState.bodyVel.Velocity = target end
+    end))
+
+    logOk("Fly ON — speed " .. flyState.speed .. "  ·  WASD move, Space up, Shift down")
+end)
+
+register("unfly", "Stop Fly", function()
+    flyState.active = false
+    unbind("fly_input")
+    unbind("fly_input_end")
+    unbind("fly_loop")
+    local root = lpRoot()
+    if root then
+        for _, v in ipairs(root:GetChildren()) do
+            if v:IsA("BodyVelocity") or v:IsA("BodyGyro") then
+                v:Destroy()
+            end
+        end
+    end
+    flyState.bodyGyro = nil
+    flyState.bodyVel = nil
+    logOk("Fly OFF")
+end)
+
+-- ═══ Fly Speed (2 kelimeli komut) ═══
+register("fly speed", "Set fly speed (e.g. fly speed 200)", function(args)
+    local val = tonumber(args[1]) or 60
+    flyState.speed = val
+    if flyState.active then
+        logOk("Fly speed → " .. val .. " (live)")
+    else
+        logOk("Fly speed → " .. val .. " (next fly)")
+    end
+end)
+
+-- ═══ Noclip ═══
+register("noclip", "Noclip (walk through walls)", function()
+    bind("noclip", RunService.Stepped:Connect(function()
+        local char = lpChar()
+        if char then
+            for _, p in ipairs(char:GetDescendants()) do
+                if p:IsA("BasePart") and p.CanCollide then
+                    p.CanCollide = false
+                end
+            end
+        end
+    end))
+    logOk("Noclip ON")
+end)
+
+register("unnoclip", "Stop Noclip", function()
+    unbind("noclip")
+    local char = lpChar()
+    if char then
+        for _, p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide = true end
+        end
+    end
+    logOk("Noclip OFF")
+end)
+
+register("god", "Godmode (health lock)", function()
+    bind("god", RunService.Heartbeat:Connect(function()
+        local h = lpHum()
+        if h then h.Health = h.MaxHealth end
+    end))
+    logOk("Godmode ON")
+end)
+
+register("ungod", "Stop Godmode", function()
+    unbind("god")
+    logOk("Godmode OFF")
+end)
+
+register("antiafk", "Anti AFK", function()
+    bind("antiafk", LocalPlayer.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+        log("Anti-AFK triggered")
+    end))
+    logOk("Anti-AFK ON")
+end)
+
+register("unantiafk", "Stop Anti-AFK", function()
+    unbind("antiafk")
+    logOk("Anti-AFK OFF")
+end)
+
+register("goto", "Teleport to player", function(args)
+    local found = findPlayer(args[1])
+    if not found then log("Player not found", true) return end
+    local r = lpRoot()
+    local tr = getRoot(found.Character)
+    if r and tr then
+        r.CFrame = tr.CFrame + Vector3.new(0, 3, 0)
+        logOk("Teleported to " .. found.Name)
+    else
+        log("Could not teleport", true)
+    end
+end)
+
+register("bring", "Bring player to you", function(args)
+    local found = findPlayer(args[1])
+    if not found then log("Player not found", true) return end
+    local r = lpRoot()
+    local tr = getRoot(found.Character)
+    if r and tr then
+        tr.CFrame = r.CFrame + Vector3.new(0, 0, 3)
+        logOk("Brought " .. found.Name)
+    else
+        log("Could not bring", true)
+    end
+end)
+  
+   register("fling", "Fling anyone who touches you", function()
+    if isBound("fling_touch") then
+        unbind("fling_touch")
+        logOk("Fling OFF")
+        return
+    end
+
+    local function doFling(targetRoot, targetName)
+        if not targetRoot then return end
+        local bv = Instance.new("BodyVelocity")
+        bv.Velocity = Vector3.new(
+            math.random(-9e8, 9e8),
+            9e8,
+            math.random(-9e8, 9e8))
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Parent = targetRoot
+        Debris:AddItem(bv, 0.2)
+        log("Flinged " .. tostring(targetName))
+    end
+
+    local function attachTouch()
+        local char = lpChar()
+        if not char then return end
+        local hrp = getRoot(char)
+        if not hrp then return end
+
+        bind("fling_touch", hrp.Touched:Connect(function(hit)
+            if not hit then return end
+            local otherChar = hit:FindFirstAncestorOfClass("Model")
+            if not otherChar or otherChar == char then return end
+            local otherHum = otherChar:FindFirstChildOfClass("Humanoid")
+            if not otherHum or otherHum.Health <= 0 then return end
+            local otherRoot = getRoot(otherChar)
+            if not otherRoot then return end
+            doFling(otherRoot, otherChar.Name)
+        end))
+    end
+
+    attachTouch()
+    onCharacterAdded(function()
+        if isBound("fling_touch") then attachTouch() end
+    end)
+
+    logOk("Fling ON — touch you = they get flung")
+end)
+
+register("freeze", "Freeze player", function(args)
+    local found = findPlayer(args[1])
+    if not found then log("Player not found", true) return end
+    local hrp = getRoot(found.Character)
+    if hrp then
+        hrp.Anchored = true
+        logOk("Froze " .. found.Name)
+    end
+end)
+
+register("unfreeze", "Unfreeze player", function(args)
+    local found = findPlayer(args[1])
+    if not found then log("Player not found", true) return end
+    local hrp = getRoot(found.Character)
+    if hrp then
+        hrp.Anchored = false
+        logOk("Unfroze " .. found.Name)
+    end
+end)
+
+register("clicktp", "Click to teleport", function()
+    bind("clicktp", UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local mouse = LocalPlayer:GetMouse()
+            if mouse.Hit then
+                local r = lpRoot()
+                if r then
+                    r.CFrame = CFrame.new(mouse.Hit.Position + Vector3.new(0, 3, 0))
+                end
+            end
+        end
+    end))
+    logOk("Click TP ON — click anywhere")
+end)
+
+register("unclicktp", "Stop Click TP", function()
+    unbind("clicktp")
+    logOk("Click TP OFF")
+end)
+
+register("rejoin", "Rejoin server", function()
+    log("Rejoining...")
+    task.wait(0.3)
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
+
+register("serverhop", "Server hop (smallest server)", function()
+    log("Finding server...")
+    task.spawn(function()
+        local ok, result = pcall(function()
+            local servers = HttpService:JSONDecode(
+                game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId ..
+                    "/servers/Public?sortOrder=Asc&limit=100"))
+            local best
+            for _, s in ipairs(servers.data) do
+                if s.playing < s.maxPlayers and s.id ~= game.JobId then
+                    best = s.id; break
+                end
+            end
+            return best
+        end)
+        if ok and result then
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, result, LocalPlayer)
+        else
+            log("No server found", true)
+        end
+    end)
+end)
+
+-- ─────────────────────────────────────────────
+-- ✦ FUN / SPECIAL
+-- ─────────────────────────────────────────────
+register("freaky", "🩷 Freaky script", function()
+    log("Loading freaky...", false, false)
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/j3rk%20bng"))()
+    end)
+    if ok then
+        logOk("💗 Freaky loaded")
+    else
+        log("Freaky failed: " .. tostring(err), true)
+    end
+end)
+
+register("headsize", "Set head size", function(args)
+    local size = tonumber(args[1]) or 4
+    local char = lpChar()
+    if char and char:FindFirstChild("Head") then
+        char.Head.Size = Vector3.new(size, size, size)
+        logOk("Head size → " .. size)
+    end
+end)
+
+register("wsreset", "Reset all body parts", function()
+    local char = lpChar()
+    if char then
+        for _, p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.CanCollide = true
+                if p.Name == "Head" then
+                    p.Size = Vector3.new(2, 1, 1)
+                end
+            end
+        end
+    end
+    local h = lpHum()
+    if h then
+        h.WalkSpeed = 16
+        h.UseJumpPower = true
+        h.JumpPower = 50
+    end
+    logOk("Everything reset")
+end)
+
+-- ─────────────────────────────────────────────
+-- ✦ LOADSTRING SCRIPTS
+-- ─────────────────────────────────────────────
+local function loadRemote(url, label)
+    Nexus_Log("Loading " .. label .. "...")
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet(url))()
+    end)
+    if ok then
+        logOk("✓ " .. label .. " loaded")
+    else
+        Nexus_Log("✗ " .. label .. " failed: " .. tostring(err), true)
+    end
 end
 
+register("animationgui", "Animation GUI", function()
+    loadRemote("https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/animation%20gui", "Animation GUI")
+end)
+
+register("aimbotgui", "Aimbot GUI", function()
+    loadRemote("https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/aimbot", "Aimbot GUI")
+end)
+
+register("wrd aimbot", "WRD Aimbot", function()
+    loadRemote("https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/wrd%20aimbot", "WRD Aimbot")
+end)
+
+register("espgui", "ESP GUI", function()
+    loadRemote("https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/esp", "ESP GUI")
+end)
+
+register("wrdesp", "WRD ESP", function()
+    loadRemote("https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/wrd%20esp", "WRD ESP")
+end)
+
+register("flygui", "Fly + WalkSpeed GUI", function()
+    loadRemote("https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/fly%20walk%20speed", "Fly GUI")
+end)
+
+register("flinggui", "Nexus Fling GUI", function()
+    loadRemote("https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/nexus%20fling", "Nexus Fling GUI")
+end)
+
+register("god mode", "God Mode (flag based)", function()
+    _G.NexusGod = true
+    task.spawn(function()
+        while _G.NexusGod do
+            task.wait(0.1)
+            pcall(function()
+                local char = LocalPlayer.Character
+                local h = char and char:FindFirstChildOfClass("Humanoid")
+                if h then h.Health = math.huge end
+            end)
+        end
+    end)
+    logOk("God Mode ON — 'ungodmode' to stop")
+end)
+
+register("ungodmode", "Stop flag-based God Mode", function()
+    _G.NexusGod = false
+    logOk("God Mode (flag) OFF")
+end)
+
+register("nexus8hub", "Nexus 8 Hub", function()
+    loadRemote("https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/nexus%208%20hub", "Nexus 8 Hub")
+end)
+
+-- ─────────────────────────────────────────────
+-- ✦ META
+-- ─────────────────────────────────────────────
+register("help", "Show all commands", function()
+    log("─── Nexus Terminal · " .. #CommandOrder .. " commands ───")
+    for _, name in ipairs(CommandOrder) do
+        local c = Commands[name]
+        if c and name ~= "help" and name ~= "clear" and name ~= "exit" then
+            log("  " .. name .. " — " .. c.desc)
+        end
+    end
+end)
+
+register("clear", "Clear console output", function()
+    for _, c in ipairs(ScrollingOutput:GetChildren()) do
+        if c:IsA("TextLabel") then c:Destroy() end
+    end
+    lineCount = 0
+    log("Console cleared.")
+end)
+
+register("exit", "Unload Nexus Terminal", function()
+    log("Shutting down...")
+    task.wait(0.15)
+    for k in pairs(conn) do unbind(k) end
+    for _, c in pairs(respawnConnections) do
+        pcall(function() c:Disconnect() end)
+    end
+    ScreenGui:Destroy()
+end)
+
+-- ═══════════════════════════════════════════════════════════════════
+-- BUILD SIDE PANEL BUTTONS
+-- ═══════════════════════════════════════════════════════════════════
+local buttons = {}
+
+local function refreshButtons()
+    for _, b in ipairs(buttons) do b:Destroy() end
+    buttons = {}
+
+    for idx, name in ipairs(CommandOrder) do
+        local data = Commands[name]
+        if data then
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, -8, 0, 24)
+            btn.BackgroundColor3 = Color3.fromRGB(12, 16, 22)
+            btn.BorderSizePixel = 0
+            btn.Text = "  " .. data.desc
+            btn.TextColor3 = Color3.fromRGB(0, 255, 120)
+            btn.TextSize = 11
+            btn.Font = Enum.Font.Code
+            btn.TextXAlignment = Enum.TextXAlignment.Left
+            btn.LayoutOrder = idx
+            btn.AutoButtonColor = false
+            btn.Parent = SidePanel
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+            local stroke = Instance.new("UIStroke", btn)
+            stroke.Color = Color3.fromRGB(0, 100, 50)
+            stroke.Thickness = 1
+            stroke.Transparency = 0.5
+
+            btn.MouseEnter:Connect(function()
+                btn.BackgroundColor3 = Color3.fromRGB(18, 30, 22)
+                stroke.Transparency = 0
+            end)
+            btn.MouseLeave:Connect(function()
+                btn.BackgroundColor3 = Color3.fromRGB(12, 16, 22)
+                stroke.Transparency = 0.5
+            end)
+
+            btn.MouseButton1Click:Connect(function()
+                Nexus_Log("> " .. name)
+                safeCall(function() data.payload({}) end)
+            end)
+
+            table.insert(buttons, btn)
+        end
+    end
+end
+
+refreshButtons()
+
+-- ═══════════════════════════════════════════════════════════════════
+-- AUTOCOMPLETE + HISTORY
+-- ═══════════════════════════════════════════════════════════════════
+local history = {}
+local historyIndex = 0
 
 CommandBar:GetPropertyChangedSignal("Text"):Connect(function()
-local txt = string.lower(CommandBar.Text)
-if txt == "" then SuggestionLabel.Text = "" return end
-for name, _ in pairs(CustomScripts) do
-if string.sub(name, 1, string.len(txt)) == txt then
-SuggestionLabel.Text = name
-return
-end
-end
-SuggestionLabel.Text = ""
+    local txt = string.lower(CommandBar.Text)
+    if txt == "" then SuggestionLabel.Text = "" return end
+    if Commands[txt] then SuggestionLabel.Text = "" return end
+    for _, name in ipairs(CommandOrder) do
+        if string.sub(name, 1, #txt) == txt then
+            SuggestionLabel.Text = name
+            return
+        end
+    end
+    SuggestionLabel.Text = ""
 end)
 
--- Tab ile Tamamlama
 UserInputService.InputBegan:Connect(function(input, gp)
-if input.KeyCode == Enum.KeyCode.Tab and CommandBar.IsFocused then
-if SuggestionLabel.Text ~= "" then
-CommandBar.Text = SuggestionLabel.Text
-CommandBar.CursorPosition = string.len(CommandBar.Text) + 1
-end
-end
+    if not CommandBar:IsFocused() then return end
+    if input.KeyCode == Enum.KeyCode.Tab then
+        if SuggestionLabel.Text ~= "" then
+            CommandBar.Text = SuggestionLabel.Text
+            CommandBar.CursorPosition = #CommandBar.Text + 1
+            SuggestionLabel.Text = ""
+        end
+    elseif input.KeyCode == Enum.KeyCode.Up then
+        if #history > 0 then
+            historyIndex = math.max(1, historyIndex - 1)
+            CommandBar.Text = history[historyIndex]
+            CommandBar.CursorPosition = #CommandBar.Text + 1
+        end
+    elseif input.KeyCode == Enum.KeyCode.Down then
+        if #history > 0 then
+            historyIndex = math.min(#history + 1, historyIndex + 1)
+            if historyIndex > #history then
+                CommandBar.Text = ""
+            else
+                CommandBar.Text = history[historyIndex]
+            end
+            CommandBar.CursorPosition = #CommandBar.Text + 1
+        end
+    end
 end)
 
+-- ═══════════════════════════════════════════════════════════════════
+-- COMMAND EXECUTION (2-word support)
+-- ═══════════════════════════════════════════════════════════════════
 local function executeCommand(text)
-text = string.lower(text or "")
-logMessage("> " .. text)
-local args = {}
-for word in string.gmatch(text, "%S+") do table.insert(args, word) end
-if #args == 0 then return end
-local cmdName = args[1] table.remove(args, 1)
+    text = text or ""
+    local args = {}
+    for word in string.gmatch(text, "%S+") do table.insert(args, word) end
+    if #args == 0 then return end
 
-if CustomScripts[cmdName] then
-	local success, err = pcall(function() CustomScripts[cmdName].payload(args) end)
-	if not success then logMessage("Error: " .. tostring(err), true) end
-else
-	logMessage("Unknown cmd: " .. cmdName, true)
-end
+    -- Önce 2 kelimelik komut dene (örn. "wrd aimbot", "god mode", "fly speed")
+    local cmdName, consumed
+    if #args >= 2 then
+        local two = string.lower(args[1] .. " " .. args[2])
+        if Commands[two] then
+            cmdName = two
+            consumed = 2
+        end
+    end
+    if not cmdName then
+        cmdName = string.lower(args[1])
+        consumed = 1
+    end
 
+    if not Commands[cmdName] then
+        Nexus_Log("Unknown: " .. cmdName .. " (try 'help')", true)
+        return
+    end
 
+    Nexus_Log("> " .. text)
+    local rest = {}
+    for i = consumed + 1, #args do table.insert(rest, args[i]) end
+    safeCall(function() Commands[cmdName].payload(rest) end)
 end
 
 CommandBar.FocusLost:Connect(function(enterPressed)
-if enterPressed then
-local txt = CommandBar.Text
-CommandBar.Text = ""
-SuggestionLabel.Text = ""
-if txt ~= "" then executeCommand(txt) end
-CommandBar:CaptureFocus()
-end
+    if enterPressed then
+        local txt = CommandBar.Text
+        CommandBar.Text = ""
+        SuggestionLabel.Text = ""
+        if txt ~= "" then
+            table.insert(history, txt)
+            historyIndex = #history + 1
+            executeCommand(txt)
+        end
+        CommandBar:CaptureFocus()
+    end
 end)
 
-CustomScripts["help"] = {
-desc = "Help",
-payload = function() logMessage("Cmds: fullbright, unfullbright, esp, unesp, speed , unspeed") end
-}
-CustomScripts["clear"] = {
-desc = "Clear",
-payload = function() for _, c in ipairs(ScrollingOutput:GetChildren()) do if c:IsA("TextLabel") then c:Destroy() end end end
-}
-CustomScripts["exit"] = {
-desc = "Exit",
-payload = function() for k in pairs(conn) do unbind(k) end ScreenGui:Destroy() end
-}
+-- ═══════════════════════════════════════════════════════════════════
+-- WINDOW CONTROLS
+-- ═══════════════════════════════════════════════════════════════════
+local normalSize = UDim2.new(0, 620, 0, 380)
+local normalPos  = UDim2.new(1, -650, 1, -410)
+local maxSize    = UDim2.new(1, 0, 1, 0)
+local maxPos     = UDim2.new(0, 0, 0, 0)
+local miniSize   = UDim2.new(0, 620, 0, 30)
+
+local windowState     = "normal"
+local lastNormalSize  = normalSize
+local lastNormalPos   = normalPos
+
+local function updateButtons()
+    if windowState == "maximized" then
+        MaxBtn.Text = "❐"; MaxBtn.TextColor3 = Color3.fromRGB(255, 200, 130)
+        MinBtn.Text = "—"; MinBtn.TextColor3 = Color3.fromRGB(120, 255, 160)
+    elseif windowState == "minimized" then
+        MaxBtn.Text = "⛶"; MaxBtn.TextColor3 = Color3.fromRGB(130, 200, 255)
+        MinBtn.Text = "▢"; MinBtn.TextColor3 = Color3.fromRGB(255, 200, 130)
+    else
+        MaxBtn.Text = "⛶"; MaxBtn.TextColor3 = Color3.fromRGB(130, 200, 255)
+        MinBtn.Text = "—"; MinBtn.TextColor3 = Color3.fromRGB(120, 255, 160)
+    end
+end
+
+local function tweenTo(size, pos)
+    pcall(function()
+        ConsoleContainer:TweenSizeAndPosition(
+            size, pos,
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Quart,
+            0.22, true)
+    end)
+end
+
+local function doMinimize()
+    if windowState == "minimized" then
+        windowState = "normal"
+        tweenTo(lastNormalSize, lastNormalPos)
+        log("Restored")
+    else
+        if windowState == "normal" then
+            lastNormalSize = ConsoleContainer.Size
+            lastNormalPos  = ConsoleContainer.Position
+        end
+        windowState = "minimized"
+        tweenTo(miniSize, ConsoleContainer.Position)
+        log("Minimized")
+    end
+    updateButtons()
+end
+
+local function doMaximize()
+    if windowState == "maximized" then
+        windowState = "normal"
+        tweenTo(lastNormalSize, lastNormalPos)
+        log("Restored")
+    else
+        if windowState == "normal" then
+            lastNormalSize = ConsoleContainer.Size
+            lastNormalPos  = ConsoleContainer.Position
+        end
+        windowState = "maximized"
+        tweenTo(maxSize, maxPos)
+        log("Maximized")
+    end
+    updateButtons()
+end
+
+local function doClose()
+    Nexus_Log("Shutting down...")
+    task.wait(0.15)
+    for k in pairs(conn) do unbind(k) end
+    for _, c in pairs(respawnConnections) do
+        pcall(function() c:Disconnect() end)
+    end
+    pcall(function() ScreenGui:Destroy() end)
+end
+
+MinBtn.MouseButton1Click:Connect(doMinimize)
+MaxBtn.MouseButton1Click:Connect(doMaximize)
+CloseBtn.MouseButton1Click:Connect(doClose)
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    local ctrl = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
+              or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)
+    if not ctrl then return end
+    if input.KeyCode == Enum.KeyCode.M then
+        doMaximize()
+    elseif input.KeyCode == Enum.KeyCode.N then
+        doMinimize()
+    elseif input.KeyCode == Enum.KeyCode.Q then
+        doClose()
+    end
+end)
+
+updateButtons()
+
+-- ═══════════════════════════════════════════════════════════════════
+-- READY
+-- ═══════════════════════════════════════════════════════════════════
+Nexus_Log("────────────────────────", false)
+logOk("Ready. " .. #CommandOrder .. " commands loaded.")
+log("Try: walkspeed 99 · jumppower 22 · fly speed 200 · freaky")
