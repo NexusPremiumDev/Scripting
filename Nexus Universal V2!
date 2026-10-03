@@ -1,0 +1,420 @@
+--[[
+    Nexus Hub v2.9.3
+]]
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local StarterGui = game:GetService("StarterGui")
+local Camera = Workspace.CurrentCamera
+local Mouse = Player:GetMouse()
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+
+-- Variables
+local FlyEnabled, ESPEnabled, SpeedEnabled, TPClickEnabled, NoclipEnabled, AntiAFKEnabled, VehicleFlyEnabled = false, false, false, false, false, false, false
+local FlySpeed, WalkSpeedValue, SelectedTPPlayer = 50, 100, nil
+local VehicleFlySpeed = 80
+local FlyBV, FlyBG, FlyConn = nil, nil, nil
+local ESPObjects = {}
+local NoclipConn, AntiAFKConn, TPClickConn = nil, nil, nil
+local VehicleFlyBV, VehicleFlyBG, VehicleFlyConn = nil, nil, nil
+local VehicleSeatOccupied = nil
+local SG
+
+local function SafeTween(obj, props)
+    pcall(function() TweenService:Create(obj, TweenInfo.new(0.25, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), props):Play() end)
+end
+
+local function CleanupAll()
+    FlyEnabled, ESPEnabled, SpeedEnabled, TPClickEnabled, NoclipEnabled, AntiAFKEnabled, VehicleFlyEnabled = false, false, false, false, false, false, false
+    pcall(function() if FlyConn then FlyConn:Disconnect() end end) FlyConn = nil
+    pcall(function() if FlyBV then FlyBV:Destroy() end end) FlyBV = nil
+    pcall(function() if FlyBG then FlyBG:Destroy() end end) FlyBG = nil
+    pcall(function() if NoclipConn then NoclipConn:Disconnect() end end) NoclipConn = nil
+    pcall(function() if AntiAFKConn then AntiAFKConn:Disconnect() end end) AntiAFKConn = nil
+    pcall(function() if TPClickConn then TPClickConn:Disconnect() end end) TPClickConn = nil
+    pcall(function() if VehicleFlyConn then VehicleFlyConn:Disconnect() end end) VehicleFlyConn = nil
+    pcall(function() if VehicleFlyBV then VehicleFlyBV:Destroy() end end) VehicleFlyBV = nil
+    pcall(function() if VehicleFlyBG then VehicleFlyBG:Destroy() end end) VehicleFlyBG = nil
+    VehicleSeatOccupied = nil
+    for _, obj in pairs(ESPObjects) do pcall(function() obj:Destroy() end) end; ESPObjects = {}
+    pcall(function() local h = Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand = false h.WalkSpeed = 16 end end)
+    pcall(function() Lighting.Brightness = 1 Lighting.ClockTime = 14 Lighting.FogEnd = 10000 Lighting.GlobalShadows = true Lighting.OutdoorAmbient = Color3.fromRGB(127,127,127) end)
+    pcall(function() Camera.FieldOfView = 70 end)
+end
+
+-- ==================== FUNCTIONS ====================
+function EnableNoclip() NoclipEnabled = true pcall(function() if NoclipConn then NoclipConn:Disconnect() end end) NoclipConn = RunService.Stepped:Connect(function() if not NoclipEnabled then return end pcall(function() local c = Player.Character if c then for _,p in pairs(c:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end end) end) end
+function DisableNoclip() NoclipEnabled = false pcall(function() if NoclipConn then NoclipConn:Disconnect() end end) NoclipConn = nil end
+
+local function SetFullbright(value)
+    if value <= 1 then
+        pcall(function() Lighting.Brightness = 1 Lighting.ClockTime = 14 Lighting.FogEnd = 10000 Lighting.GlobalShadows = true Lighting.OutdoorAmbient = Color3.fromRGB(127,127,127) end)
+    else
+        pcall(function() Lighting.Brightness = value Lighting.ClockTime = 12 Lighting.FogEnd = 99999 Lighting.GlobalShadows = false Lighting.OutdoorAmbient = Color3.fromRGB(255,255,255) end)
+    end
+end
+
+function EnableAntiAFK() AntiAFKEnabled = true pcall(function() if AntiAFKConn then AntiAFKConn:Disconnect() end end) pcall(function() local vu = game:GetService("VirtualUser") AntiAFKConn = Player.Idled:Connect(function() if not AntiAFKEnabled then return end pcall(function() vu:Button2Down(Vector2.new(0,0),Camera.CFrame) end) wait(1) pcall(function() vu:Button2Up(Vector2.new(0,0),Camera.CFrame) end) end) end) end
+function DisableAntiAFK() AntiAFKEnabled = false pcall(function() if AntiAFKConn then AntiAFKConn:Disconnect() end end) AntiAFKConn = nil end
+
+-- ESP
+function EnableESP()
+    for _,obj in pairs(ESPObjects) do pcall(function() obj:Destroy() end) end ESPObjects = {}
+    local function AE(p)
+        if p == Player then return end
+        local function S(c)
+            pcall(function()
+                local head = c:FindFirstChild("Head")
+                if not head or head:FindFirstChild("ESP_TAG") then return end
+                local bill = Instance.new("BillboardGui")
+                bill.Name = "ESP_TAG"
+                bill.Size = UDim2.new(0, 200, 0, 40)
+                bill.StudsOffset = Vector3.new(0, 2.5, 0)
+                bill.AlwaysOnTop = true
+                bill.Parent = head
+                table.insert(ESPObjects, bill)
+                local nameLabel = Instance.new("TextLabel")
+                nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+                nameLabel.BackgroundTransparency = 1
+                nameLabel.Text = p.Name
+                nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                nameLabel.Font = Enum.Font.GothamBold
+                nameLabel.TextSize = 12
+                nameLabel.Parent = bill
+                local distLabel = Instance.new("TextLabel")
+                distLabel.Size = UDim2.new(1, 0, 0.5, 0)
+                distLabel.Position = UDim2.new(0, 0, 0.5, 0)
+                distLabel.BackgroundTransparency = 1
+                distLabel.Text = "0m"
+                distLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+                distLabel.Font = Enum.Font.GothamMedium
+                distLabel.TextSize = 11
+                distLabel.Parent = bill
+                local hl = Instance.new("Highlight")
+                hl.Name = "ESP_TAG"
+                hl.FillColor = Color3.fromRGB(255, 0, 150)
+                hl.FillTransparency = 0.6
+                hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                hl.OutlineTransparency = 0.2
+                hl.Adornee = c
+                hl.Parent = c
+                table.insert(ESPObjects, hl)
+                spawn(function()
+                    while ESPEnabled and bill.Parent and head.Parent do
+                        pcall(function()
+                            local myChar = Player.Character
+                            if not myChar then return end
+                            local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+                            local targetHRP = c:FindFirstChild("HumanoidRootPart")
+                            if not myHRP or not targetHRP then return end
+                            local dist = math.floor((myHRP.Position - targetHRP.Position).Magnitude)
+                            distLabel.Text = dist .. "m"
+                            if dist < 50 then
+                                distLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+                                hl.FillColor = Color3.fromRGB(255, 0, 0)
+                            elseif dist < 150 then
+                                distLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+                                hl.FillColor = Color3.fromRGB(255, 200, 0)
+                            else
+                                distLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+                                hl.FillColor = Color3.fromRGB(0, 255, 100)
+                            end
+                        end)
+                        wait(0.5)
+                    end
+                end)
+            end)
+        end
+        if p.Character then S(p.Character) end
+        p.CharacterAdded:Connect(function(c) wait(0.3) S(c) end)
+    end
+    for _,p in pairs(Players:GetPlayers()) do AE(p) end
+    Players.PlayerAdded:Connect(function(p) wait(0.5) AE(p) end)
+    StarterGui:SetCore("SendNotification", {Title = "ESP", Text = "ESP açık", Duration = 2})
+end
+
+function DisableESP()
+    ESPEnabled = false
+    for _,o in pairs(ESPObjects) do pcall(function() o:Destroy() end) end
+    ESPObjects = {}
+    StarterGui:SetCore("SendNotification", {Title = "ESP", Text = "ESP kapalı", Duration = 2})
+end
+
+-- Player Fly
+function StartFly() StopFly() FlyEnabled=true local c=Player.Character if not c then return end local hrp=c:FindFirstChild("HumanoidRootPart") local hum=c:FindFirstChildOfClass("Humanoid") if not hrp or not hum then return end hum.PlatformStand=true FlyBV=Instance.new("BodyVelocity",hrp) FlyBV.MaxForce=Vector3.new(400000,400000,400000) FlyBG=Instance.new("BodyGyro",hrp) FlyBG.MaxTorque=Vector3.new(400000,400000,400000) FlyBG.D=100 FlyBG.P=3000 FlyConn=RunService.RenderStepped:Connect(function() if not FlyEnabled then return end pcall(function() if not FlyBV or not FlyBV.Parent or not FlyBG or not FlyBG.Parent then return end local dir=Vector3.zero if UIS:IsKeyDown(Enum.KeyCode.W) then dir=dir+Camera.CFrame.LookVector end if UIS:IsKeyDown(Enum.KeyCode.S) then dir=dir-Camera.CFrame.LookVector end if UIS:IsKeyDown(Enum.KeyCode.A) then dir=dir-Camera.CFrame.RightVector end if UIS:IsKeyDown(Enum.KeyCode.D) then dir=dir+Camera.CFrame.RightVector end if UIS:IsKeyDown(Enum.KeyCode.E) then dir=dir+Vector3.new(0,1,0) end if UIS:IsKeyDown(Enum.KeyCode.Q) then dir=dir-Vector3.new(0,1,0) end FlyBV.Velocity=dir*FlySpeed FlyBG.CFrame=Camera.CFrame end) end) end
+function StopFly() FlyEnabled=false pcall(function() if FlyConn then FlyConn:Disconnect() end end) FlyConn=nil pcall(function() if FlyBV then FlyBV:Destroy() end end) FlyBV=nil pcall(function() if FlyBG then FlyBG:Destroy() end end) FlyBG=nil pcall(function() local h=Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end) end
+
+-- Speed hack
+function StartSpeedHack() SpeedEnabled=true coroutine.wrap(function() while SpeedEnabled do pcall(function() local h=Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=WalkSpeedValue end end) wait(0.3) end end)() end
+function StopSpeedHack() SpeedEnabled=false pcall(function() local h=Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end) end
+
+-- TP Click
+function EnableTPClick() TPClickEnabled=true pcall(function() if TPClickConn then TPClickConn:Disconnect() end end) TPClickConn=UIS.InputBegan:Connect(function(inp,gpe) if not TPClickEnabled or gpe or inp.UserInputType~=Enum.UserInputType.MouseButton1 then return end pcall(function() local c=Player.Character if not c then return end local hrp=c:FindFirstChild("HumanoidRootPart") if not hrp then return end local hit=Mouse.Hit if hit and hit.Position then hrp.CFrame=CFrame.new(hit.Position.X,hit.Position.Y+3,hit.Position.Z) end end) end) end
+function DisableTPClick() TPClickEnabled=false pcall(function() if TPClickConn then TPClickConn:Disconnect() end end) TPClickConn=nil end
+
+local function TeleportToPlayer(tp) if not tp then return end pcall(function() local mc=Player.Character if not mc then return end local mh=mc:FindFirstChild("HumanoidRootPart") if not mh then return end local tc=tp.Character if not tc then return end local th=tc:FindFirstChild("HumanoidRootPart") if not th then return end mh.CFrame=th.CFrame+Vector3.new(2,0,0) end) end
+
+-- Vehicle Fly
+function StartVehicleFly()
+    StopVehicleFly()
+    VehicleFlyEnabled = true
+    local cam = Camera
+    local smoothness = 0.92
+    coroutine.wrap(function()
+        local seatFound = false
+        local searchAttempts = 0
+        while VehicleFlyEnabled and not seatFound and searchAttempts < 50 do
+            pcall(function()
+                local char = Player.Character if not char then return end
+                local hum = char:FindFirstChildOfClass("Humanoid") if not hum then return end
+                for _, v in pairs(Workspace:GetDescendants()) do
+                    if v:IsA("VehicleSeat") and v.Occupant == hum then
+                        seatFound = true
+                        local car = v.Parent
+                        if car and car:IsA("Model") then
+                            local mainPart = car.PrimaryPart or v
+                            pcall(function() if car:FindFirstChild("VFlyBV") then car.VFlyBV:Destroy() end end)
+                            pcall(function() if car:FindFirstChild("VFlyBG") then car.VFlyBG:Destroy() end end)
+                            VehicleFlyBV = Instance.new("BodyVelocity") VehicleFlyBV.MaxForce = Vector3.new(1e6,1e6,1e6) VehicleFlyBV.Velocity = Vector3.zero VehicleFlyBV.P = 100000 VehicleFlyBV.Name = "VFlyBV" VehicleFlyBV.Parent = mainPart
+                            VehicleFlyBG = Instance.new("BodyGyro") VehicleFlyBG.MaxTorque = Vector3.new(1e6,1e6,1e6) VehicleFlyBG.CFrame = mainPart.CFrame VehicleFlyBG.P = 100000 VehicleFlyBG.D = 500 VehicleFlyBG.Name = "VFlyBG" VehicleFlyBG.Parent = mainPart
+                            local velocity = Vector3.zero
+                            VehicleFlyConn = RunService.RenderStepped:Connect(function(deltaTime)
+                                if not VehicleFlyEnabled then return end
+                                pcall(function()
+                                    if not VehicleFlyBV or not VehicleFlyBG or not VehicleFlyBV.Parent then return end
+                                    local targetDir = Vector3.zero
+                                    local inputActive = false
+                                    if UIS:IsKeyDown(Enum.KeyCode.W) then targetDir += cam.CFrame.LookVector inputActive = true end
+                                    if UIS:IsKeyDown(Enum.KeyCode.S) then targetDir -= cam.CFrame.LookVector inputActive = true end
+                                    if UIS:IsKeyDown(Enum.KeyCode.A) then targetDir -= cam.CFrame.RightVector inputActive = true end
+                                    if UIS:IsKeyDown(Enum.KeyCode.D) then targetDir += cam.CFrame.RightVector inputActive = true end
+                                    if UIS:IsKeyDown(Enum.KeyCode.E) then targetDir += Vector3.new(0,1,0) inputActive = true end
+                                    if UIS:IsKeyDown(Enum.KeyCode.Q) then targetDir -= Vector3.new(0,1,0) inputActive = true end
+                                    if inputActive then
+                                        local targetVelocity = targetDir.Unit * VehicleFlySpeed
+                                        velocity = velocity:Lerp(targetVelocity, 1 - smoothness ^ (deltaTime * 60))
+                                    else
+                                        velocity = velocity:Lerp(Vector3.zero, 1 - 0.95 ^ (deltaTime * 60))
+                                    end
+                                    VehicleFlyBV.Velocity = velocity
+                                    local flatCamLook = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
+                                    if flatCamLook.Magnitude > 0.01 then
+                                        flatCamLook = flatCamLook.Unit
+                                        local currentUp = mainPart.CFrame.UpVector
+                                        local newCF = CFrame.lookAt(mainPart.Position, mainPart.Position + flatCamLook, currentUp)
+                                        VehicleFlyBG.CFrame = newCF
+                                    end
+                                end)
+                            end)
+                        end
+                        break
+                    end
+                end
+            end)
+            searchAttempts += 1
+            RunService.Heartbeat:Wait()
+        end
+    end)()
+end
+function StopVehicleFly()
+    VehicleFlyEnabled = false
+    pcall(function() if VehicleFlyConn then VehicleFlyConn:Disconnect() end end) VehicleFlyConn = nil
+    pcall(function() if VehicleFlyBV then VehicleFlyBV:Destroy() end end) VehicleFlyBV = nil
+    pcall(function() if VehicleFlyBG then VehicleFlyBG:Destroy() end end) VehicleFlyBG = nil
+    VehicleSeatOccupied = nil
+end
+
+-- ==================== GUI ====================
+SG = Instance.new("ScreenGui", game.CoreGui) SG.Name = "nexus_hub" SG.ResetOnSpawn = false
+
+local Main = Instance.new("Frame",SG) Main.Size = UDim2.new(0,560,0,400) Main.Position = UDim2.new(0.5,-280,0.5,-200) Main.BackgroundColor3 = Color3.fromRGB(20,20,26) Main.BorderSizePixel = 0 Main.Active = true Main.Draggable = true Main.Visible = true
+Instance.new("UICorner",Main).CornerRadius = UDim.new(0,8)
+
+local Border = Instance.new("Frame",Main) Border.Size = UDim2.new(1,4,1,4) Border.Position = UDim2.new(0,-2,0,-2) Border.BackgroundColor3 = Color3.fromRGB(255,0,150) Border.BorderSizePixel = 0 Border.ZIndex = 0
+Instance.new("UICorner",Border).CornerRadius = UDim.new(0,8)
+local BorderGrad = Instance.new("UIGradient",Border) BorderGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,0,150)),ColorSequenceKeypoint.new(0.25,Color3.fromRGB(0,200,255)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(150,0,255)),ColorSequenceKeypoint.new(0.75,Color3.fromRGB(255,200,0)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255,0,150))})
+coroutine.wrap(function() local rot=0 while Border and Border.Parent do rot=(rot+1)%360 BorderGrad.Rotation=rot RunService.RenderStepped:Wait() end end)()
+
+local Top = Instance.new("Frame",Main) Top.Size = UDim2.new(1,0,0,42) Top.BackgroundColor3 = Color3.fromRGB(14,14,18) Top.BorderSizePixel = 0
+Instance.new("UICorner",Top).CornerRadius = UDim.new(0,8)
+local Logo = Instance.new("TextLabel",Top) Logo.Size = UDim2.new(0,200,1,0) Logo.Position = UDim2.new(0,14,0,0) Logo.BackgroundTransparency = 1 Logo.Text = "NEXUS HUB v2.9.3+" Logo.TextColor3 = Color3.fromRGB(255,255,255) Logo.Font = Enum.Font.GothamBlack Logo.TextSize = 15 Logo.TextXAlignment = Enum.TextXAlignment.Left
+local LogoGrad = Instance.new("UIGradient",Logo) LogoGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,0,150)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,200,255))})
+local StatusDot = Instance.new("Frame",Top) StatusDot.Size = UDim2.new(0,7,0,7) StatusDot.Position = UDim2.new(1,-95,0.5,-3) StatusDot.BackgroundColor3 = Color3.fromRGB(0,255,100) StatusDot.BorderSizePixel = 0 Instance.new("UICorner",StatusDot).CornerRadius = UDim.new(1,0)
+local StatusLabel = Instance.new("TextLabel",Top) StatusLabel.Size = UDim2.new(0,60,1,0) StatusLabel.Position = UDim2.new(1,-85,0,0) StatusLabel.BackgroundTransparency = 1 StatusLabel.Text = "ACTIVE" StatusLabel.TextColor3 = Color3.fromRGB(0,255,100) StatusLabel.Font = Enum.Font.GothamBold StatusLabel.TextSize = 9 StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+coroutine.wrap(function() while StatusDot and StatusDot.Parent do for i=0,1,0.05 do StatusDot.BackgroundTransparency=i wait(0.03) end for i=1,0,-0.05 do StatusDot.BackgroundTransparency=i wait(0.03) end end end)()
+local CloseBtn = Instance.new("TextButton",Top) CloseBtn.Size = UDim2.new(0,30,0,30) CloseBtn.Position = UDim2.new(1,-36,0,6) CloseBtn.BackgroundColor3 = Color3.fromRGB(200,35,35) CloseBtn.BorderSizePixel = 0 CloseBtn.Text = "X" CloseBtn.TextColor3 = Color3.fromRGB(255,255,255) CloseBtn.Font = Enum.Font.GothamBlack CloseBtn.TextSize = 14 CloseBtn.AutoButtonColor = false Instance.new("UICorner",CloseBtn).CornerRadius = UDim.new(0,5)
+CloseBtn.MouseButton1Down:Connect(function() CleanupAll() pcall(function() SG:Destroy() end) end)
+CloseBtn.MouseEnter:Connect(function() SafeTween(CloseBtn,{BackgroundColor3=Color3.fromRGB(255,30,30),Size=UDim2.new(0,34,0,34),Position=UDim2.new(1,-38,0,4)}) end)
+CloseBtn.MouseLeave:Connect(function() SafeTween(CloseBtn,{BackgroundColor3=Color3.fromRGB(200,35,35),Size=UDim2.new(0,30,0,30),Position=UDim2.new(1,-36,0,6)}) end)
+
+local Side = Instance.new("Frame",Main) Side.Size = UDim2.new(0,140,1,-46) Side.Position = UDim2.new(0,4,0,46) Side.BackgroundColor3 = Color3.fromRGB(16,16,20) Side.BorderSizePixel = 0 Instance.new("UICorner",Side).CornerRadius = UDim.new(0,6)
+local Cont = Instance.new("Frame",Main) Cont.Size = UDim2.new(1,-150,1,-50) Cont.Position = UDim2.new(0,148,0,48) Cont.BackgroundColor3 = Color3.fromRGB(18,18,22) Cont.BorderSizePixel = 0 Cont.ClipsDescendants = true Instance.new("UICorner",Cont).CornerRadius = UDim.new(0,6)
+
+local Tabs = {}
+local currentTab = "Home"
+
+local function switchTab(name)
+    if currentTab == name then return end
+    if Tabs[currentTab] then Tabs[currentTab].Cont.Visible = false end
+    if Tabs[name] then Tabs[name].Cont.Visible = true end
+    for tabName, tab in pairs(Tabs) do
+        if tabName == name then
+            SafeTween(tab.Btn, {BackgroundColor3 = tab.ActiveColor})
+        else
+            SafeTween(tab.Btn, {BackgroundColor3 = tab.DefaultColor})
+        end
+    end
+    currentTab = name
+end
+
+local tabNames = {"Home","Teleports","ESP","Movement","Player","Vehicle"}
+local tabIcons = {"🏠","📍","👁","🏃","👤","🚗"}
+local tabColors = {
+    Color3.fromRGB(255, 80, 120),  -- Home
+    Color3.fromRGB(80, 180, 255), -- Teleports
+    Color3.fromRGB(80, 255, 120), -- ESP
+    Color3.fromRGB(255, 180, 60), -- Movement
+    Color3.fromRGB(180, 100, 255), -- Player
+    Color3.fromRGB(255, 220, 60)  -- Vehicle
+}
+for i, name in ipairs(tabNames) do
+    local btn = Instance.new("TextButton", Side)
+    btn.Size = UDim2.new(1,-12,0,34)
+    btn.Position = UDim2.new(0,6,0,8+(i-1)*38)
+    btn.BackgroundColor3 = i==1 and tabColors[i] or Color3.fromRGB(22,22,28)
+    btn.BorderSizePixel = 0
+    btn.Text = "   "..tabIcons[i].."  "..name
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.AutoButtonColor = false
+    Instance.new("UICorner",btn).CornerRadius = UDim.new(0,5)
+    local sc = Instance.new("ScrollingFrame", Cont)
+    sc.Size = UDim2.new(1,0,1,0)
+    sc.BackgroundTransparency = 1
+    sc.ScrollBarThickness = 3
+    sc.ScrollBarImageColor3 = tabColors[i]
+    sc.Visible = i==1
+    sc.CanvasSize = UDim2.new(0,0,0,0)
+    Tabs[name] = {
+        Btn = btn,
+        Cont = sc,
+        ActiveColor = tabColors[i],
+        DefaultColor = Color3.fromRGB(22,22,28)
+    }
+    btn.MouseButton1Click:Connect(function() switchTab(name) end)
+    btn.MouseEnter:Connect(function()
+        SafeTween(btn, {
+            Size = UDim2.new(1, -8, 0, 40),
+            Position = UDim2.new(0, 8, 0, 8+(i-1)*38 - 3)
+        })
+    end)
+    btn.MouseLeave:Connect(function()
+        SafeTween(btn, {
+            Size = UDim2.new(1, -12, 0, 34),
+            Position = UDim2.new(0, 6, 0, 8+(i-1)*38)
+        })
+    end)
+end
+
+local function CS(parent,title,y) local s=Instance.new("Frame",parent) s.Size=UDim2.new(0.92,0,0,22) s.Position=UDim2.new(0.04,0,0,y) s.BackgroundColor3=Color3.fromRGB(24,24,30) s.BorderSizePixel=0 Instance.new("UICorner",s).CornerRadius=UDim.new(0,4) local accent=Instance.new("Frame",s) accent.Size=UDim2.new(0,4,0,18) accent.Position=UDim2.new(0,0,0.5,-9) accent.BackgroundColor3=Color3.fromRGB(255,0,150) accent.BorderSizePixel=0 Instance.new("UICorner",accent).CornerRadius=UDim.new(1,0) local l=Instance.new("TextLabel",s) l.Size=UDim2.new(1,-12,1,0) l.Position=UDim2.new(0,10,0,0) l.BackgroundTransparency=1 l.Text=title l.TextColor3=Color3.fromRGB(200,200,210) l.Font=Enum.Font.GothamBold l.TextSize=10 l.TextXAlignment=Enum.TextXAlignment.Left end
+local function CT(parent,title,y,def,cb) local f=Instance.new("Frame",parent) f.Size=UDim2.new(0.92,0,0,34) f.Position=UDim2.new(0.04,0,0,y) f.BackgroundColor3=Color3.fromRGB(24,24,30) f.BorderSizePixel=0 Instance.new("UICorner",f).CornerRadius=UDim.new(0,5) local lbl=Instance.new("TextLabel",f) lbl.Size=UDim2.new(0.65,0,1,0) lbl.Position=UDim2.new(0,10,0,0) lbl.BackgroundTransparency=1 lbl.Text=title lbl.TextColor3=Color3.fromRGB(255,255,255) lbl.Font=Enum.Font.GothamMedium lbl.TextSize=10 lbl.TextXAlignment=Enum.TextXAlignment.Left local sw=Instance.new("Frame",f) sw.Size=UDim2.new(0,40,0,20) sw.Position=UDim2.new(1,-48,0.5,-10) sw.BackgroundColor3=def and Color3.fromRGB(0,200,100) or Color3.fromRGB(55,55,60) sw.BorderSizePixel=0 Instance.new("UICorner",sw).CornerRadius=UDim.new(1,0) local dot=Instance.new("Frame",sw) dot.Size=UDim2.new(0,16,0,16) dot.Position=def and UDim2.new(1,-18,0.5,-8) or UDim2.new(0,2,0.5,-8) dot.BackgroundColor3=Color3.fromRGB(255,255,255) dot.BorderSizePixel=0 Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0) local on=def local function upd() if on then SafeTween(sw,{BackgroundColor3=Color3.fromRGB(0,200,100)}) SafeTween(dot,{Position=UDim2.new(1,-18,0.5,-8)}) else SafeTween(sw,{BackgroundColor3=Color3.fromRGB(55,55,60)}) SafeTween(dot,{Position=UDim2.new(0,2,0.5,-8)}) end end f.InputBegan:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseButton1 then on=not on upd() pcall(function() cb(on) end) end end) f.MouseEnter:Connect(function() SafeTween(f,{BackgroundColor3=Color3.fromRGB(30,30,40)}) end) f.MouseLeave:Connect(function() SafeTween(f,{BackgroundColor3=Color3.fromRGB(24,24,30)}) end) end
+local function CB(parent,title,y,cb) local b=Instance.new("TextButton",parent) b.Size=UDim2.new(0.92,0,0,34) b.Position=UDim2.new(0.04,0,0,y) b.BackgroundColor3=Color3.fromRGB(24,24,32) b.BorderSizePixel=0 b.Text="   "..title b.TextColor3=Color3.fromRGB(255,255,255) b.Font=Enum.Font.GothamSemibold b.TextSize=10 b.TextXAlignment=Enum.TextXAlignment.Left b.AutoButtonColor=false Instance.new("UICorner",b).CornerRadius=UDim.new(0,5) b.MouseEnter:Connect(function() SafeTween(b,{BackgroundColor3=Color3.fromRGB(32,32,42)}) end) b.MouseLeave:Connect(function() SafeTween(b,{BackgroundColor3=Color3.fromRGB(24,24,32)}) end) b.MouseButton1Click:Connect(function() SafeTween(b,{BackgroundColor3=Color3.fromRGB(0,200,100)}) wait(0.15) SafeTween(b,{BackgroundColor3=Color3.fromRGB(24,24,32)}) pcall(cb) end) return b end
+local function CSl(parent,title,y,min,max,def,cb) local f=Instance.new("Frame",parent) f.Size=UDim2.new(0.92,0,0,55) f.Position=UDim2.new(0.04,0,0,y) f.BackgroundColor3=Color3.fromRGB(24,24,30) f.BorderSizePixel=0 Instance.new("UICorner",f).CornerRadius=UDim.new(0,5) local lbl=Instance.new("TextLabel",f) lbl.Size=UDim2.new(1,-20,0,18) lbl.Position=UDim2.new(0,10,0,4) lbl.BackgroundTransparency=1 lbl.Text=title..": "..def lbl.TextColor3=Color3.fromRGB(255,255,255) lbl.Font=Enum.Font.GothamMedium lbl.TextSize=10 lbl.TextXAlignment=Enum.TextXAlignment.Left local trk=Instance.new("Frame",f) trk.Size=UDim2.new(1,-20,0,8) trk.Position=UDim2.new(0,10,0,28) trk.BackgroundColor3=Color3.fromRGB(45,45,52) trk.BorderSizePixel=0 Instance.new("UICorner",trk).CornerRadius=UDim.new(1,0) local fill=Instance.new("Frame",trk) local pc=(def-min)/(max-min) fill.Size=UDim2.new(pc,0,1,0) fill.BackgroundColor3=Color3.fromRGB(255,0,150) fill.BorderSizePixel=0 Instance.new("UICorner",fill).CornerRadius=UDim.new(1,0) local knob=Instance.new("TextButton",trk) knob.Size=UDim2.new(0,14,0,14) knob.Position=UDim2.new(pc,-7,0.5,-7) knob.BackgroundColor3=Color3.fromRGB(255,255,255) knob.BorderSizePixel=0 knob.Text="" knob.AutoButtonColor=false Instance.new("UICorner",knob).CornerRadius=UDim.new(1,0) local drag=false local function upd(p) local v=math.floor(min+(max-min)*p) fill.Size=UDim2.new(p,0,1,0) knob.Position=UDim2.new(p,-7,0.5,-7) lbl.Text=title..": "..v pcall(function() cb(v) end) end knob.MouseButton1Down:Connect(function() drag=true end) local endConn; endConn = UIS.InputEnded:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end end) f.Destroying:Connect(function() endConn:Disconnect() end) local changeConn; changeConn = UIS.InputChanged:Connect(function(inp) if drag and inp.UserInputType==Enum.UserInputType.MouseMovement then local pos=UIS:GetMouseLocation() upd(math.clamp((pos.X-trk.AbsolutePosition.X)/trk.AbsoluteSize.X,0,1)) end end) f.Destroying:Connect(function() changeConn:Disconnect() end) trk.InputBegan:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseButton1 then local pos=UIS:GetMouseLocation() upd(math.clamp((pos.X-trk.AbsolutePosition.X)/trk.AbsoluteSize.X,0,1)) end end) return f,function(nv) upd((nv-min)/(max-min)) end end
+
+-- ==================== HOME ====================
+local home = Tabs["Home"].Cont
+local HT = Instance.new("TextLabel",home) HT.Size=UDim2.new(0.85,0,0,32) HT.Position=UDim2.new(0.075,0,0,8) HT.BackgroundTransparency=1 HT.Text="NEXUS HUB v2.9.3+" HT.TextColor3=Color3.fromRGB(255,255,255) HT.Font=Enum.Font.GothamBlack HT.TextSize=18 HT.TextXAlignment=Enum.TextXAlignment.Left
+
+CS(home,"QUICK TOGGLES",18)
+CS(home,"FULLBRIGHT BRIGHTNESS",46)
+local fbrSl,fbrSet = CSl(home,"Brightness",74,1,100,1,function(v) SetFullbright(v) end)
+CB(home,"Max Brightness (100)",134,function() SetFullbright(100) fbrSet(100) end)
+CB(home,"Min Brightness (1)",174,function() SetFullbright(1) fbrSet(1) end)
+CT(home,"Anti-AFK",214,false,function(s) if s then EnableAntiAFK() else DisableAntiAFK() end end)
+CB(home,"Server Hop",256,function() pcall(function() local httpRequest = syn and syn.request or request if not httpRequest then return end local res = httpRequest({Url="https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100",Method="GET"}) if res and res.Success then local body=HttpService:JSONDecode(res.Body) if body.data then for _,s in pairs(body.data) do if s.id~=game.JobId and s.playing<s.maxPlayers then TeleportService:TeleportToPlaceInstance(game.PlaceId,s.id,Player) break end end end end end) end)
+CB(home,"Destroy All Features",298,function() CleanupAll() end)
+home.CanvasSize = UDim2.new(0,0,0,345)
+
+-- ==================== TELEPORTS ====================
+local tps = Tabs["Teleports"].Cont
+CS(tps,"CLICK TELEPORT",5)
+CT(tps,"Enable Click TP",32,false,function(s) if s then EnableTPClick() else DisableTPClick() end end)
+CS(tps,"TELEPORT TO PLAYER",74)
+local tpB = Instance.new("TextButton",tps) tpB.Size=UDim2.new(0.92,0,0,36) tpB.Position=UDim2.new(0.04,0,0,102) tpB.BackgroundColor3=Color3.fromRGB(0,180,80) tpB.BorderSizePixel=0 tpB.Text="TP TO SELECTED PLAYER" tpB.TextColor3=Color3.fromRGB(255,255,255) tpB.Font=Enum.Font.GothamBlack tpB.TextSize=11 tpB.AutoButtonColor=false Instance.new("UICorner",tpB).CornerRadius=UDim.new(0,5)
+tpB.MouseButton1Click:Connect(function() if SelectedTPPlayer then TeleportToPlayer(SelectedTPPlayer) StarterGui:SetCore("SendNotification",{Title="TP",Text="Teleported to "..SelectedTPPlayer.Name,Duration=3}) else StarterGui:SetCore("SendNotification",{Title="TP",Text="Select a player first!",Duration=3}) end end)
+local tpL = Instance.new("TextLabel",tps) tpL.Size=UDim2.new(0.92,0,0,18) tpL.Position=UDim2.new(0.04,0,0,144) tpL.BackgroundTransparency=1 tpL.Text="Selected: None" tpL.TextColor3=Color3.fromRGB(200,200,210) tpL.Font=Enum.Font.GothamBold tpL.TextSize=10 tpL.TextXAlignment=Enum.TextXAlignment.Left
+CS(tps,"PLAYER LIST",170)
+CB(tps,"Refresh List",198,function() RefreshList() end)
+local pBtns = {}
+function RefreshList() for _,b in pairs(pBtns) do b:Destroy() end pBtns={} local y=240 for _,plr in pairs(Players:GetPlayers()) do if plr~=Player then local b=Instance.new("TextButton",tps) b.Size=UDim2.new(0.92,0,0,28) b.Position=UDim2.new(0.04,0,0,y) b.BackgroundColor3=SelectedTPPlayer==plr and Color3.fromRGB(0,140,255) or Color3.fromRGB(30,30,40) b.BorderSizePixel=0 b.Text="   👤 "..plr.Name b.TextColor3=Color3.fromRGB(255,255,255) b.Font=Enum.Font.GothamSemibold b.TextSize=10 b.TextXAlignment=Enum.TextXAlignment.Left b.AutoButtonColor=false Instance.new("UICorner",b).CornerRadius=UDim.new(0,4) b.MouseButton1Click:Connect(function() SelectedTPPlayer=plr tpL.Text="Selected: "..plr.Name for _,bb in pairs(pBtns) do SafeTween(bb,{BackgroundColor3=bb.Text=="   👤 "..plr.Name and Color3.fromRGB(0,140,255) or Color3.fromRGB(30,30,40)}) end end) table.insert(pBtns,b) y=y+33 end end tps.CanvasSize=UDim2.new(0,0,0,y+10) end
+RefreshList() Players.PlayerAdded:Connect(function() wait(0.3) RefreshList() end) Players.PlayerRemoving:Connect(function(p) if SelectedTPPlayer==p then SelectedTPPlayer=nil tpL.Text="Selected: None" end wait(0.2) RefreshList() end)
+tps.CanvasSize = UDim2.new(0,0,0,600)
+
+-- ==================== ESP ====================
+local esp = Tabs["ESP"].Cont
+CS(esp,"PLAYER ESP",5)
+CT(esp,"ESP ON/OFF",32,false,function(s) if s then ESPEnabled=true EnableESP() else DisableESP() end end)
+CB(esp,"Shows: Name + Distance",72,function() end)
+esp.CanvasSize = UDim2.new(0,0,0,115)
+
+-- ==================== MOVEMENT ====================
+local movement = Tabs["Movement"].Cont
+CS(movement,"SPEED HACK",5)
+CT(movement,"Enable Speed Hack",32,false,function(s) if s then StartSpeedHack() else StopSpeedHack() end end)
+local sSl,sSet = CSl(movement,"Walk Speed",74,16,300,WalkSpeedValue,function(v) WalkSpeedValue=v if SpeedEnabled then pcall(function() local h=Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=v end end) end end)
+CS(movement,"SPEED PRESETS",138)
+CB(movement,"Default (16)",166,function() WalkSpeedValue=16 sSet(16) end)
+CB(movement,"Fast (50)",206,function() WalkSpeedValue=50 sSet(50) end)
+CB(movement,"Super (100)",246,function() WalkSpeedValue=100 sSet(100) end)
+CB(movement,"Ultra (200)",286,function() WalkSpeedValue=200 sSet(200) end)
+CB(movement,"MAX (300)",326,function() WalkSpeedValue=300 sSet(300) end)
+CS(movement,"PLAYER FLY",370)
+CT(movement,"Enable Fly",400,false,function(s) if s then StartFly() else StopFly() end end)
+local fSl,fSet = CSl(movement,"Fly Speed",445,10,500,FlySpeed,function(v) FlySpeed=v end)
+CS(movement,"FLY PRESETS",510)
+CB(movement,"Slow (25)",538,function() FlySpeed=25 fSet(25) end)
+CB(movement,"Normal (50)",578,function() FlySpeed=50 fSet(50) end)
+CB(movement,"Fast (100)",618,function() FlySpeed=100 fSet(100) end)
+CB(movement,"Turbo (250)",658,function() FlySpeed=250 fSet(250) end)
+CB(movement,"MAX (500)",698,function() FlySpeed=500 fSet(500) end)
+CS(movement,"MOVEMENT OPTIONS",748)
+CT(movement,"Noclip",776,false,function(s) if s then EnableNoclip() else DisableNoclip() end end)
+CS(movement,"CONTROLS",818)
+CB(movement,"WASD Move | E Up | Q Down",846,function() end)
+CB(movement,"Close GUI",888,function() CleanupAll() pcall(function() SG:Destroy() end) end)
+movement.CanvasSize = UDim2.new(0,0,0,930)
+
+-- ==================== PLAYER ====================
+local playerTab = Tabs["Player"].Cont
+CS(playerTab,"FOV CHANGER",5)
+local fovSl,fovSet = CSl(playerTab,"FOV",35,30,120,70,function(v) pcall(function() Camera.FieldOfView = v end) end)
+CB(playerTab,"Reset FOV (70)",95,function() Camera.FieldOfView = 70 fovSet(70) end)
+playerTab.CanvasSize = UDim2.new(0,0,0,140)
+
+-- ==================== VEHICLE ====================
+local vehicle = Tabs["Vehicle"].Cont
+CS(vehicle,"VEHICLE OPTIONS",5)
+CT(vehicle,"Vehicle Fly",32,false,function(s) if s then StartVehicleFly() else StopVehicleFly() end end)
+local vfSl,vfSet = CSl(vehicle,"Fly Speed",74,20,500,VehicleFlySpeed,function(v) VehicleFlySpeed=v end)
+CB(vehicle,"Find & Enter Nearest Car",132,function()
+    pcall(function()
+        local c = Player.Character if not c then return end local hum=c:FindFirstChildOfClass("Humanoid") if not hum then return end
+        local best,bestDist = nil,math.huge
+        for _,v in pairs(Workspace:GetDescendants()) do if v:IsA("VehicleSeat") and c:FindFirstChild("HumanoidRootPart") then local d=(c.HumanoidRootPart.Position-v.Position).Magnitude if d<bestDist then bestDist=d best=v end end end
+        if best then c.HumanoidRootPart.CFrame=best.CFrame+Vector3.new(0,3,0) wait(0.2) best:Sit(hum) end
+    end)
+end)
+CS(vehicle,"VEHICLE FLY CONTROLS",178)
+CB(vehicle,"WASD Move | E Up | Q Down",210,function() end)
+vehicle.CanvasSize = UDim2.new(0,0,0,260)
+
+UIS.InputBegan:Connect(function(inp,gpe) if gpe then return end if inp.KeyCode==Enum.KeyCode.RightControl then Main.Visible=not Main.Visible end end)
+Player.CharacterAdded:Connect(function() if FlyEnabled then wait(0.3) StopFly() wait(0.2) StartFly() end if NoclipEnabled then wait(0.3) EnableNoclip() end if SpeedEnabled then wait(0.5) pcall(function() local h=Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=WalkSpeedValue end end) end if VehicleFlyEnabled then wait(0.5) StartVehicleFly() end end)
+StarterGui:SetCore("SendNotification",{Title="Nexus Hub v2.9.3+",Text="Nexus Executed!",Duration=4})
