@@ -1,9 +1,9 @@
 --[[
-    Nexus Universal v8
-    Combat: Aimbot, Silent Aim, FOV
-    Visual: ESP + Health Bar + Skeleton + Rainbow, Fullbright
-    Movement: WalkSpeed, JumpPower, Fly, Noclip, InfJump
-    Misc: Anti-AFK, Device Spoof (Rivals)
+    Nexus Universal v8 (WalkSpeed Default 20, Spider-Man Hanging, ESP & All Features)
+    Combat: Aimbot (Scoped), Silent Aim, Rainbow FOV
+    Visual: ESP + Fixed Health Bar + Skeleton + Rainbow, Fullbright
+    Movement: WalkSpeed (Default 20), Fly, Noclip, InfJump, SpinBot (Spider-Man Hanging)
+    Misc: Anti-AFK, Device Spoof Options (Phone, PC, Gamepad, VR)
 ]]
 
 local Players           = game:GetService("Players")
@@ -45,11 +45,11 @@ local Font       = Enum.Font.Gotham
 local FontMedium = Enum.Font.GothamMedium
 local FontBold   = Enum.Font.GothamBold
 
--- SETTINGS
+-- SETTINGS (WalkSpeed varsayılan 20 yapıldı)
 local Settings = {
     Aimbot        = false,
     AimSmoothness = 5,
-    SilentAim     = true,
+    SilentAim     = false,
     ShowFOV       = true,
     FOVRadius     = 250,
 
@@ -61,32 +61,35 @@ local Settings = {
     ESPSkeleton   = true,
     ESPRainbow    = true,
     Fullbright    = false,
-    MaxDistance   = 2000,
+    MaxDistance   = 5000,
     EnemyColor    = Color3.fromRGB(255, 60, 60),
 
-    WalkSpeed     = 16,
-    JumpPower     = 50,
+    WalkSpeed     = 20,
     Fly           = false,
     FlySpeed      = 60,
+    SpinBot       = false,
+    SpinSpeed     = 35,
     Noclip        = false,
     InfJump       = false,
     AntiAFK       = true,
-    DeviceSpoof   = false,
 }
 
 local SilentTarget  = nil
 local PlayerEntries = {}
 local FlyState      = { bg = nil, bv = nil }
 local Running       = true
+local IsScoped      = false
+local DanceTrack    = nil
+local CustomAnimObject = nil
 
 -- HELPERS
 local function getAnchor(character)
     if not character then return nil end
-    local hitbox = character:FindFirstChild("Hitbox")
-    if hitbox then
-        return hitbox:FindFirstChild("Head") or hitbox:FindFirstChild("Torso") or hitbox:FindFirstChildWhichIsA("BasePart")
-    end
-    return character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart") or character:FindFirstChildWhichIsA("BasePart")
+    return character:FindFirstChild("HumanoidRootPart") 
+        or character:FindFirstChild("Torso") 
+        or character:FindFirstChild("UpperTorso") 
+        or character:FindFirstChild("Head") 
+        or character:FindFirstChildWhichIsA("BasePart")
 end
 
 local function isAlive(player)
@@ -103,30 +106,65 @@ end
 
 local function getHRP()
     local char = LocalPlayer.Character
-    return char and char:FindFirstChild("HumanoidRootPart")
-end
-
-local function applyAll()
-    local h = getHumanoid()
-    if h then
-        h.WalkSpeed    = Settings.WalkSpeed
-        h.UseJumpPower = true
-        h.JumpPower    = Settings.JumpPower
-    end
+    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso"))
 end
 
 local function rainbowColor()
     return Color3.fromHSV((tick() * 0.35) % 1, 1, 1)
 end
 
+-- SPIDER-MAN HANGING ANIMATION OYNATICISI
+local function manageDance(state)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = getHumanoid()
+    if not hum then return end
+
+    if state then
+        pcall(function()
+            if not DanceTrack then
+                local anim = Instance.new("Animation")
+                anim.AnimationId = "rbxassetid://123955307291627" -- Spider-Man Hanging ID
+                CustomAnimObject = anim
+                
+                local animator = hum:FindFirstChildOfClass("Animator")
+                if not animator then
+                    animator = Instance.new("Animator")
+                    animator.Parent = hum
+                end
+                
+                DanceTrack = animator:LoadAnimation(anim)
+                DanceTrack.Looped = true
+                DanceTrack.Priority = Enum.AnimationPriority.Action4
+            end
+            if DanceTrack and not DanceTrack.IsPlaying then
+                DanceTrack:Play()
+            end
+        end)
+    else
+        if DanceTrack then
+            pcall(function()
+                DanceTrack:Stop()
+            end)
+        end
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    DanceTrack = nil
+    task.wait(1)
+    if Settings.SpinBot then
+        manageDance(true)
+    end
+end)
+
 -- FOV
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Filled       = false
 FOVCircle.NumSides     = 96
 FOVCircle.Visible      = false
-FOVCircle.Color        = Color3.fromRGB(140, 200, 255)
-FOVCircle.Thickness    = 1.5
-FOVCircle.Transparency = 0.85
+FOVCircle.Thickness    = 2
+FOVCircle.Transparency = 0.9
 
 -- UI
 local ScreenGui = Instance.new("ScreenGui")
@@ -171,13 +209,6 @@ mk("TextLabel", { Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = 
 mk("TextLabel", { Size = UDim2.new(0,200,0,20), Position = UDim2.new(0,56,0.5,-10), BackgroundTransparency = 1, Text = "NEXUS", TextColor3 = Theme.Text, Font = FontBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, TitleBar)
 mk("TextLabel", { Size = UDim2.new(0,200,0,12), Position = UDim2.new(0,56,0.5,4), BackgroundTransparency = 1, Text = "UNIVERSAL v8", TextColor3 = Theme.TextMuted, Font = FontMedium, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, TitleBar)
 
-local StatusPill = mk("Frame", { Size = UDim2.new(0,110,0,24), Position = UDim2.new(1,-230,0.5,-12), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, Active = false }, TitleBar)
-corner(StatusPill, 12)
-stroke(StatusPill, Theme.Border, 1, 0.3)
-local StatusDot = mk("Frame", { Size = UDim2.new(0,6,0,6), Position = UDim2.new(0,10,0.5,-3), BackgroundColor3 = Theme.Ok, BorderSizePixel = 0, Active = false }, StatusPill)
-corner(StatusDot, 3)
-local StatusText = mk("TextLabel", { Size = UDim2.new(1,-22,1,0), Position = UDim2.new(0,22,0,0), BackgroundTransparency = 1, Text = "IDLE", TextColor3 = Theme.TextSub, Font = FontBold, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, StatusPill)
-
 local CloseBtn = mk("TextButton", { Size = UDim2.new(0,26,0,26), Position = UDim2.new(1,-36,0.5,-13), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, Text = "X", TextColor3 = Theme.TextMuted, Font = FontBold, TextSize = 12, AutoButtonColor = false }, TitleBar)
 corner(CloseBtn, 8)
 local MinBtn = mk("TextButton", { Size = UDim2.new(0,26,0,26), Position = UDim2.new(1,-66,0.5,-13), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, Text = "-", TextColor3 = Theme.TextMuted, Font = FontBold, TextSize = 14, AutoButtonColor = false }, TitleBar)
@@ -186,6 +217,7 @@ corner(MinBtn, 8)
 -- UNLOAD
 local function unload()
     Running = false
+    manageDance(false)
     pcall(function() FOVCircle:Remove() end)
     for _, v in pairs(PlayerEntries) do
         pcall(function()
@@ -217,7 +249,7 @@ end
 
 onClick(CloseBtn, function() unload() end)
 
--- ★ MINIMIZE FIX
+-- MINIMIZE
 local isMinimized = false
 onClick(MinBtn, function()
     isMinimized = not isMinimized
@@ -241,7 +273,7 @@ CloseBtn.MouseLeave:Connect(function() TweenService:Create(CloseBtn, TweenInfo.n
 MinBtn.MouseEnter:Connect(function() TweenService:Create(MinBtn, TweenInfo.new(0.12), { BackgroundColor3 = Theme.SurfaceHov, TextColor3 = Theme.Text }):Play() end)
 MinBtn.MouseLeave:Connect(function() TweenService:Create(MinBtn, TweenInfo.new(0.12), { BackgroundColor3 = Theme.Surface, TextColor3 = Theme.TextMuted }):Play() end)
 
--- Drag
+-- Dragging
 local dragging, dragStart, startPos
 TitleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -271,7 +303,7 @@ stroke(ContentArea, Theme.Border, 1, 0.3)
 
 local StatusBar = mk("Frame", { Size = UDim2.new(1,-24,0,24), Position = UDim2.new(0,12,1,-30), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0 }, MainFrame)
 corner(StatusBar, 8)
-mk("TextLabel", { Size = UDim2.new(1,-16,1,0), Position = UDim2.new(0,12,0,0), BackgroundTransparency = 1, Text = "INSERT - Toggle Menu    |    RIGHT CTRL - Unload", TextColor3 = Theme.TextMuted, Font = FontMedium, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, StatusBar)
+mk("TextLabel", { Size = UDim2.new(1,-16,1,0), Position = UDim2.new(0,12,0,0), BackgroundTransparency = 1, Text = "R.SHIFT / INSERT - Toggle Menu    |    RIGHT CTRL - Unload", TextColor3 = Theme.TextMuted, Font = FontMedium, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, StatusBar)
 
 -- TABS
 local Tabs = {}
@@ -373,12 +405,31 @@ local function UI_Toggle(parent, label, key, onChange)
 
     onClick(row, function()
         Settings[key] = not Settings[key]
-        print("[Nexus] " .. tostring(key) .. " = " .. tostring(Settings[key]))
         upd(Settings[key], true)
         if onChange then
-            local ok, err = pcall(onChange, Settings[key])
-            if not ok then warn("[Nexus] onChange: " .. tostring(err)) end
+            pcall(onChange, Settings[key])
         end
+    end)
+end
+
+local function UI_Button(parent, label, onClickCb)
+    local row = mk("TextButton", { Size = UDim2.new(1,-8,0,38), BackgroundColor3 = Theme.SurfaceAlt, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, parent)
+    corner(row, 8)
+    local rowStroke = stroke(row, Theme.Border, 1, 0.5)
+
+    mk("TextLabel", { Size = UDim2.new(1,-20,1,0), Position = UDim2.new(0,14,0,0), BackgroundTransparency = 1, Text = label, TextColor3 = Theme.Text, Font = FontMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, row)
+
+    row.MouseEnter:Connect(function()
+        TweenService:Create(row, TweenInfo.new(0.15), { BackgroundColor3 = Theme.SurfaceHov }):Play()
+        TweenService:Create(rowStroke, TweenInfo.new(0.15), { Color = Theme.BorderHov }):Play()
+    end)
+    row.MouseLeave:Connect(function()
+        TweenService:Create(row, TweenInfo.new(0.15), { BackgroundColor3 = Theme.SurfaceAlt }):Play()
+        TweenService:Create(rowStroke, TweenInfo.new(0.15), { Color = Theme.Border }):Play()
+    end)
+
+    onClick(row, function()
+        pcall(onClickCb)
     end)
 end
 
@@ -411,8 +462,7 @@ local function UI_Slider(parent, label, key, minVal, maxVal, step, suffix, onCha
         knob.Position = UDim2.new(pct, -7, 0.5, -7)
         valueLbl.Text = tostring(newVal) .. (suffix or "")
         if onChange then
-            local ok, err = pcall(onChange, newVal)
-            if not ok then warn("[Nexus] slider onChange: " .. tostring(err)) end
+            pcall(onChange, newVal)
         end
     end
     apply(Settings[key])
@@ -453,19 +503,19 @@ local function UI_Slider(parent, label, key, minVal, maxVal, step, suffix, onCha
     end)
 end
 
--- DEVICE SPOOF
+-- DEVICE SPOOF FUNCTION
 local function spoofDevice(mode)
     pcall(function()
         local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-        if not remotes then warn("[Nexus] Remotes not found") return end
+        if not remotes then return end
         local rep = remotes:FindFirstChild("Replication")
-        if not rep then warn("[Nexus] Replication not found") return end
+        if not rep then return end
         local fighter = rep:FindFirstChild("Fighter")
-        if not fighter then warn("[Nexus] Fighter not found") return end
+        if not fighter then return end
         local ctrl = fighter:FindFirstChild("SetControls")
-        if not ctrl then warn("[Nexus] SetControls not found") return end
-        ctrl:FireServer(mode or "VR")
-        print("[Nexus] Device spoofed: " .. tostring(mode))
+        if not ctrl then return end
+        ctrl:FireServer(mode)
+        print("[Nexus] Device spoofed to: " .. tostring(mode))
     end)
 end
 
@@ -482,7 +532,7 @@ UI_Slider(combatTab.Content, "Aim Smoothness", "AimSmoothness", 1, 20, 1, "x")
 UI_Section(combatTab.Content, "Silent Aim")
 UI_Toggle(combatTab.Content, "Silent Aim", "SilentAim")
 UI_Toggle(combatTab.Content, "Show FOV Circle", "ShowFOV")
-UI_Slider(combatTab.Content, "FOV Radius", "FOVRadius", 50, 600, 10, "px")
+UI_Slider(combatTab.Content, "FOV Radius", "FOVRadius", 50, 2000, 10, "px")
 
 -- VISUAL
 UI_Section(visualTab.Content, "Player ESP")
@@ -512,28 +562,31 @@ end)
 
 -- MOVEMENT
 UI_Section(movementTab.Content, "Speed")
-UI_Slider(movementTab.Content, "WalkSpeed", "WalkSpeed", 8, 500, 2, "")
-UI_Slider(movementTab.Content, "JumpPower", "JumpPower", 50, 500, 5, "", function(v)
-    local h = getHumanoid()
-    if h then h.UseJumpPower = true h.JumpPower = v end
-end)
+UI_Slider(movementTab.Content, "WalkSpeed", "WalkSpeed", 16, 500, 2, "")
 
 UI_Section(movementTab.Content, "Flight")
 UI_Toggle(movementTab.Content, "Fly (WASD)", "Fly")
 UI_Slider(movementTab.Content, "Fly Speed", "FlySpeed", 20, 300, 5, "")
 
+UI_Section(movementTab.Content, "SpinBot")
+UI_Toggle(movementTab.Content, "SpinBot (+ SpiderHanging)", "SpinBot", function(on)
+    manageDance(on)
+end)
+UI_Slider(movementTab.Content, "Spin Speed", "SpinSpeed", 10, 100, 5, "")
+
 UI_Section(movementTab.Content, "Misc")
 UI_Toggle(movementTab.Content, "Infinite Jump", "InfJump")
 UI_Toggle(movementTab.Content, "Noclip", "Noclip")
 
--- MISC
+-- MISC & DEVICE SPOOF BUTTONS
 UI_Section(miscTab.Content, "Anti-AFK")
 UI_Toggle(miscTab.Content, "Enable Anti-AFK", "AntiAFK")
 
 UI_Section(miscTab.Content, "Device Spoof (Rivals)")
-UI_Toggle(miscTab.Content, "Spoof as VR", "DeviceSpoof", function(on)
-    spoofDevice(on and "VR" or "MouseKeyboard")
-end)
+UI_Button(miscTab.Content, "Spoof as Phone (Touch)", function() spoofDevice("Touch") end)
+UI_Button(miscTab.Content, "Spoof as PC (MouseKeyboard)", function() spoofDevice("MouseKeyboard") end)
+UI_Button(miscTab.Content, "Spoof as Gamepad", function() spoofDevice("Gamepad") end)
+UI_Button(miscTab.Content, "Spoof as VR", function() spoofDevice("VR") end)
 
 -- Open first tab
 combatTab.Active = true
@@ -542,30 +595,10 @@ TweenService:Create(combatTab.Button, TweenInfo.new(0), { BackgroundColor3 = Col
 TweenService:Create(combatTab.Text, TweenInfo.new(0), { TextColor3 = Theme.Text }):Play()
 TweenService:Create(combatTab.Indicator, TweenInfo.new(0), { Size = UDim2.new(0,3,0,20) }):Play()
 
--- INPUT
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.Insert then
-        MainFrame.Visible = not MainFrame.Visible
-        return
-    end
-    if input.KeyCode == Enum.KeyCode.RightControl then
-        unload()
-        return
-    end
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        and Settings.SilentAim and SilentTarget then
-        local saved = Camera.CFrame
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, SilentTarget.Position)
-        RunService.RenderStepped:Wait()
-        Camera.CFrame = saved
-    end
-end)
-
--- TARGET
-local function findTarget()
+-- GET CLOSEST PLAYER
+local function getClosestPlayer()
     local center = Camera.ViewportSize * 0.5
-    local bestT, bestD = nil, Settings.FOVRadius
+    local bestTarget, bestDist = nil, Settings.FOVRadius
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and isAlive(p) then
             local part = getAnchor(p.Character)
@@ -573,76 +606,136 @@ local function findTarget()
                 local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
                 if onScreen and pos.Z > 0 then
                     local d = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                    if d < bestD then bestD = d bestT = part end
+                    if d < bestDist then
+                        bestDist = d
+                        bestTarget = part
+                    end
                 end
             end
         end
     end
-    return bestT
+    return bestTarget
 end
 
--- WALKSPEED STEPPED
-RunService.Stepped:Connect(function()
-    if not Running then return end
-    local h = getHumanoid()
-    if not h then return end
-    if h.WalkSpeed ~= Settings.WalkSpeed then
-        h.WalkSpeed = Settings.WalkSpeed
+-- INPUT
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightShift then
+        MainFrame.Visible = not MainFrame.Visible
+        return
     end
-end)
-
-local function watchHumanoid(h)
-    if not h then return end
-    h:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-        if Running and h.WalkSpeed ~= Settings.WalkSpeed then
-            h.WalkSpeed = Settings.WalkSpeed
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        unload()
+        return
+    end
+    if input.KeyCode == Enum.KeyCode.Space and Settings.InfJump then
+        local h = getHumanoid()
+        if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+    
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        IsScoped = true
+    end
+    
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and Settings.SilentAim then
+        local target = getClosestPlayer()
+        if target then
+            SilentTarget = target
+            local saved = Camera.CFrame
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+            task.delay(0.05, function()
+                if Camera then Camera.CFrame = saved end
+            end)
         end
-    end)
-end
-
-if LocalPlayer.Character then
-    local h = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if h then watchHumanoid(h) end
-end
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(0.5)
-    applyAll()
-    local h = char:FindFirstChildOfClass("Humanoid")
-    if h then watchHumanoid(h) end
-    if not Settings.Fly then
-        if FlyState.bg then FlyState.bg:Destroy() FlyState.bg = nil end
-        if FlyState.bv then FlyState.bv:Destroy() FlyState.bv = nil end
     end
-    if Settings.DeviceSpoof then spoofDevice("VR") end
 end)
 
-task.spawn(function()
-    LocalPlayer:WaitForChild("Character", 30)
-    task.wait(0.5)
-    applyAll()
-    if Settings.DeviceSpoof then spoofDevice("VR") end
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        IsScoped = false
+    end
 end)
 
--- ANTI-AFK
-LocalPlayer.Idled:Connect(function()
-    if Settings.AntiAFK then
-        pcall(function()
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
-        end)
-        print("[Nexus] Anti-AFK triggered")
+-- RENDER STEPPED (CFrame Speed Bypass - Varsayılan hız 20 baz alınmıştır)
+RunService.RenderStepped:Connect(function()
+    if not Running then return end
+
+    local hrp = getHRP()
+    local hum = getHumanoid()
+    if hrp and hum and Settings.WalkSpeed > 20 and not Settings.Fly then
+        local moveDir = hum.MoveDirection
+        if moveDir.Magnitude > 0 then
+            hrp.CFrame = hrp.CFrame + (moveDir * ((Settings.WalkSpeed - 20) * 0.016))
+        end
+    end
+
+    if Settings.ShowFOV and (Settings.Aimbot or Settings.SilentAim) then
+        FOVCircle.Visible = true
+        FOVCircle.Radius = Settings.FOVRadius
+        FOVCircle.Position = Camera.ViewportSize * 0.5
+        FOVCircle.Color = rainbowColor()
+    else
+        FOVCircle.Visible = false
+    end
+
+    if Settings.Aimbot and IsScoped then
+        local targetPart = getClosestPlayer()
+        if targetPart then
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, targetPart.Position), 1 / math.clamp(Settings.AimSmoothness, 1, 20))
+        end
+    end
+
+    if Settings.SpinBot and hrp then
+        hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Settings.SpinSpeed), 0)
+    end
+
+    if Settings.Fly and hrp and hum then
+        hum.PlatformStand = true
+        if not FlyState.bv then
+            FlyState.bv = Instance.new("BodyVelocity")
+            FlyState.bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+            FlyState.bv.Velocity = Vector3.new(0, 0, 0)
+            FlyState.bv.Parent = hrp
+        end
+        if not FlyState.bg then
+            FlyState.bg = Instance.new("BodyGyro")
+            FlyState.bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+            FlyState.bg.CFrame = Camera.CFrame
+            FlyState.bg.Parent = hrp
+        end
+        
+        local moveDir = Vector3.new()
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+        
+        FlyState.bv.Velocity = moveDir * Settings.FlySpeed
+        FlyState.bg.CFrame = Camera.CFrame
+    else
+        if hum and not Settings.SpinBot then hum.PlatformStand = false end
+        if FlyState.bv then FlyState.bv:Destroy() FlyState.bv = nil end
+        if FlyState.bg then FlyState.bg:Destroy() FlyState.bg = nil end
+    end
+
+    if Settings.Noclip then
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
     end
 end)
 
 -- SKELETON BONE PAIRS
 local BonePairs = {
-    -- R6
-    { "Head", "Torso" },
+    { "Head", "Torso" }, { "Head", "UpperTorso" },
     { "Torso", "Left Arm" }, { "Torso", "Right Arm" },
     { "Torso", "Left Leg" }, { "Torso", "Right Leg" },
-    -- R15
-    { "Head", "UpperTorso" }, { "UpperTorso", "LowerTorso" },
+    { "UpperTorso", "LowerTorso" },
     { "UpperTorso", "LeftUpperArm" }, { "LeftUpperArm", "LeftLowerArm" }, { "LeftLowerArm", "LeftHand" },
     { "UpperTorso", "RightUpperArm" }, { "RightUpperArm", "RightLowerArm" }, { "RightLowerArm", "RightHand" },
     { "LowerTorso", "LeftUpperLeg" }, { "LeftUpperLeg", "LeftLowerLeg" }, { "LeftLowerLeg", "LeftFoot" },
@@ -650,7 +743,6 @@ local BonePairs = {
 }
 local BoneCount = #BonePairs
 
--- ESP
 local function createVisual()
     local v = {
         Box       = Drawing.new("Square"),
@@ -685,6 +777,7 @@ local function removeVisual(v)
     end)
 end
 
+-- ESP RENDER LOOP
 RunService.RenderStepped:Connect(function()
     if not Running then return end
     pcall(function()
@@ -693,7 +786,7 @@ RunService.RenderStepped:Connect(function()
                 if not PlayerEntries[p] then PlayerEntries[p] = createVisual() end
                 local v = PlayerEntries[p]
 
-                if Settings.ESPEnabled and isAlive(p) and p.Character.Parent == Workspace then
+                if Settings.ESPEnabled and isAlive(p) and p.Character then
                     local char = p.Character
                     local root = getAnchor(char)
                     local hum = char:FindFirstChildOfClass("Humanoid")
@@ -703,7 +796,6 @@ RunService.RenderStepped:Connect(function()
                         local dist = (root.Position - Camera.CFrame.Position).Magnitude
 
                         if onScreen and pos.Z > 0.5 and dist <= Settings.MaxDistance then
-                            -- ★ RENK: rainbow veya sabit
                             local color = Settings.ESPRainbow and rainbowColor() or Settings.EnemyColor
 
                             local z = math.max(pos.Z, 1)
@@ -711,7 +803,6 @@ RunService.RenderStepped:Connect(function()
                             local sy = math.clamp(2800 / z, 14, 620)
 
                             local topX, topY = pos.X - sx/2, pos.Y - sy/2
-                            local botY = pos.Y + sy/2
 
                             -- BOX
                             v.Box.Size = Vector2.new(sx, sy)
@@ -732,31 +823,29 @@ RunService.RenderStepped:Connect(function()
                             v.Dist.Color = color
                             v.Dist.Visible = Settings.ESPDistance
 
-                            -- ★ HEALTH BAR (sol tarafta dikey)
+                            -- HEALTH BAR
                             if Settings.ESPHealthBar then
-                                local hpPct = math.clamp(hum.Health / math.max(1, hum.MaxHealth), 0, 1)
+                                local maxHp = math.max(1, hum.MaxHealth)
+                                local hpPct = math.clamp(hum.Health / maxHp, 0, 1)
                                 local barW = 3
                                 local barX = topX - 7
                                 local barY = topY
                                 local barH = sy
 
-                                -- HP renk: kırmızı → sarı → yeşil
                                 local hpColor
                                 if hpPct > 0.5 then
-                                    hpColor = Color3.fromRGB(74, 222, 128) -- yeşil
+                                    hpColor = Color3.fromRGB(74, 222, 128)
                                 elseif hpPct > 0.25 then
-                                    hpColor = Color3.fromRGB(255, 200, 87) -- sarı
+                                    hpColor = Color3.fromRGB(255, 200, 87)
                                 else
-                                    hpColor = Color3.fromRGB(255, 85, 102) -- kırmızı
+                                    hpColor = Color3.fromRGB(255, 85, 102)
                                 end
 
-                                -- BG (siyah outline)
                                 v.HpBg.Size = Vector2.new(barW + 2, barH + 2)
                                 v.HpBg.Position = Vector2.new(barX - 1, barY - 1)
                                 v.HpBg.Color = Color3.fromRGB(0, 0, 0)
                                 v.HpBg.Visible = true
 
-                                -- FILL (dolgu yukarıdan aşağı azalır)
                                 local fillH = barH * hpPct
                                 v.HpFill.Size = Vector2.new(barW, math.max(0, fillH))
                                 v.HpFill.Position = Vector2.new(barX, barY + (barH - fillH))
@@ -767,7 +856,7 @@ RunService.RenderStepped:Connect(function()
                                 v.HpFill.Visible = false
                             end
 
-                            -- ★ SKELETON
+                            -- SKELETON
                             if Settings.ESPSkeleton then
                                 for i, pair in ipairs(BonePairs) do
                                     local ln = v.SkeletonLines[i]
@@ -815,6 +904,4 @@ Players.PlayerRemoving:Connect(function(p)
     if PlayerEntries[p] then removeVisual(PlayerEntries[p]) PlayerEntries[p] = nil end
 end)
 
-print("[Nexus] v8 Loaded.")
-print("  INSERT - toggle menu")
-print("  RIGHT CTRL - unload")
+print("[Nexus] v8 Fully Updated with Start WalkSpeed 20.")
