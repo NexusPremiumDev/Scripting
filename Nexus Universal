@@ -1,5 +1,5 @@
 --[[
-    Nexus Universal v8 (WalkSpeed Default 20, Fixed Aimbot & Silent Aim with Head/Body Selector, ESP)
+    Nexus Universal v8 (WalkSpeed Default 20, Fixed Aimbot, Silent Aim with Head/Body, ESP & Rivals SkinChanger)
 ]]
 
 local Players           = game:GetService("Players")
@@ -48,7 +48,7 @@ local Settings = {
     FOVRadius     = 150,
 
     SilentAim     = false,
-    SilentTargetPart = "Head", -- "Head" veya "Body"
+    SilentTargetPart = "Head",
 
     ESPEnabled    = true,
     ESPBoxes      = true,
@@ -519,7 +519,101 @@ local function spoofDevice(mode)
         local ctrl = fighter:FindFirstChild("SetControls")
         if not ctrl then return end
         ctrl:FireServer(mode)
-        print("[Nexus] Device spoofed to: " .. tostring(mode))
+        print("[Nexus] Device spoofed to: " + tostring(mode))
+    end)
+end
+
+-- SKIN CHANGER FUNCTION (RIVALS)
+local function applySkinChanger()
+    task.spawn(function()
+        local ok, err = pcall(function()
+            local player = Players.LocalPlayer
+            local ViewModels = player:WaitForChild("PlayerScripts", 8)
+                :WaitForChild("Assets", 8)
+                :WaitForChild("ViewModels", 8)
+            local Weapons = ViewModels:FindFirstChild("Weapons")
+            if not Weapons then
+                warn("[Nexus SkinChanger] Weapons folder not found!")
+                return
+            end
+
+            local function FindSkin(skinName)
+                local direct = ViewModels:FindFirstChild(skinName, true)
+                if direct then return direct end
+                local wanted = string.lower(skinName)
+                for _, obj in ipairs(ViewModels:GetDescendants()) do
+                    local objName = string.lower(obj.Name)
+                    if string.find(objName, wanted, 1, true) or string.find(wanted, objName, 1, true) then
+                        return obj
+                    end
+                end
+                return nil
+            end
+
+            local function ApplySkin(weaponName, skinName)
+                local weapon = Weapons:FindFirstChild(weaponName)
+                if not weapon then return false end
+                local skin = FindSkin(skinName)
+                if not skin then return false end
+                for _, child in ipairs(weapon:GetChildren()) do
+                    child:Destroy()
+                end
+                local copied = 0
+                for _, child in ipairs(skin:GetChildren()) do
+                    local clone = child:Clone()
+                    clone.Parent = weapon
+                    copied = copied + 1
+                end
+                return copied > 0
+            end
+
+            local skins = {
+                {"Bow", "Bat Bow"},
+                {"Crossbow", "Frostbite Crossbow"},
+                {"Wildcat", "Plasma Wildcat"},
+                {"Daggers", "Aces"},
+                {"Spray", "Spray Bottle"},
+                {"Katana", "Crystal Katana"},
+                {"Spear", "Thunderpike"},
+                {"Minigun", "Fighter Jet"},
+                {"Burst Rifle", "Aqua Burst"},
+                {"Gunblade", "Gunsaw"},
+                {"RPG", "Nuke Launcher"},
+                {"Shotgun", "Broomstick"},
+                {"Maul", "Ban Hammer"},
+                {"Warpstone", "Warpeye"},
+                {"Smoke Grenade", "Hourglass"},
+                {"Jump Pad", "Spider Web"},
+                {"Grenade", "Soul Grenade"},
+                {"Molotov", "Torch"},
+                {"Riot Shield", "Energy Shield"},
+                {"Medkit", "Laptop"},
+                {"Paintball Gun", "Boba Gun"},
+                {"Energy Pistols", "Void Pistols"},
+                {"Energy Rifle", "Hacker Rifle"},
+                {"Distortion", "Plasma Distortion"},
+                {"Knife", "Caladbolg"},
+                {"Assault Rifle", "AKEY-47"},
+                {"Sniper", "Event Horizon"},
+                {"Handgun", "Pixel Handgun"},
+                {"Uzi", "Keyzi"},
+                {"Fists", "Brass Knuckles"},
+                {"War Horn", "Megaphone"},
+                {"Battle Axe", "Ban Axe"},
+                {"Flamethrower", "Pixel Flamethrower"},
+                {"Flashbang", "Camera"},
+                {"Grenade Launcher", "Swashbuckler"},
+                {"Subspace Tripmine", "Don't Press"},
+            }
+
+            for _, pair in ipairs(skins) do
+                pcall(ApplySkin, pair[1], pair[2])
+            end
+            print("[Nexus] Skin Changer applied!")
+        end)
+        if not ok then
+            warn("[Nexus SkinChanger] Error: " + tostring(err))
+        end
     end)
 end
 
@@ -529,7 +623,7 @@ local visualTab   = UI_Tab("Visual",   "Visual")
 local movementTab = UI_Tab("Movement", "Movement")
 local miscTab     = UI_Tab("Misc",     "Misc")
 
--- COMBAT (Aimbot & Silent Aim Entegrasyonu)
+-- COMBAT
 UI_Section(combatTab.Content, "Aimbot")
 UI_Toggle(combatTab.Content, "Enable Aimbot", "Aimbot")
 UI_Slider(combatTab.Content, "Aim Smoothness", "AimSmoothness", 1, 100, 1, "")
@@ -539,7 +633,6 @@ UI_Slider(combatTab.Content, "FOV Radius", "FOVRadius", 50, 400, 10, "px")
 UI_Section(combatTab.Content, "Silent Aim")
 UI_Toggle(combatTab.Content, "Silent Aim", "SilentAim")
 
--- Head / Body Seçim Butonları
 local modeHolder = mk("Frame", { Size = UDim2.new(1,-8,0,36), BackgroundTransparency = 1 }, combatTab.Content)
 local headBtn = mk("TextButton", { Size = UDim2.new(0.48,0,1,0), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, Text = "Head", TextColor3 = Color3.new(1,1,1), Font = FontBold, TextSize = 11, AutoButtonColor = false }, modeHolder)
 corner(headBtn, 8)
@@ -606,11 +699,12 @@ UI_Section(movementTab.Content, "Misc")
 UI_Toggle(movementTab.Content, "Infinite Jump", "InfJump")
 UI_Toggle(movementTab.Content, "Noclip", "Noclip")
 
--- MISC & DEVICE SPOOF
+-- MISC & RIVALS SCRIPTS (SPOOF + SKINCHANGER)
 UI_Section(miscTab.Content, "Anti-AFK")
 UI_Toggle(miscTab.Content, "Enable Anti-AFK", "AntiAFK")
 
-UI_Section(miscTab.Content, "Device Spoof (Rivals)")
+UI_Section(miscTab.Content, "Rivals Scripts")
+UI_Button(miscTab.Content, "Skin Changer (Rivals)", function() applySkinChanger() end)
 UI_Button(miscTab.Content, "Spoof as Phone (Touch)", function() spoofDevice("Touch") end)
 UI_Button(miscTab.Content, "Spoof as PC (MouseKeyboard)", function() spoofDevice("MouseKeyboard") end)
 UI_Button(miscTab.Content, "Spoof as Gamepad", function() spoofDevice("Gamepad") end)
@@ -623,7 +717,6 @@ TweenService:Create(combatTab.Button, TweenInfo.new(0), { BackgroundColor3 = Col
 TweenService:Create(combatTab.Text, TweenInfo.new(0), { TextColor3 = Theme.Text }):Play()
 TweenService:Create(combatTab.Indicator, TweenInfo.new(0), { Size = UDim2.new(0,3,0,20) }):Play()
 
--- GET CLOSEST TARGET (Aimbot & Silent Aim için ortak mantık)
 local function getClosestTargetInFov()
     local mousePos = UserInputService:GetMouseLocation()
     local bestPlayer, bestDist = nil, math.huge
@@ -647,7 +740,6 @@ local function getClosestTargetInFov()
     return bestPlayer
 end
 
--- INPUT
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightShift then
@@ -667,7 +759,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
         IsScoped = true
     end
     
-    -- Silent Aim Tetikleyicisi (Sol Tık)
     if input.UserInputType == Enum.UserInputType.MouseButton1 and Settings.SilentAim then
         local target = getClosestTargetInFov()
         if target then
@@ -689,7 +780,6 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- RENDER LOOP (WalkSpeed, Fly, Aimbot, FOV, SpinBot, Noclip)
 RunService.RenderStepped:Connect(function()
     if not Running then return end
 
@@ -702,7 +792,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- FOV Çemberini Güncelle
     if Settings.ShowFOV and (Settings.Aimbot or Settings.SilentAim) then
         FOVCircle.Visible = true
         FOVCircle.Radius = Settings.FOVRadius
@@ -711,7 +800,6 @@ RunService.RenderStepped:Connect(function()
         FOVCircle.Visible = false
     end
 
-    -- Aimbot (Sağ tık basılı tutulduğunda çalışır)
     if Settings.Aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local target = getClosestTargetInFov()
         if target then
@@ -773,7 +861,6 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- SKELETON BONE PAIRS
 local BonePairs = {
     { "Head", "Torso" }, { "Head", "UpperTorso" },
     { "Torso", "Left Arm" }, { "Torso", "Right Arm" },
@@ -820,7 +907,6 @@ local function removeVisual(v)
     end)
 end
 
--- ESP RENDER LOOP
 RunService.RenderStepped:Connect(function()
     if not Running then return end
     pcall(function()
@@ -847,26 +933,22 @@ RunService.RenderStepped:Connect(function()
 
                             local topX, topY = pos.X - sx/2, pos.Y - sy/2
 
-                            -- BOX
                             v.Box.Size = Vector2.new(sx, sy)
                             v.Box.Position = Vector2.new(topX, topY)
                             v.Box.Color = color
                             v.Box.Thickness = 1
                             v.Box.Visible = Settings.ESPBoxes
 
-                            -- NAME
                             v.Name.Text = p.Name
                             v.Name.Position = Vector2.new(pos.X, topY - 26)
                             v.Name.Color = color
                             v.Name.Visible = Settings.ESPNames
 
-                            -- DISTANCE
                             v.Dist.Text = "[" .. math.floor(dist) .. "m]"
                             v.Dist.Position = Vector2.new(pos.X, topY - 12)
                             v.Dist.Color = color
                             v.Dist.Visible = Settings.ESPDistance
 
-                            -- HEALTH BAR
                             if Settings.ESPHealthBar then
                                 local maxHp = math.max(1, hum.MaxHealth)
                                 local hpPct = math.clamp(hum.Health / maxHp, 0, 1)
@@ -899,7 +981,6 @@ RunService.RenderStepped:Connect(function()
                                 v.HpFill.Visible = false
                             end
 
-                            -- SKELETON
                             if Settings.ESPSkeleton then
                                 for i, pair in ipairs(BonePairs) do
                                     local ln = v.SkeletonLines[i]
@@ -947,4 +1028,4 @@ Players.PlayerRemoving:Connect(function(p)
     if PlayerEntries[p] then removeVisual(PlayerEntries[p]) PlayerEntries[p] = nil end
 end)
 
-print("[Nexus] v8 Fully Updated with Fixed Aimbot & Head/Body Silent Aim Selector.")
+print("[Nexus] v8 Fully Updated with SkinChanger and Rivals Section.")
