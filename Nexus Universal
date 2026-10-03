@@ -1,9 +1,5 @@
 --[[
-    Nexus Universal v8 (WalkSpeed Default 20, Spider-Man Hanging, ESP & All Features)
-    Combat: Aimbot (Scoped), Silent Aim, Rainbow FOV
-    Visual: ESP + Fixed Health Bar + Skeleton + Rainbow, Fullbright
-    Movement: WalkSpeed (Default 20), Fly, Noclip, InfJump, SpinBot (Spider-Man Hanging)
-    Misc: Anti-AFK, Device Spoof Options (Phone, PC, Gamepad, VR)
+    Nexus Universal v8 (WalkSpeed Default 20, Fixed Aimbot & Silent Aim with Head/Body Selector, ESP)
 ]]
 
 local Players           = game:GetService("Players")
@@ -14,7 +10,6 @@ local CoreGui           = game:GetService("CoreGui")
 local Lighting          = game:GetService("Lighting")
 local TweenService      = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser       = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera      = Workspace.CurrentCamera
@@ -45,13 +40,15 @@ local Font       = Enum.Font.Gotham
 local FontMedium = Enum.Font.GothamMedium
 local FontBold   = Enum.Font.GothamBold
 
--- SETTINGS (WalkSpeed varsayılan 20 yapıldı)
+-- SETTINGS
 local Settings = {
     Aimbot        = false,
-    AimSmoothness = 5,
-    SilentAim     = false,
+    AimSmoothness = 65,
     ShowFOV       = true,
-    FOVRadius     = 250,
+    FOVRadius     = 150,
+
+    SilentAim     = false,
+    SilentTargetPart = "Head", -- "Head" veya "Body"
 
     ESPEnabled    = true,
     ESPBoxes      = true,
@@ -74,7 +71,6 @@ local Settings = {
     AntiAFK       = true,
 }
 
-local SilentTarget  = nil
 local PlayerEntries = {}
 local FlyState      = { bg = nil, bv = nil }
 local Running       = true
@@ -90,6 +86,15 @@ local function getAnchor(character)
         or character:FindFirstChild("UpperTorso") 
         or character:FindFirstChild("Head") 
         or character:FindFirstChildWhichIsA("BasePart")
+end
+
+local function getTargetPart(character, partName)
+    if not character then return nil end
+    if partName == "Head" then
+        return character:FindFirstChild("Head") or getAnchor(character)
+    else
+        return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso") or getAnchor(character)
+    end
 end
 
 local function isAlive(player)
@@ -113,7 +118,7 @@ local function rainbowColor()
     return Color3.fromHSV((tick() * 0.35) % 1, 1, 1)
 end
 
--- SPIDER-MAN HANGING ANIMATION OYNATICISI
+-- SPIDER-MAN HANGING ANIMATION
 local function manageDance(state)
     local char = LocalPlayer.Character
     if not char then return end
@@ -124,7 +129,7 @@ local function manageDance(state)
         pcall(function()
             if not DanceTrack then
                 local anim = Instance.new("Animation")
-                anim.AnimationId = "rbxassetid://123955307291627" -- Spider-Man Hanging ID
+                anim.AnimationId = "rbxassetid://123955307291627"
                 CustomAnimObject = anim
                 
                 local animator = hum:FindFirstChildOfClass("Animator")
@@ -143,9 +148,7 @@ local function manageDance(state)
         end)
     else
         if DanceTrack then
-            pcall(function()
-                DanceTrack:Stop()
-            end)
+            pcall(function() DanceTrack:Stop() end)
         end
     end
 end
@@ -158,13 +161,14 @@ LocalPlayer.CharacterAdded:Connect(function(newChar)
     end
 end)
 
--- FOV
+-- FOV (Drawing)
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Filled       = false
 FOVCircle.NumSides     = 96
 FOVCircle.Visible      = false
-FOVCircle.Thickness    = 2
-FOVCircle.Transparency = 0.9
+FOVCircle.Thickness    = 1.5
+FOVCircle.Transparency = 0.8
+FOVCircle.Color        = Color3.fromRGB(255, 80, 80)
 
 -- UI
 local ScreenGui = Instance.new("ScreenGui")
@@ -525,14 +529,38 @@ local visualTab   = UI_Tab("Visual",   "Visual")
 local movementTab = UI_Tab("Movement", "Movement")
 local miscTab     = UI_Tab("Misc",     "Misc")
 
--- COMBAT
+-- COMBAT (Aimbot & Silent Aim Entegrasyonu)
 UI_Section(combatTab.Content, "Aimbot")
 UI_Toggle(combatTab.Content, "Enable Aimbot", "Aimbot")
-UI_Slider(combatTab.Content, "Aim Smoothness", "AimSmoothness", 1, 20, 1, "x")
+UI_Slider(combatTab.Content, "Aim Smoothness", "AimSmoothness", 1, 100, 1, "")
+UI_Toggle(combatTab.Content, "Show FOV Circle", "ShowFOV")
+UI_Slider(combatTab.Content, "FOV Radius", "FOVRadius", 50, 400, 10, "px")
+
 UI_Section(combatTab.Content, "Silent Aim")
 UI_Toggle(combatTab.Content, "Silent Aim", "SilentAim")
-UI_Toggle(combatTab.Content, "Show FOV Circle", "ShowFOV")
-UI_Slider(combatTab.Content, "FOV Radius", "FOVRadius", 50, 2000, 10, "px")
+
+-- Head / Body Seçim Butonları
+local modeHolder = mk("Frame", { Size = UDim2.new(1,-8,0,36), BackgroundTransparency = 1 }, combatTab.Content)
+local headBtn = mk("TextButton", { Size = UDim2.new(0.48,0,1,0), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, Text = "Head", TextColor3 = Color3.new(1,1,1), Font = FontBold, TextSize = 11, AutoButtonColor = false }, modeHolder)
+corner(headBtn, 8)
+local bodyBtn = mk("TextButton", { Size = UDim2.new(0.48,0,1,0), Position = UDim2.new(0.52,0,0,0), BackgroundColor3 = Theme.SurfaceAlt, BorderSizePixel = 0, Text = "Body", TextColor3 = Theme.TextMuted, Font = FontBold, TextSize = 11, AutoButtonColor = false }, modeHolder)
+corner(bodyBtn, 8)
+
+headBtn.MouseButton1Click:Connect(function()
+    Settings.SilentTargetPart = "Head"
+    headBtn.BackgroundColor3 = Theme.Accent
+    headBtn.TextColor3 = Color3.new(1,1,1)
+    bodyBtn.BackgroundColor3 = Theme.SurfaceAlt
+    bodyBtn.TextColor3 = Theme.TextMuted
+end)
+
+bodyBtn.MouseButton1Click:Connect(function()
+    Settings.SilentTargetPart = "Body"
+    bodyBtn.BackgroundColor3 = Theme.Accent
+    bodyBtn.TextColor3 = Color3.new(1,1,1)
+    headBtn.BackgroundColor3 = Theme.SurfaceAlt
+    headBtn.TextColor3 = Theme.TextMuted
+end)
 
 -- VISUAL
 UI_Section(visualTab.Content, "Player ESP")
@@ -578,7 +606,7 @@ UI_Section(movementTab.Content, "Misc")
 UI_Toggle(movementTab.Content, "Infinite Jump", "InfJump")
 UI_Toggle(movementTab.Content, "Noclip", "Noclip")
 
--- MISC & DEVICE SPOOF BUTTONS
+-- MISC & DEVICE SPOOF
 UI_Section(miscTab.Content, "Anti-AFK")
 UI_Toggle(miscTab.Content, "Enable Anti-AFK", "AntiAFK")
 
@@ -595,26 +623,28 @@ TweenService:Create(combatTab.Button, TweenInfo.new(0), { BackgroundColor3 = Col
 TweenService:Create(combatTab.Text, TweenInfo.new(0), { TextColor3 = Theme.Text }):Play()
 TweenService:Create(combatTab.Indicator, TweenInfo.new(0), { Size = UDim2.new(0,3,0,20) }):Play()
 
--- GET CLOSEST PLAYER
-local function getClosestPlayer()
-    local center = Camera.ViewportSize * 0.5
-    local bestTarget, bestDist = nil, Settings.FOVRadius
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and isAlive(p) then
-            local part = getAnchor(p.Character)
-            if part then
-                local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                if onScreen and pos.Z > 0 then
-                    local d = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                    if d < bestDist then
-                        bestDist = d
-                        bestTarget = part
-                    end
-                end
-            end
+-- GET CLOSEST TARGET (Aimbot & Silent Aim için ortak mantık)
+local function getClosestTargetInFov()
+    local mousePos = UserInputService:GetMouseLocation()
+    local bestPlayer, bestDist = nil, math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr == LocalPlayer then continue end
+        local char = plr.Character
+        if not char then continue end
+        local targetPart = getTargetPart(char, Settings.SilentTargetPart)
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not targetPart or not hum or hum.Health <= 0 then continue end
+
+        local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+        if not onScreen then continue end
+
+        local dist2d = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+        if dist2d < Settings.FOVRadius and dist2d < bestDist then
+            bestDist = dist2d
+            bestPlayer = plr
         end
     end
-    return bestTarget
+    return bestPlayer
 end
 
 -- INPUT
@@ -637,15 +667,18 @@ UserInputService.InputBegan:Connect(function(input, gp)
         IsScoped = true
     end
     
+    -- Silent Aim Tetikleyicisi (Sol Tık)
     if input.UserInputType == Enum.UserInputType.MouseButton1 and Settings.SilentAim then
-        local target = getClosestPlayer()
+        local target = getClosestTargetInFov()
         if target then
-            SilentTarget = target
-            local saved = Camera.CFrame
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
-            task.delay(0.05, function()
-                if Camera then Camera.CFrame = saved end
-            end)
+            local targetPart = getTargetPart(target.Character, Settings.SilentTargetPart)
+            if targetPart then
+                local saved = Camera.CFrame
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
+                task.delay(0.015, function()
+                    if Camera then Camera.CFrame = saved end
+                end)
+            end
         end
     end
 end)
@@ -656,7 +689,7 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- RENDER STEPPED (CFrame Speed Bypass - Varsayılan hız 20 baz alınmıştır)
+-- RENDER LOOP (WalkSpeed, Fly, Aimbot, FOV, SpinBot, Noclip)
 RunService.RenderStepped:Connect(function()
     if not Running then return end
 
@@ -669,19 +702,29 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
+    -- FOV Çemberini Güncelle
     if Settings.ShowFOV and (Settings.Aimbot or Settings.SilentAim) then
         FOVCircle.Visible = true
         FOVCircle.Radius = Settings.FOVRadius
-        FOVCircle.Position = Camera.ViewportSize * 0.5
-        FOVCircle.Color = rainbowColor()
+        FOVCircle.Position = UserInputService:GetMouseLocation()
     else
         FOVCircle.Visible = false
     end
 
-    if Settings.Aimbot and IsScoped then
-        local targetPart = getClosestPlayer()
-        if targetPart then
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, targetPart.Position), 1 / math.clamp(Settings.AimSmoothness, 1, 20))
+    -- Aimbot (Sağ tık basılı tutulduğunda çalışır)
+    if Settings.Aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local target = getClosestTargetInFov()
+        if target then
+            local targetPart = getTargetPart(target.Character, Settings.SilentTargetPart)
+            if targetPart then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                if onScreen then
+                    local current = UserInputService:GetMouseLocation()
+                    local goal = Vector2.new(screenPos.X, screenPos.Y)
+                    local delta = (goal - current) / math.max(1, (Settings.AimSmoothness / 10))
+                    mousemoverel(delta.X, delta.Y)
+                end
+            end
         end
     end
 
@@ -904,4 +947,4 @@ Players.PlayerRemoving:Connect(function(p)
     if PlayerEntries[p] then removeVisual(PlayerEntries[p]) PlayerEntries[p] = nil end
 end)
 
-print("[Nexus] v8 Fully Updated with Start WalkSpeed 20.")
+print("[Nexus] v8 Fully Updated with Fixed Aimbot & Head/Body Silent Aim Selector.")
