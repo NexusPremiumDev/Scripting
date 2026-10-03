@@ -1,0 +1,820 @@
+--[[
+    Nexus Universal v8
+    Combat: Aimbot, Silent Aim, FOV
+    Visual: ESP + Health Bar + Skeleton + Rainbow, Fullbright
+    Movement: WalkSpeed, JumpPower, Fly, Noclip, InfJump
+    Misc: Anti-AFK, Device Spoof (Rivals)
+]]
+
+local Players           = game:GetService("Players")
+local RunService        = game:GetService("RunService")
+local Workspace         = game:GetService("Workspace")
+local UserInputService  = game:GetService("UserInputService")
+local CoreGui           = game:GetService("CoreGui")
+local Lighting          = game:GetService("Lighting")
+local TweenService      = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser       = game:GetService("VirtualUser")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera      = Workspace.CurrentCamera
+
+if not Drawing or type(Drawing.new) ~= "function" then
+    error("Your executor does not support the Drawing library!", 0)
+end
+
+print("[Nexus] v8 loading...")
+
+-- THEME
+local Theme = {
+    Bg         = Color3.fromRGB(11, 13, 18),
+    Surface    = Color3.fromRGB(19, 22, 30),
+    SurfaceHov = Color3.fromRGB(28, 33, 45),
+    SurfaceAlt = Color3.fromRGB(24, 28, 38),
+    Border     = Color3.fromRGB(36, 42, 58),
+    BorderHov  = Color3.fromRGB(56, 66, 92),
+    Text       = Color3.fromRGB(240, 242, 247),
+    TextSub    = Color3.fromRGB(155, 163, 183),
+    TextMuted  = Color3.fromRGB(96, 104, 126),
+    Accent     = Color3.fromRGB(124, 92, 255),
+    Accent2    = Color3.fromRGB(92, 217, 255),
+    Ok         = Color3.fromRGB(74, 222, 128),
+    Err        = Color3.fromRGB(255, 85, 102),
+}
+local Font       = Enum.Font.Gotham
+local FontMedium = Enum.Font.GothamMedium
+local FontBold   = Enum.Font.GothamBold
+
+-- SETTINGS
+local Settings = {
+    Aimbot        = false,
+    AimSmoothness = 5,
+    SilentAim     = true,
+    ShowFOV       = true,
+    FOVRadius     = 250,
+
+    ESPEnabled    = true,
+    ESPBoxes      = true,
+    ESPNames      = true,
+    ESPDistance   = true,
+    ESPHealthBar  = true,
+    ESPSkeleton   = true,
+    ESPRainbow    = true,
+    Fullbright    = false,
+    MaxDistance   = 2000,
+    EnemyColor    = Color3.fromRGB(255, 60, 60),
+
+    WalkSpeed     = 16,
+    JumpPower     = 50,
+    Fly           = false,
+    FlySpeed      = 60,
+    Noclip        = false,
+    InfJump       = false,
+    AntiAFK       = true,
+    DeviceSpoof   = false,
+}
+
+local SilentTarget  = nil
+local PlayerEntries = {}
+local FlyState      = { bg = nil, bv = nil }
+local Running       = true
+
+-- HELPERS
+local function getAnchor(character)
+    if not character then return nil end
+    local hitbox = character:FindFirstChild("Hitbox")
+    if hitbox then
+        return hitbox:FindFirstChild("Head") or hitbox:FindFirstChild("Torso") or hitbox:FindFirstChildWhichIsA("BasePart")
+    end
+    return character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart") or character:FindFirstChildWhichIsA("BasePart")
+end
+
+local function isAlive(player)
+    local char = player.Character
+    if not char then return false end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    return hum and hum.Health > 0
+end
+
+local function getHumanoid()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+local function getHRP()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function applyAll()
+    local h = getHumanoid()
+    if h then
+        h.WalkSpeed    = Settings.WalkSpeed
+        h.UseJumpPower = true
+        h.JumpPower    = Settings.JumpPower
+    end
+end
+
+local function rainbowColor()
+    return Color3.fromHSV((tick() * 0.35) % 1, 1, 1)
+end
+
+-- FOV
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Filled       = false
+FOVCircle.NumSides     = 96
+FOVCircle.Visible      = false
+FOVCircle.Color        = Color3.fromRGB(140, 200, 255)
+FOVCircle.Thickness    = 1.5
+FOVCircle.Transparency = 0.85
+
+-- UI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name           = "NexusUniversal"
+ScreenGui.ResetOnSpawn   = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder   = 2147483647
+ScreenGui.Enabled        = true
+ScreenGui.Parent         = CoreGui
+
+local function mk(class, props, parent)
+    local inst = Instance.new(class)
+    for k, v in pairs(props) do pcall(function() inst[k] = v end) end
+    if parent then inst.Parent = parent end
+    return inst
+end
+
+local function corner(inst, r) return mk("UICorner", { CornerRadius = UDim.new(0, r) }, inst) end
+local function stroke(inst, c, t, tr) return mk("UIStroke", { Color = c, Thickness = t or 1, Transparency = tr or 0 }, inst) end
+local function grad(inst, c1, c2, rot) return mk("UIGradient", { Color = ColorSequence.new(c1, c2), Rotation = rot or 0 }, inst) end
+
+local MainFrame = mk("Frame", {
+    Size = UDim2.new(0, 520, 0, 640),
+    Position = UDim2.new(0.5, -260, 0.5, -320),
+    BackgroundColor3 = Theme.Bg, BorderSizePixel = 0, Active = true,
+}, ScreenGui)
+corner(MainFrame, 14)
+stroke(MainFrame, Theme.Border, 1.2, 0.1)
+
+local TopGlow = mk("Frame", { Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, ZIndex = 5 }, MainFrame)
+corner(TopGlow, 14)
+grad(TopGlow, Theme.Accent, Theme.Accent2, 0)
+
+local TitleBar = mk("Frame", { Size = UDim2.new(1, 0, 0, 48), Position = UDim2.new(0, 0, 0, 2), BackgroundColor3 = Theme.Bg, BorderSizePixel = 0 }, MainFrame)
+
+local LogoBox = mk("Frame", { Size = UDim2.new(0, 30, 0, 30), Position = UDim2.new(0, 16, 0.5, -15), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0 }, TitleBar)
+corner(LogoBox, 9)
+grad(LogoBox, Theme.Accent, Theme.Accent2, 45)
+mk("TextLabel", { Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "N", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBlack, TextSize = 16, Active = false }, LogoBox)
+
+mk("TextLabel", { Size = UDim2.new(0,200,0,20), Position = UDim2.new(0,56,0.5,-10), BackgroundTransparency = 1, Text = "NEXUS", TextColor3 = Theme.Text, Font = FontBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, TitleBar)
+mk("TextLabel", { Size = UDim2.new(0,200,0,12), Position = UDim2.new(0,56,0.5,4), BackgroundTransparency = 1, Text = "UNIVERSAL v8", TextColor3 = Theme.TextMuted, Font = FontMedium, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, TitleBar)
+
+local StatusPill = mk("Frame", { Size = UDim2.new(0,110,0,24), Position = UDim2.new(1,-230,0.5,-12), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, Active = false }, TitleBar)
+corner(StatusPill, 12)
+stroke(StatusPill, Theme.Border, 1, 0.3)
+local StatusDot = mk("Frame", { Size = UDim2.new(0,6,0,6), Position = UDim2.new(0,10,0.5,-3), BackgroundColor3 = Theme.Ok, BorderSizePixel = 0, Active = false }, StatusPill)
+corner(StatusDot, 3)
+local StatusText = mk("TextLabel", { Size = UDim2.new(1,-22,1,0), Position = UDim2.new(0,22,0,0), BackgroundTransparency = 1, Text = "IDLE", TextColor3 = Theme.TextSub, Font = FontBold, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, StatusPill)
+
+local CloseBtn = mk("TextButton", { Size = UDim2.new(0,26,0,26), Position = UDim2.new(1,-36,0.5,-13), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, Text = "X", TextColor3 = Theme.TextMuted, Font = FontBold, TextSize = 12, AutoButtonColor = false }, TitleBar)
+corner(CloseBtn, 8)
+local MinBtn = mk("TextButton", { Size = UDim2.new(0,26,0,26), Position = UDim2.new(1,-66,0.5,-13), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, Text = "-", TextColor3 = Theme.TextMuted, Font = FontBold, TextSize = 14, AutoButtonColor = false }, TitleBar)
+corner(MinBtn, 8)
+
+-- UNLOAD
+local function unload()
+    Running = false
+    pcall(function() FOVCircle:Remove() end)
+    for _, v in pairs(PlayerEntries) do
+        pcall(function()
+            v.Box:Remove() v.Name:Remove() v.Dist:Remove()
+            v.HpBg:Remove() v.HpFill:Remove()
+            for _, ln in ipairs(v.SkeletonLines) do ln:Remove() end
+        end)
+    end
+    if FlyState.bg then pcall(function() FlyState.bg:Destroy() end) end
+    if FlyState.bv then pcall(function() FlyState.bv:Destroy() end) end
+    pcall(function()
+        Lighting.Brightness     = 1
+        Lighting.GlobalShadows  = true
+        Lighting.OutdoorAmbient = Color3.fromRGB(70,70,70)
+    end)
+    pcall(function() ScreenGui:Destroy() end)
+    print("[Nexus] Unloaded.")
+end
+
+local function onClick(inst, callback)
+    inst.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            local ok, err = pcall(callback)
+            if not ok then warn("[Nexus] click err: " .. tostring(err)) end
+        end
+    end)
+end
+
+onClick(CloseBtn, function() unload() end)
+
+-- ★ MINIMIZE FIX
+local isMinimized = false
+onClick(MinBtn, function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        Sidebar.Visible = false
+        ContentArea.Visible = false
+        StatusBar.Visible = false
+        TweenService:Create(MainFrame, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            { Size = UDim2.new(0, 520, 0, 48) }):Play()
+    else
+        Sidebar.Visible = true
+        ContentArea.Visible = true
+        StatusBar.Visible = true
+        TweenService:Create(MainFrame, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            { Size = UDim2.new(0, 520, 0, 640) }):Play()
+    end
+end)
+
+CloseBtn.MouseEnter:Connect(function() TweenService:Create(CloseBtn, TweenInfo.new(0.12), { BackgroundColor3 = Theme.Err, TextColor3 = Color3.new(1,1,1) }):Play() end)
+CloseBtn.MouseLeave:Connect(function() TweenService:Create(CloseBtn, TweenInfo.new(0.12), { BackgroundColor3 = Theme.Surface, TextColor3 = Theme.TextMuted }):Play() end)
+MinBtn.MouseEnter:Connect(function() TweenService:Create(MinBtn, TweenInfo.new(0.12), { BackgroundColor3 = Theme.SurfaceHov, TextColor3 = Theme.Text }):Play() end)
+MinBtn.MouseLeave:Connect(function() TweenService:Create(MinBtn, TweenInfo.new(0.12), { BackgroundColor3 = Theme.Surface, TextColor3 = Theme.TextMuted }):Play() end)
+
+-- Drag
+local dragging, dragStart, startPos
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging, dragStart, startPos = true, input.Position, MainFrame.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local d = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+
+-- LAYOUT
+local Sidebar = mk("Frame", { Size = UDim2.new(0,128,1,-96), Position = UDim2.new(0,12,0,58), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0 }, MainFrame)
+corner(Sidebar, 10)
+stroke(Sidebar, Theme.Border, 1, 0.3)
+mk("UIListLayout", { Padding = UDim.new(0,4), SortOrder = Enum.SortOrder.LayoutOrder }, Sidebar)
+mk("UIPadding", { PaddingTop = UDim.new(0,8), PaddingBottom = UDim.new(0,8), PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8) }, Sidebar)
+
+local ContentArea = mk("Frame", { Size = UDim2.new(0,358,1,-96), Position = UDim2.new(0,150,0,58), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0 }, MainFrame)
+corner(ContentArea, 10)
+stroke(ContentArea, Theme.Border, 1, 0.3)
+
+local StatusBar = mk("Frame", { Size = UDim2.new(1,-24,0,24), Position = UDim2.new(0,12,1,-30), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0 }, MainFrame)
+corner(StatusBar, 8)
+mk("TextLabel", { Size = UDim2.new(1,-16,1,0), Position = UDim2.new(0,12,0,0), BackgroundTransparency = 1, Text = "INSERT - Toggle Menu    |    RIGHT CTRL - Unload", TextColor3 = Theme.TextMuted, Font = FontMedium, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, StatusBar)
+
+-- TABS
+local Tabs = {}
+
+local function UI_Tab(label, name)
+    local btn = mk("TextButton", { Size = UDim2.new(1,-16,0,36), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, Sidebar)
+    corner(btn, 8)
+
+    local textLbl = mk("TextLabel", {
+        Size = UDim2.new(1,-16,1,0), Position = UDim2.new(0,14,0,0),
+        BackgroundTransparency = 1, Text = label,
+        TextColor3 = Theme.TextMuted, Font = FontBold, TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left, Active = false,
+    }, btn)
+
+    local indicator = mk("Frame", { Size = UDim2.new(0,3,0,0), Position = UDim2.new(0,0,0.5,0), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, Active = false }, btn)
+    corner(indicator, 2)
+
+    local content = mk("ScrollingFrame", {
+        Size = UDim2.new(1,-16,1,-16), Position = UDim2.new(0,8,0,8),
+        BackgroundTransparency = 1, BorderSizePixel = 0,
+        CanvasSize = UDim2.new(0,0,0,0), ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Theme.Border, ScrollBarImageTransparency = 0.4,
+        Visible = false, ClipsDescendants = true,
+    }, ContentArea)
+    local layout = mk("UIListLayout", { Padding = UDim.new(0,6), SortOrder = Enum.SortOrder.LayoutOrder }, content)
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        content.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 8)
+    end)
+
+    local tab = { Button = btn, Content = content, Text = textLbl, Indicator = indicator, Active = false }
+
+    btn.MouseEnter:Connect(function()
+        if not tab.Active then
+            TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundColor3 = Theme.SurfaceHov }):Play()
+            TweenService:Create(textLbl, TweenInfo.new(0.12), { TextColor3 = Theme.TextSub }):Play()
+        end
+    end)
+    btn.MouseLeave:Connect(function()
+        if not tab.Active then
+            TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundColor3 = Theme.Surface }):Play()
+            TweenService:Create(textLbl, TweenInfo.new(0.12), { TextColor3 = Theme.TextMuted }):Play()
+        end
+    end)
+
+    onClick(btn, function()
+        for _, t in pairs(Tabs) do
+            t.Active = false
+            t.Content.Visible = false
+            TweenService:Create(t.Button, TweenInfo.new(0.18), { BackgroundColor3 = Theme.Surface }):Play()
+            TweenService:Create(t.Text, TweenInfo.new(0.18), { TextColor3 = Theme.TextMuted }):Play()
+            TweenService:Create(t.Indicator, TweenInfo.new(0.18), { Size = UDim2.new(0,3,0,0) }):Play()
+        end
+        tab.Active = true
+        tab.Content.Visible = true
+        TweenService:Create(btn, TweenInfo.new(0.18), { BackgroundColor3 = Color3.fromRGB(30, 26, 48) }):Play()
+        TweenService:Create(textLbl, TweenInfo.new(0.18), { TextColor3 = Theme.Text }):Play()
+        TweenService:Create(indicator, TweenInfo.new(0.18), { Size = UDim2.new(0,3,0,20) }):Play()
+    end)
+
+    Tabs[name] = tab
+    return tab
+end
+
+local function UI_Section(parent, title)
+    local holder = mk("Frame", { Size = UDim2.new(1,0,0,26), BackgroundTransparency = 1 }, parent)
+    mk("TextLabel", { Size = UDim2.new(1,0,0,16), Position = UDim2.new(0,4,0,4), BackgroundTransparency = 1, Text = string.upper(title), TextColor3 = Theme.TextMuted, Font = FontBold, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, holder)
+    mk("Frame", { Size = UDim2.new(1,-8,0,1), Position = UDim2.new(0,4,0,22), BackgroundColor3 = Theme.Border, BorderSizePixel = 0, Active = false }, holder)
+end
+
+local function UI_Toggle(parent, label, key, onChange)
+    local row = mk("TextButton", { Size = UDim2.new(1,-8,0,38), BackgroundColor3 = Theme.SurfaceAlt, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, parent)
+    corner(row, 8)
+    local rowStroke = stroke(row, Theme.Border, 1, 0.5)
+
+    mk("TextLabel", { Size = UDim2.new(1,-70,1,0), Position = UDim2.new(0,14,0,0), BackgroundTransparency = 1, Text = label, TextColor3 = Theme.Text, Font = FontMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, row)
+
+    local track = mk("Frame", { Size = UDim2.new(0,36,0,20), Position = UDim2.new(1,-48,0.5,-10), BackgroundColor3 = Settings[key] and Theme.Accent or Color3.fromRGB(50,56,72), BorderSizePixel = 0, Active = false }, row)
+    corner(track, 10)
+    local knob = mk("Frame", { Size = UDim2.new(0,14,0,14), Position = Settings[key] and UDim2.new(0,19,0,3) or UDim2.new(0,3,0,3), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0, Active = false }, track)
+    corner(knob, 7)
+
+    local function upd(state, animate)
+        local pos = state and UDim2.new(0,19,0,3) or UDim2.new(0,3,0,3)
+        local col = state and Theme.Accent or Color3.fromRGB(50,56,72)
+        local info = TweenInfo.new(animate and 0.22 or 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        TweenService:Create(knob, info, { Position = pos }):Play()
+        TweenService:Create(track, info, { BackgroundColor3 = col }):Play()
+    end
+
+    row.MouseEnter:Connect(function()
+        TweenService:Create(row, TweenInfo.new(0.15), { BackgroundColor3 = Theme.SurfaceHov }):Play()
+        TweenService:Create(rowStroke, TweenInfo.new(0.15), { Color = Theme.BorderHov }):Play()
+    end)
+    row.MouseLeave:Connect(function()
+        TweenService:Create(row, TweenInfo.new(0.15), { BackgroundColor3 = Theme.SurfaceAlt }):Play()
+        TweenService:Create(rowStroke, TweenInfo.new(0.15), { Color = Theme.Border }):Play()
+    end)
+
+    onClick(row, function()
+        Settings[key] = not Settings[key]
+        print("[Nexus] " .. tostring(key) .. " = " .. tostring(Settings[key]))
+        upd(Settings[key], true)
+        if onChange then
+            local ok, err = pcall(onChange, Settings[key])
+            if not ok then warn("[Nexus] onChange: " .. tostring(err)) end
+        end
+    end)
+end
+
+local function UI_Slider(parent, label, key, minVal, maxVal, step, suffix, onChange)
+    local row = mk("Frame", { Size = UDim2.new(1,-8,0,52), BackgroundColor3 = Theme.SurfaceAlt, BorderSizePixel = 0 }, parent)
+    corner(row, 8)
+    local rowStroke = stroke(row, Theme.Border, 1, 0.5)
+
+    mk("TextLabel", { Size = UDim2.new(1,-70,0,20), Position = UDim2.new(0,14,0,6), BackgroundTransparency = 1, Text = label, TextColor3 = Theme.Text, Font = FontMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, row)
+    local valueLbl = mk("TextLabel", { Size = UDim2.new(0,60,0,20), Position = UDim2.new(1,-74,0,6), BackgroundTransparency = 1, Text = tostring(Settings[key]) .. (suffix or ""), TextColor3 = Theme.Accent, Font = FontBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, Active = false }, row)
+
+    local trackBg = mk("Frame", { Size = UDim2.new(1,-28,0,4), Position = UDim2.new(0,14,0,40), BackgroundColor3 = Color3.fromRGB(44,50,68), BorderSizePixel = 0, Active = false }, row)
+    corner(trackBg, 2)
+    local fill = mk("Frame", { Size = UDim2.new(0,0,1,0), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, Active = false }, trackBg)
+    corner(fill, 2)
+    grad(fill, Theme.Accent, Theme.Accent2, 0)
+    local knob = mk("Frame", { Size = UDim2.new(0,14,0,14), Position = UDim2.new(0,-7,0.5,-7), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0, ZIndex = 3, Active = false }, trackBg)
+    corner(knob, 7)
+    stroke(knob, Theme.Accent, 2, 0)
+
+    local hitArea = mk("TextButton", {
+        Size = UDim2.new(1, 0, 0, 24), Position = UDim2.new(0, 0, 0.5, -12),
+        BackgroundTransparency = 1, BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 5,
+    }, trackBg)
+
+    local function apply(newVal)
+        Settings[key] = newVal
+        local pct = (newVal - minVal) / (maxVal - minVal)
+        fill.Size = UDim2.new(pct, 0, 1, 0)
+        knob.Position = UDim2.new(pct, -7, 0.5, -7)
+        valueLbl.Text = tostring(newVal) .. (suffix or "")
+        if onChange then
+            local ok, err = pcall(onChange, newVal)
+            if not ok then warn("[Nexus] slider onChange: " .. tostring(err)) end
+        end
+    end
+    apply(Settings[key])
+
+    local draggingSlider = false
+    local function setFromAbsX(absX)
+        local relX = absX - hitArea.AbsolutePosition.X
+        local pct = math.clamp(relX / hitArea.AbsoluteSize.X, 0, 1)
+        local raw = minVal + pct * (maxVal - minVal)
+        local newVal = math.floor(raw / step + 0.5) * step
+        newVal = math.clamp(newVal, minVal, maxVal)
+        apply(newVal)
+    end
+
+    hitArea.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            draggingSlider = true
+            setFromAbsX(input.Position.X)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if not draggingSlider then return end
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            setFromAbsX(input.Position.X)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            draggingSlider = false
+        end
+    end)
+
+    hitArea.MouseEnter:Connect(function() TweenService:Create(rowStroke, TweenInfo.new(0.15), { Color = Theme.BorderHov }):Play() end)
+    hitArea.MouseLeave:Connect(function()
+        if not draggingSlider then TweenService:Create(rowStroke, TweenInfo.new(0.15), { Color = Theme.Border }):Play() end
+    end)
+end
+
+-- DEVICE SPOOF
+local function spoofDevice(mode)
+    pcall(function()
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+        if not remotes then warn("[Nexus] Remotes not found") return end
+        local rep = remotes:FindFirstChild("Replication")
+        if not rep then warn("[Nexus] Replication not found") return end
+        local fighter = rep:FindFirstChild("Fighter")
+        if not fighter then warn("[Nexus] Fighter not found") return end
+        local ctrl = fighter:FindFirstChild("SetControls")
+        if not ctrl then warn("[Nexus] SetControls not found") return end
+        ctrl:FireServer(mode or "VR")
+        print("[Nexus] Device spoofed: " .. tostring(mode))
+    end)
+end
+
+-- BUILD TABS
+local combatTab   = UI_Tab("Combat",   "Combat")
+local visualTab   = UI_Tab("Visual",   "Visual")
+local movementTab = UI_Tab("Movement", "Movement")
+local miscTab     = UI_Tab("Misc",     "Misc")
+
+-- COMBAT
+UI_Section(combatTab.Content, "Aimbot")
+UI_Toggle(combatTab.Content, "Enable Aimbot", "Aimbot")
+UI_Slider(combatTab.Content, "Aim Smoothness", "AimSmoothness", 1, 20, 1, "x")
+UI_Section(combatTab.Content, "Silent Aim")
+UI_Toggle(combatTab.Content, "Silent Aim", "SilentAim")
+UI_Toggle(combatTab.Content, "Show FOV Circle", "ShowFOV")
+UI_Slider(combatTab.Content, "FOV Radius", "FOVRadius", 50, 600, 10, "px")
+
+-- VISUAL
+UI_Section(visualTab.Content, "Player ESP")
+UI_Toggle(visualTab.Content, "Enable ESP", "ESPEnabled")
+UI_Toggle(visualTab.Content, "Boxes", "ESPBoxes")
+UI_Toggle(visualTab.Content, "Names", "ESPNames")
+UI_Toggle(visualTab.Content, "Distance", "ESPDistance")
+UI_Toggle(visualTab.Content, "Health Bar", "ESPHealthBar")
+UI_Toggle(visualTab.Content, "Skeleton", "ESPSkeleton")
+UI_Toggle(visualTab.Content, "Rainbow Box", "ESPRainbow")
+UI_Slider(visualTab.Content, "Max Distance", "MaxDistance", 200, 5000, 100, "m")
+
+UI_Section(visualTab.Content, "Environment")
+UI_Toggle(visualTab.Content, "Fullbright", "Fullbright", function(on)
+    if on then
+        Lighting.Brightness     = 2
+        Lighting.ClockTime      = 14
+        Lighting.GlobalShadows  = false
+        Lighting.FogEnd         = 1e9
+        Lighting.OutdoorAmbient = Color3.fromRGB(180,180,180)
+    else
+        Lighting.Brightness     = 1
+        Lighting.GlobalShadows  = true
+        Lighting.OutdoorAmbient = Color3.fromRGB(70,70,70)
+    end
+end)
+
+-- MOVEMENT
+UI_Section(movementTab.Content, "Speed")
+UI_Slider(movementTab.Content, "WalkSpeed", "WalkSpeed", 8, 500, 2, "")
+UI_Slider(movementTab.Content, "JumpPower", "JumpPower", 50, 500, 5, "", function(v)
+    local h = getHumanoid()
+    if h then h.UseJumpPower = true h.JumpPower = v end
+end)
+
+UI_Section(movementTab.Content, "Flight")
+UI_Toggle(movementTab.Content, "Fly (WASD)", "Fly")
+UI_Slider(movementTab.Content, "Fly Speed", "FlySpeed", 20, 300, 5, "")
+
+UI_Section(movementTab.Content, "Misc")
+UI_Toggle(movementTab.Content, "Infinite Jump", "InfJump")
+UI_Toggle(movementTab.Content, "Noclip", "Noclip")
+
+-- MISC
+UI_Section(miscTab.Content, "Anti-AFK")
+UI_Toggle(miscTab.Content, "Enable Anti-AFK", "AntiAFK")
+
+UI_Section(miscTab.Content, "Device Spoof (Rivals)")
+UI_Toggle(miscTab.Content, "Spoof as VR", "DeviceSpoof", function(on)
+    spoofDevice(on and "VR" or "MouseKeyboard")
+end)
+
+-- Open first tab
+combatTab.Active = true
+combatTab.Content.Visible = true
+TweenService:Create(combatTab.Button, TweenInfo.new(0), { BackgroundColor3 = Color3.fromRGB(30, 26, 48) }):Play()
+TweenService:Create(combatTab.Text, TweenInfo.new(0), { TextColor3 = Theme.Text }):Play()
+TweenService:Create(combatTab.Indicator, TweenInfo.new(0), { Size = UDim2.new(0,3,0,20) }):Play()
+
+-- INPUT
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.Insert then
+        MainFrame.Visible = not MainFrame.Visible
+        return
+    end
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        unload()
+        return
+    end
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        and Settings.SilentAim and SilentTarget then
+        local saved = Camera.CFrame
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, SilentTarget.Position)
+        RunService.RenderStepped:Wait()
+        Camera.CFrame = saved
+    end
+end)
+
+-- TARGET
+local function findTarget()
+    local center = Camera.ViewportSize * 0.5
+    local bestT, bestD = nil, Settings.FOVRadius
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and isAlive(p) then
+            local part = getAnchor(p.Character)
+            if part then
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen and pos.Z > 0 then
+                    local d = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                    if d < bestD then bestD = d bestT = part end
+                end
+            end
+        end
+    end
+    return bestT
+end
+
+-- WALKSPEED STEPPED
+RunService.Stepped:Connect(function()
+    if not Running then return end
+    local h = getHumanoid()
+    if not h then return end
+    if h.WalkSpeed ~= Settings.WalkSpeed then
+        h.WalkSpeed = Settings.WalkSpeed
+    end
+end)
+
+local function watchHumanoid(h)
+    if not h then return end
+    h:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+        if Running and h.WalkSpeed ~= Settings.WalkSpeed then
+            h.WalkSpeed = Settings.WalkSpeed
+        end
+    end)
+end
+
+if LocalPlayer.Character then
+    local h = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if h then watchHumanoid(h) end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    applyAll()
+    local h = char:FindFirstChildOfClass("Humanoid")
+    if h then watchHumanoid(h) end
+    if not Settings.Fly then
+        if FlyState.bg then FlyState.bg:Destroy() FlyState.bg = nil end
+        if FlyState.bv then FlyState.bv:Destroy() FlyState.bv = nil end
+    end
+    if Settings.DeviceSpoof then spoofDevice("VR") end
+end)
+
+task.spawn(function()
+    LocalPlayer:WaitForChild("Character", 30)
+    task.wait(0.5)
+    applyAll()
+    if Settings.DeviceSpoof then spoofDevice("VR") end
+end)
+
+-- ANTI-AFK
+LocalPlayer.Idled:Connect(function()
+    if Settings.AntiAFK then
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end)
+        print("[Nexus] Anti-AFK triggered")
+    end
+end)
+
+-- SKELETON BONE PAIRS
+local BonePairs = {
+    -- R6
+    { "Head", "Torso" },
+    { "Torso", "Left Arm" }, { "Torso", "Right Arm" },
+    { "Torso", "Left Leg" }, { "Torso", "Right Leg" },
+    -- R15
+    { "Head", "UpperTorso" }, { "UpperTorso", "LowerTorso" },
+    { "UpperTorso", "LeftUpperArm" }, { "LeftUpperArm", "LeftLowerArm" }, { "LeftLowerArm", "LeftHand" },
+    { "UpperTorso", "RightUpperArm" }, { "RightUpperArm", "RightLowerArm" }, { "RightLowerArm", "RightHand" },
+    { "LowerTorso", "LeftUpperLeg" }, { "LeftUpperLeg", "LeftLowerLeg" }, { "LeftLowerLeg", "LeftFoot" },
+    { "LowerTorso", "RightUpperLeg" }, { "RightUpperLeg", "RightLowerLeg" }, { "RightLowerLeg", "RightFoot" },
+}
+local BoneCount = #BonePairs
+
+-- ESP
+local function createVisual()
+    local v = {
+        Box       = Drawing.new("Square"),
+        Name      = Drawing.new("Text"),
+        Dist      = Drawing.new("Text"),
+        HpBg      = Drawing.new("Square"),
+        HpFill    = Drawing.new("Square"),
+        SkeletonLines = {},
+    }
+    v.Name.Center = true  v.Name.Size = 13  v.Name.Font = 2
+    v.Name.Outline = true v.Name.OutlineColor = Color3.new(0,0,0)
+    v.Dist.Center = true  v.Dist.Size = 11  v.Dist.Font = 2
+    v.Dist.Outline = true v.Dist.OutlineColor = Color3.new(0,0,0)
+    v.HpBg.Filled = true
+    v.HpFill.Filled = true
+
+    for i = 1, BoneCount do
+        local ln = Drawing.new("Line")
+        ln.Thickness = 1
+        ln.Transparency = 1
+        ln.Visible = false
+        v.SkeletonLines[i] = ln
+    end
+    return v
+end
+
+local function removeVisual(v)
+    pcall(function()
+        v.Box:Remove() v.Name:Remove() v.Dist:Remove()
+        v.HpBg:Remove() v.HpFill:Remove()
+        for _, ln in ipairs(v.SkeletonLines) do ln:Remove() end
+    end)
+end
+
+RunService.RenderStepped:Connect(function()
+    if not Running then return end
+    pcall(function()
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                if not PlayerEntries[p] then PlayerEntries[p] = createVisual() end
+                local v = PlayerEntries[p]
+
+                if Settings.ESPEnabled and isAlive(p) and p.Character.Parent == Workspace then
+                    local char = p.Character
+                    local root = getAnchor(char)
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+
+                    if root and hum then
+                        local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
+                        local dist = (root.Position - Camera.CFrame.Position).Magnitude
+
+                        if onScreen and pos.Z > 0.5 and dist <= Settings.MaxDistance then
+                            -- ★ RENK: rainbow veya sabit
+                            local color = Settings.ESPRainbow and rainbowColor() or Settings.EnemyColor
+
+                            local z = math.max(pos.Z, 1)
+                            local sx = math.clamp(1800 / z, 10, 400)
+                            local sy = math.clamp(2800 / z, 14, 620)
+
+                            local topX, topY = pos.X - sx/2, pos.Y - sy/2
+                            local botY = pos.Y + sy/2
+
+                            -- BOX
+                            v.Box.Size = Vector2.new(sx, sy)
+                            v.Box.Position = Vector2.new(topX, topY)
+                            v.Box.Color = color
+                            v.Box.Thickness = 1
+                            v.Box.Visible = Settings.ESPBoxes
+
+                            -- NAME
+                            v.Name.Text = p.Name
+                            v.Name.Position = Vector2.new(pos.X, topY - 26)
+                            v.Name.Color = color
+                            v.Name.Visible = Settings.ESPNames
+
+                            -- DISTANCE
+                            v.Dist.Text = "[" .. math.floor(dist) .. "m]"
+                            v.Dist.Position = Vector2.new(pos.X, topY - 12)
+                            v.Dist.Color = color
+                            v.Dist.Visible = Settings.ESPDistance
+
+                            -- ★ HEALTH BAR (sol tarafta dikey)
+                            if Settings.ESPHealthBar then
+                                local hpPct = math.clamp(hum.Health / math.max(1, hum.MaxHealth), 0, 1)
+                                local barW = 3
+                                local barX = topX - 7
+                                local barY = topY
+                                local barH = sy
+
+                                -- HP renk: kırmızı → sarı → yeşil
+                                local hpColor
+                                if hpPct > 0.5 then
+                                    hpColor = Color3.fromRGB(74, 222, 128) -- yeşil
+                                elseif hpPct > 0.25 then
+                                    hpColor = Color3.fromRGB(255, 200, 87) -- sarı
+                                else
+                                    hpColor = Color3.fromRGB(255, 85, 102) -- kırmızı
+                                end
+
+                                -- BG (siyah outline)
+                                v.HpBg.Size = Vector2.new(barW + 2, barH + 2)
+                                v.HpBg.Position = Vector2.new(barX - 1, barY - 1)
+                                v.HpBg.Color = Color3.fromRGB(0, 0, 0)
+                                v.HpBg.Visible = true
+
+                                -- FILL (dolgu yukarıdan aşağı azalır)
+                                local fillH = barH * hpPct
+                                v.HpFill.Size = Vector2.new(barW, math.max(0, fillH))
+                                v.HpFill.Position = Vector2.new(barX, barY + (barH - fillH))
+                                v.HpFill.Color = hpColor
+                                v.HpFill.Visible = true
+                            else
+                                v.HpBg.Visible = false
+                                v.HpFill.Visible = false
+                            end
+
+                            -- ★ SKELETON
+                            if Settings.ESPSkeleton then
+                                for i, pair in ipairs(BonePairs) do
+                                    local ln = v.SkeletonLines[i]
+                                    local partA = char:FindFirstChild(pair[1])
+                                    local partB = char:FindFirstChild(pair[2])
+                                    if partA and partB then
+                                        local a2, aOn = Camera:WorldToViewportPoint(partA.Position)
+                                        local b2, bOn = Camera:WorldToViewportPoint(partB.Position)
+                                        if aOn and bOn and a2.Z > 0.5 and b2.Z > 0.5 then
+                                            ln.From = Vector2.new(a2.X, a2.Y)
+                                            ln.To   = Vector2.new(b2.X, b2.Y)
+                                            ln.Color = color
+                                            ln.Visible = true
+                                        else
+                                            ln.Visible = false
+                                        end
+                                    else
+                                        ln.Visible = false
+                                    end
+                                end
+                            else
+                                for _, ln in ipairs(v.SkeletonLines) do ln.Visible = false end
+                            end
+                        else
+                            v.Box.Visible = false v.Name.Visible = false v.Dist.Visible = false
+                            v.HpBg.Visible = false v.HpFill.Visible = false
+                            for _, ln in ipairs(v.SkeletonLines) do ln.Visible = false end
+                        end
+                    else
+                        v.Box.Visible = false v.Name.Visible = false v.Dist.Visible = false
+                        v.HpBg.Visible = false v.HpFill.Visible = false
+                        for _, ln in ipairs(v.SkeletonLines) do ln.Visible = false end
+                    end
+                else
+                    v.Box.Visible = false v.Name.Visible = false v.Dist.Visible = false
+                    v.HpBg.Visible = false v.HpFill.Visible = false
+                    for _, ln in ipairs(v.SkeletonLines) do ln.Visible = false end
+                end
+            end
+        end
+    end)
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+    if PlayerEntries[p] then removeVisual(PlayerEntries[p]) PlayerEntries[p] = nil end
+end)
+
+print("[Nexus] v8 Loaded.")
+print("  INSERT - toggle menu")
+print("  RIGHT CTRL - unload")
