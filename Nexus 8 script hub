@@ -15976,32 +15976,33 @@ local function playDance(danceName)
 	end)
 end
 
-local SKY_CAMP_ALTITUDE = 300 -- Lower than 1500 to reduce void/kill-plane risk
-local skyCampPosition = nil
+-- NEXUS GALAXY Sky Camp: direct CFrame teleport to space (Y = 1500)
+local SKY_CAMP_ALTITUDE = 1500
+local skyCampPosition = nil -- unused (Galaxy style has no BodyPosition)
 local skyCampSuspended = false
 local lastAutoShotAt = 0
 local function toggleSkyCamp(state)
-	skyCampEnabled = state
+	skyCampEnabled = state and true or false
 	local char = k.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if skyCampEnabled then
+		-- Galaxy: instant TP up + PlatformStand
 		if hrp then
-			if not skyCampPosition or not skyCampPosition.Parent then
-				skyCampPosition = Instance.new("BodyPosition")
-				skyCampPosition.Name = "NexusSkyCampHold"
-				skyCampPosition.MaxForce = Vector3.new(0, 1e9, 0)
-				skyCampPosition.P = 50000
-				skyCampPosition.D = 4000
-				skyCampPosition.Parent = hrp
-			end
-			skyCampPosition.Position = Vector3.new(hrp.Position.X, SKY_CAMP_ALTITUDE, hrp.Position.Z)
-			if hrp.Position.Y < SKY_CAMP_ALTITUDE - 40 then hrp.CFrame = CFrame.new(hrp.Position.X, SKY_CAMP_ALTITUDE, hrp.Position.Z) end
+			hrp.CFrame = CFrame.new(hrp.Position.X, SKY_CAMP_ALTITUDE, hrp.Position.Z)
+			hrp.AssemblyLinearVelocity = Vector3.zero
+			hrp.AssemblyAngularVelocity = Vector3.zero
 		end
-		if hum then hum.PlatformStand = false; hum.AutoRotate = true end
+		if hum then
+			hum.PlatformStand = true
+			hum.AutoRotate = true
+		end
 	else
-		if skyCampPosition then skyCampPosition:Destroy(); skyCampPosition = nil end
-		if hum then hum.PlatformStand = false; hum.AutoRotate = true end
+		if skyCampPosition then pcall(function() skyCampPosition:Destroy() end); skyCampPosition = nil end
+		if hum then
+			hum.PlatformStand = false
+			hum.AutoRotate = true
+		end
 	end
 end
 
@@ -16016,68 +16017,176 @@ end
 
 local _rageBusy = false
 function toggleRageMode(state)
+	-- NEXUS GALAXY ULTRA RAGE MODE (ported 1:1 behavior)
 	if _rageBusy then return end
 	_rageBusy = true
 
 	local okAll, errAll = pcall(function()
-		if state ~= nil then rageModeEnabled = state else rageModeEnabled = not rageModeEnabled end
-		local on = rageModeEnabled
+		if state ~= nil then
+			rageModeEnabled = state and true or false
+		else
+			rageModeEnabled = not rageModeEnabled
+		end
 
-		silentEnabled = on
-		autoShootEnabled = on
-		triggerBotEnabled = on
-		aimbotEnabled = on
-		predictionEnabled = on
-		wallBangEnabled = on
-		loopGotoEnabled = on
-		hitboxEnabled = on
-		spinBotEnabled = on
-		toggleSkyCamp(on)
-		heavyImpactEnabled = on
-		screenShakeEnabled = on
-		headSpinEnabled = false
-		_G.EnableSpeed = on
-		pcall(function() getgenv().Aimbot = on end)
+		if rageModeEnabled then
+			-- === GALAXY ULTRA: turn EVERYTHING on ===
+			pcall(function() RageHeadShakeActive = true end)
+			silentEnabled = true
+			autoShootEnabled = true
+			triggerBotEnabled = true
+			pcall(function()
+				customFovEnabled = true
+				customFovValue = 110
+			end)
+			aimbotEnabled = true
+			predictionEnabled = true
+			wallBangEnabled = true
+			loopGotoEnabled = true
+			hitboxEnabled = true
+			pcall(function() flingEnabled = true end)
+			heavyImpactEnabled = false
+			screenShakeEnabled = true
+			pcall(function() getgenv().Smoothness = 65 end)
+			pcall(function() getgenv().Aimbot = true end)
+			spinBotEnabled = true
+			_G.EnableSpeed = true
+			pcall(function() bendEnabled = true end)
+			pcall(function() spinSpeed = 9999 end)
+			pcall(function() limbScatterEnabled = false end)
+			headSpinEnabled = false
 
-		if not on then
+			-- Sky camp like Galaxy: hold high altitude
+			pcall(function()
+				if toggleSkyCamp then
+					toggleSkyCamp(true)
+				else
+					skyCampEnabled = true
+					if humanoid then humanoid.PlatformStand = true end
+				end
+			end)
+
+			-- Cosmetics / chaos (Galaxy)
+			pcall(function() applyCreepyAvatar() end)
+			pcall(function()
+				if playDance then playDance("OFF") end
+			end)
+			pcall(function()
+				if playSpinningBodyParts then playSpinningBodyParts() end
+			end)
+
+			-- Device spoof loop (Galaxy)
+			pcall(function()
+				if randomSpoofConnection then
+					pcall(task.cancel, randomSpoofConnection)
+				end
+			end)
+			pcall(function()
+				local platforms = {"PC", "VR", "Console", "Mobile"}
+				local remoteModes = {"MouseKeyboard", "VR", "Gamepad", "Touch"}
+				randomSpoofConnection = task.spawn(function()
+					while rageModeEnabled do
+						local idx = math.random(1, #platforms)
+						pcall(function()
+							spoofPlatformType = platforms[idx]
+							if updateServerControlMode then
+								updateServerControlMode(remoteModes[idx])
+							end
+						end)
+						task.wait(2)
+					end
+				end)
+			end)
+
+		else
+			-- === GALAXY ULTRA: turn EVERYTHING off ===
+			pcall(function()
+				if toggleMusic then toggleMusic(false) end
+			end)
+			pcall(function() RageHeadShakeActive = false end)
+			silentEnabled = false
+			autoShootEnabled = false
+			triggerBotEnabled = false
+			pcall(function()
+				customFovEnabled = false
+				if Camera then Camera.FieldOfView = 70 end
+				if camera then camera.FieldOfView = 70 end
+			end)
+			aimbotEnabled = false
+			predictionEnabled = false
+			wallBangEnabled = false
+			loopGotoEnabled = false
+			hitboxEnabled = false
+			pcall(function() flingEnabled = false end)
+			heavyImpactEnabled = false
+			spinBotEnabled = false
+			_G.EnableSpeed = false
+			pcall(function() bendEnabled = false end)
+			pcall(function() limbScatterEnabled = false end)
+			screenShakeEnabled = false
+			headSpinEnabled = false
+			pcall(function() getgenv().Aimbot = false end)
+
+			pcall(function()
+				if toggleSkyCamp then
+					toggleSkyCamp(false)
+				else
+					skyCampEnabled = false
+				end
+			end)
+			pcall(function()
+				if toggleHeadSpin then toggleHeadSpin(false) end
+			end)
+			pcall(function()
+				if stopSpinningBodyParts then stopSpinningBodyParts() end
+			end)
+			pcall(function()
+				if playDance then playDance("OFF") end
+			end)
+
+			pcall(function()
+				spoofPlatformType = "PC"
+				if updateServerControlMode then
+					updateServerControlMode("MouseKeyboard")
+				end
+			end)
+
 			loopGotoTarget = nil
 			isAimingKeyHeld = false
+			isLeftMouseDown = false
 			scopeSkyReturnPending = false
 			scopeSkyReturnCFrame = nil
 			skyCampSuspended = false
-		end
 
-		-- UI only: set Value WITHOUT firing callbacks (avoids infinite loop)
-		local function forceToggle(name, value)
 			pcall(function()
-				local bags = {}
-				if type(Toggles) == "table" then bags[#bags+1] = Toggles end
-				if Library and type(Library.Toggles) == "table" then bags[#bags+1] = Library.Toggles end
-				for _, bag in ipairs(bags) do
-					local t = bag[name]
-					if t then
-						-- Prefer silent update if library supports it
-						local setOk = false
-						pcall(function()
-							if t.SetValue then
-								-- Obsidian/Linoria: SetValue(val) fires callback — skip for RageMode
-								if name == "RageMode" then
-									t.Value = value
-									if t.Set then t:Set(value, true) end -- some libs: second arg = no callback
-								else
-									t:SetValue(value)
-								end
-								setOk = true
-							end
-						end)
-						if not setOk then
-							pcall(function() t.Value = value end)
-						end
-					end
+				local hum = humanoid or (k and k.Character and k.Character:FindFirstChildOfClass("Humanoid"))
+				if hum then hum.PlatformStand = false end
+			end)
+			pcall(function()
+				if autoClickConnection then
+					autoClickConnection:Disconnect()
+					autoClickConnection = nil
 				end
 			end)
 		end
 
+		-- Sync Obsidian toggles (silent, no recursive callback on RageMode)
+		local on = rageModeEnabled
+		local function forceToggle(name, value)
+			pcall(function()
+				local bags = {}
+				if type(Toggles) == "table" then bags[#bags + 1] = Toggles end
+				if Library and type(Library.Toggles) == "table" then bags[#bags + 1] = Library.Toggles end
+				for _, bag in ipairs(bags) do
+					local t = bag[name]
+					if t then
+						pcall(function()
+							t.Value = value
+							if t.Set then t:Set(value, true) end
+						end)
+					end
+				end
+			end)
+		end
 		for _, name in ipairs({
 			"SilentAim", "AutoShoot", "TriggerBot", "AimbotFov", "Prediction", "WallBang",
 			"HitboxExtender", "SpinBot", "LoopGoto", "SkyCamp",
@@ -16085,12 +16194,11 @@ function toggleRageMode(state)
 		}) do
 			forceToggle(name, on)
 		end
-		-- RageMode UI without callback
 		forceToggle("RageMode", on)
 		forceToggle("TacoMusic", false)
 		forceToggle("HeadSpin", false)
 
-		print("[Ultra Rage] Rage Mode:", on and "ON" or "OFF")
+		print("[Ultra Rage] Galaxy Rage Mode:", on and "ON" or "OFF")
 	end)
 
 	if not okAll then
@@ -16099,30 +16207,47 @@ function toggleRageMode(state)
 	_rageBusy = false
 end
 
--- Rage Mode stays off after each death/respawn; press P to enable it manually again.
-local function bindRageRoundReset(character)
+-- Rage Mode PERSISTENT: stays ON across rounds/deaths until player presses P again
+local function reapplyRageAfterSpawn(character)
 	task.defer(function()
-		if rageModeEnabled then toggleRageMode(false) end
 		isAimingKeyHeld = false
 		scopeSkyReturnPending = false
 		scopeSkyReturnCFrame = nil
 		skyCampSuspended = false
-		local hum = character and character:FindFirstChildOfClass("Humanoid")
-		if hum then
-			hum.Died:Connect(function()
-				if rageModeEnabled then toggleRageMode(false) end
-				isAimingKeyHeld = false
-				scopeSkyReturnPending = false
-				scopeSkyReturnCFrame = nil
-				skyCampSuspended = false
-			end)
-		end
+		if not rageModeEnabled then return end
+		-- Keep rage flags alive; re-bind sky camp / platform after respawn
+		task.wait(0.4)
+		pcall(function()
+			if toggleSkyCamp then toggleSkyCamp(true) end
+		end)
+		pcall(function()
+			local hrp = character and character:FindFirstChild("HumanoidRootPart")
+			local hum = character and character:FindFirstChildOfClass("Humanoid")
+			if hrp and skyCampEnabled then
+				hrp.CFrame = CFrame.new(hrp.Position.X, SKY_CAMP_ALTITUDE or 1500, hrp.Position.Z)
+				hrp.AssemblyLinearVelocity = Vector3.zero
+			end
+			if hum and skyCampEnabled then
+				hum.PlatformStand = true
+			end
+		end)
+		pcall(function()
+			silentEnabled = true
+			autoShootEnabled = true
+			triggerBotEnabled = true
+			aimbotEnabled = true
+			loopGotoEnabled = true
+			hitboxEnabled = true
+			spinBotEnabled = true
+			_G.EnableSpeed = true
+		end)
+		print("[Ultra Rage] Rage Mode still ON after respawn")
 	end)
 end
-if k.Character then bindRageRoundReset(k.Character) end
+if k.Character then reapplyRageAfterSpawn(k.Character) end
 k.CharacterAdded:Connect(function(character)
 	task.wait(0.25)
-	bindRageRoundReset(character)
+	reapplyRageAfterSpawn(character)
 end)
 
 local lastFpsTick = 0
@@ -16147,22 +16272,20 @@ RunService.RenderStepped:Connect(function(dt)
 		Camera.CFrame = Camera.CFrame * CFrame.new(shake)
 	end
 
-	-- Persistent, steady Sky Camp: hold altitude without repeatedly teleporting/bouncing.
+	-- GALAXY Sky Camp: every frame pin to space (X/Z same, Y = 1500)
 	if skyCampEnabled and not skyCampSuspended then
 		local char = k.Character
 		local hrp = char and char:FindFirstChild("HumanoidRootPart")
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
 		if hrp then
-			if not skyCampPosition or skyCampPosition.Parent ~= hrp then
-				toggleSkyCamp(true)
-			end
-			if skyCampPosition then
-				skyCampPosition.Position = Vector3.new(hrp.Position.X, SKY_CAMP_ALTITUDE, hrp.Position.Z)
-			end
-			if hrp.Position.Y < SKY_CAMP_ALTITUDE - 80 then hrp.CFrame = CFrame.new(hrp.Position.X, SKY_CAMP_ALTITUDE, hrp.Position.Z) end
+			hrp.CFrame = CFrame.new(hrp.Position.X, SKY_CAMP_ALTITUDE, hrp.Position.Z)
+			hrp.AssemblyLinearVelocity = Vector3.zero
 			hrp.AssemblyAngularVelocity = Vector3.zero
 		end
-		if hum then hum.PlatformStand = false; hum.AutoRotate = true end
+		if hum then
+			hum.PlatformStand = true
+			hum.AutoRotate = true
+		end
 	end
 
 	if hitboxEnabled then
