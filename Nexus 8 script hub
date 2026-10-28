@@ -9741,13 +9741,6 @@ CombatLeft:AddToggle("AimRequireMouse", {
 		State.AimRequireMouse = value
 	end,
 })
-CombatLeft:AddToggle("AimTeamCheck", {
-	Text = "Team Check",
-	Default = true,
-	Callback = function(value)
-		State.AimTeamCheck = value
-	end,
-})
 CombatLeft:AddDropdown("AimPart", {
 	Values = {"Head", "HumanoidRootPart", "UpperTorso"},
 	Default = "Head",
@@ -9821,13 +9814,6 @@ CombatBlock:AddSlider("AutoBlockDistance", {
 	Rounding = 0,
 	Callback = function(value)
 		State.AutoBlockDistance = value
-	end,
-})
-CombatBlock:AddToggle("AutoBlockTeamCheck", {
-	Text = "Team Check",
-	Default = true,
-	Callback = function(value)
-		State.AutoBlockTeamCheck = value
 	end,
 })
 CombatBlock:AddLabel("Holds F while an enemy is very close. RightAlt toggles Auto Block.", true)
@@ -10176,6 +10162,42 @@ AnimRight:AddButton({
 })
 AnimRight:AddLabel("Total of " .. tostring(#Animations) .. " animations are embedded.", true)
 local ESPData = {}
+local ESPGuiParent = nil
+local function GetESPGuiParent()
+	if ESPGuiParent then
+		return ESPGuiParent
+	end
+	local ok, hui = pcall(function()
+		return gethui and gethui()
+	end)
+	if ok and hui then
+		ESPGuiParent = hui
+		return hui
+	end
+	local ok2, cg = pcall(function()
+		return game:GetService("CoreGui")
+	end)
+	if ok2 and cg then
+		ESPGuiParent = cg
+		return cg
+	end
+	ESPGuiParent = LocalPlayer:WaitForChild("PlayerGui")
+	return ESPGuiParent
+end
+local function ResolveCharacter(player)
+	local character = player.Character
+	if character and character.Parent then
+		return character
+	end
+	local live = workspace:FindFirstChild("Live")
+	if live then
+		local model = live:FindFirstChild(player.Name)
+		if model then
+			return model
+		end
+	end
+	return character
+end
 local function ClearESPPlayer(player)
 	local data = ESPData[player]
 	if data then
@@ -10186,9 +10208,10 @@ local function ClearESPPlayer(player)
 		end
 		ESPData[player] = nil
 	end
-	if player.Character then
+	local character = ResolveCharacter(player)
+	if character then
 		for _, name in ipairs({"NexusTSBHighlight", "NexusTSBBillboard"}) do
-			local old = player.Character:FindFirstChild(name)
+			local old = character:FindFirstChild(name)
 			if old then
 				old:Destroy()
 			end
@@ -10225,61 +10248,89 @@ end
 local function IsTeammate(player)
 	return player.Team and LocalPlayer.Team and player.Team == LocalPlayer.Team
 end
+local function ESPObjectsValid(data)
+	if not data or not data.Highlight or not data.Billboard then
+		return false
+	end
+	local ok, hp = pcall(function()
+		return data.Highlight.Parent
+	end)
+	if not ok or not hp then
+		return false
+	end
+	local ok2, bp = pcall(function()
+		return data.Billboard.Parent
+	end)
+	if not ok2 or not bp then
+		return false
+	end
+	return true
+end
 local function UpdateESP()
 	if not State.ESP then
 		return
 	end
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
-			local character = player.Character
-			if not character or (State.ESPTeamCheck and IsTeammate(player)) then
-				ClearESPPlayer(player)
-			else
-				local head = character:FindFirstChild("Head")
-				local root = character:FindFirstChild("HumanoidRootPart")
-				if head and root then
-					local data = ESPData[player]
-					if not data or data.Character ~= character then
-						ClearESPPlayer(player)
-						local highlight = Instance.new("Highlight")
-						highlight.Name = "NexusTSBHighlight"
-						highlight.Adornee = character
-						highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-						highlight.FillTransparency = 0.55
-						highlight.OutlineTransparency = 0
-						highlight.Parent = character
-						local billboard = Instance.new("BillboardGui")
-						billboard.Name = "NexusTSBBillboard"
-						billboard.Adornee = head
-						billboard.AlwaysOnTop = true
-						billboard.Size = UDim2.fromOffset(220, 42)
-						billboard.StudsOffset = Vector3.new(0, 3, 0)
-						billboard.Parent = character
-						local label = Instance.new("TextLabel", billboard)
-						label.Name = "Info"
-						label.Size = UDim2.fromScale(1, 1)
-						label.BackgroundTransparency = 1
-						label.Font = Enum.Font.GothamBold
-						label.TextSize = 12
-						label.TextStrokeTransparency = 0.25
-						data = {Character = character, Highlight = highlight, Billboard = billboard, Label = label, Objects = {highlight, billboard}}
-						ESPData[player] = data
-					end
-					local color = GetESPColor(player, character)
-					data.Highlight.FillColor = color
-					data.Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-					data.Billboard.Enabled = State.ESPNames or State.ESPDistance
-					local parts = {}
-					if State.ESPNames then
-						table.insert(parts, player.Name)
-					end
-					if State.ESPDistance and RootPart then
-						table.insert(parts, tostring(math.floor((root.Position - RootPart.Position).Magnitude)) .. "m")
-					end
-					data.Label.Text = table.concat(parts, " • ")
-					data.Label.TextColor3 = color
+			pcall(function()
+				local character = ResolveCharacter(player)
+				if not character then
+					ClearESPPlayer(player)
+					return
 				end
-			end
+				local head = character:FindFirstChild("Head")
+				local root = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso") or head
+				local data = ESPData[player]
+				if not data or data.Character ~= character or not ESPObjectsValid(data) then
+					ClearESPPlayer(player)
+					local guiParent = GetESPGuiParent()
+					local highlight = Instance.new("Highlight")
+					highlight.Name = "NexusTSBHighlight"
+					highlight.Adornee = character
+					highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+					highlight.FillTransparency = 0.55
+					highlight.OutlineTransparency = 0
+					highlight.Parent = guiParent
+					local billboard = Instance.new("BillboardGui")
+					billboard.Name = "NexusTSBBillboard"
+					billboard.Adornee = head or root or character
+					billboard.AlwaysOnTop = true
+					billboard.Size = UDim2.fromOffset(220, 42)
+					billboard.StudsOffset = Vector3.new(0, 3, 0)
+					billboard.Parent = guiParent
+					local label = Instance.new("TextLabel")
+					label.Name = "Info"
+					label.Size = UDim2.fromScale(1, 1)
+					label.BackgroundTransparency = 1
+					label.Font = Enum.Font.GothamBold
+					label.TextSize = 12
+					label.TextStrokeTransparency = 0.25
+					label.Parent = billboard
+					data = {Character = character, Highlight = highlight, Billboard = billboard, Label = label, Objects = {highlight, billboard}}
+					ESPData[player] = data
+				end
+				pcall(function()
+					data.Highlight.Adornee = character
+				end)
+				if head then
+					pcall(function()
+						data.Billboard.Adornee = head
+					end)
+				end
+				local color = GetESPColor(player, character)
+				data.Highlight.FillColor = color
+				data.Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+				data.Billboard.Enabled = State.ESPNames or State.ESPDistance
+				local parts = {}
+				if State.ESPNames then
+					table.insert(parts, player.Name)
+				end
+				if State.ESPDistance and RootPart and root then
+					table.insert(parts, tostring(math.floor((root.Position - RootPart.Position).Magnitude)) .. "m")
+				end
+				data.Label.Text = table.concat(parts, " • ")
+				data.Label.TextColor3 = color
+			end)
 		end
 	end
 end
@@ -10307,13 +10358,6 @@ VisualLeft:AddToggle("ESPDistance", {
 	Default = true,
 	Callback = function(value)
 		State.ESPDistance = value
-	end,
-})
-VisualLeft:AddToggle("ESPTeamCheck", {
-	Text = "Hide teammates",
-	Default = false,
-	Callback = function(value)
-		State.ESPTeamCheck = value
 	end,
 })
 VisualLeft:AddDropdown("ESPColorMode", {
@@ -10620,7 +10664,7 @@ task.spawn(function()
 			local enemyClose = false
 			for _, plr in ipairs(Players:GetPlayers()) do
 				if plr ~= LocalPlayer and plr.Character then
-					if not (State.AutoBlockTeamCheck and IsTeammate(plr)) then
+					if true then
 						local enemyHum = plr.Character:FindFirstChildOfClass("Humanoid")
 						local enemyRoot = plr.Character:FindFirstChild("HumanoidRootPart")
 						if enemyHum and enemyHum.Health > 0 and enemyRoot then
@@ -11179,7 +11223,7 @@ local function GetAimTargetPart()
 	local bestDistance = State.AimFOV
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
-			if not (State.AimTeamCheck and IsTeammate(player)) then
+			if true then
 				local hum = player.Character:FindFirstChildOfClass("Humanoid")
 				local part = player.Character:FindFirstChild(State.AimPart) or player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart")
 				if hum and hum.Health > 0 and part then
@@ -12400,247 +12444,49 @@ RunService.Heartbeat:Connect(function()
 end)
 
 do
-local nexusSkinBackup = setmetatable({}, {__mode = "k"})
-local function nexusIsVisualPart(inst)
-	if inst:IsA("MeshPart") then return true end
-	if inst:IsA("Part") and inst:FindFirstChildOfClass("SpecialMesh") then return true end
-	return false
-end
-local function nexusVisualRoot(model)
-	if not model then return nil end
-	local itemVisual = model:FindFirstChild("ItemVisual", true)
-	if itemVisual then return itemVisual end
-	return model
-end
-local function nexusRelPath(root, inst)
-	local names = {}
-	local cur = inst
-	while cur and cur ~= root do
-		table.insert(names, 1, cur.Name)
-		cur = cur.Parent
-	end
-	return table.concat(names, "/")
-end
-local function nexusCollectVisuals(root)
-	local list = {}
-	if nexusIsVisualPart(root) then
-		list[#list + 1] = root
-	end
-	for _, d in ipairs(root:GetDescendants()) do
-		if nexusIsVisualPart(d) then
-			list[#list + 1] = d
+local function nexusSwapModelChildren(weapon, skin)
+	if not weapon or not skin or weapon == skin then return false end
+	local skinHasController = false
+	for _, child in ipairs(skin:GetChildren()) do
+		if child:IsA("AnimationController") then
+			skinHasController = true
+			break
 		end
 	end
-	return list
-end
-local function nexusReadSA(sa)
-	if not sa then return nil end
-	local data = {}
-	pcall(function()
-		data.ColorMap = sa.ColorMap
-		data.NormalMap = sa.NormalMap
-		data.MetalnessMap = sa.MetalnessMap
-		data.RoughnessMap = sa.RoughnessMap
-		data.AlphaMode = sa.AlphaMode
-	end)
-	return data
-end
-local function nexusWriteSA(sa, data)
-	if not sa or not data then return end
-	pcall(function()
-		if data.ColorMap ~= nil then sa.ColorMap = data.ColorMap end
-		if data.NormalMap ~= nil then sa.NormalMap = data.NormalMap end
-		if data.MetalnessMap ~= nil then sa.MetalnessMap = data.MetalnessMap end
-		if data.RoughnessMap ~= nil then sa.RoughnessMap = data.RoughnessMap end
-		if data.AlphaMode ~= nil then sa.AlphaMode = data.AlphaMode end
-	end)
-end
-local function nexusReadMesh(mesh)
-	if not mesh then return nil end
-	local data = {}
-	pcall(function()
-		data.MeshId = mesh.MeshId
-		data.TextureId = mesh.TextureId
-		data.Scale = mesh.Scale
-		data.Offset = mesh.Offset
-		data.MeshType = mesh.MeshType
-		data.VertexColor = mesh.VertexColor
-	end)
-	return data
-end
-local function nexusWriteMesh(mesh, data)
-	if not mesh or not data then return end
-	pcall(function()
-		if data.MeshId ~= nil then mesh.MeshId = data.MeshId end
-		if data.TextureId ~= nil then mesh.TextureId = data.TextureId end
-		if data.Scale ~= nil then mesh.Scale = data.Scale end
-		if data.Offset ~= nil then mesh.Offset = data.Offset end
-		if data.MeshType ~= nil then mesh.MeshType = data.MeshType end
-		if data.VertexColor ~= nil then mesh.VertexColor = data.VertexColor end
-	end)
-end
-local function nexusSnapshotModel(model)
-	if not model or nexusSkinBackup[model] then return end
-	local root = nexusVisualRoot(model)
-	if not root then return end
-	local snap = {}
-	for _, part in ipairs(nexusCollectVisuals(root)) do
-		local data = {
-			Color = part.Color,
-			Material = part.Material,
-			Reflectance = part.Reflectance,
-			Transparency = part.Transparency,
-		}
+	local savedController = nil
+	if not skinHasController then
 		pcall(function()
-			if part:IsA("MeshPart") then
-				data.MeshId = part.MeshId
-				data.TextureID = part.TextureID
+			local existing = weapon:FindFirstChildOfClass("AnimationController")
+			if existing then
+				savedController = existing:Clone()
 			end
 		end)
-		data.SA = nexusReadSA(part:FindFirstChildOfClass("SurfaceAppearance"))
-		data.Mesh = nexusReadMesh(part:FindFirstChildOfClass("SpecialMesh"))
-		snap[part] = data
 	end
-	nexusSkinBackup[model] = snap
-end
-local function nexusRestoreSkinModel(model)
-	if not model then return end
-	local snap = nexusSkinBackup[model]
-	if not snap then return end
-	for part, data in pairs(snap) do
-		if part and part.Parent then
-			pcall(function()
-				if data.MeshId ~= nil and part:IsA("MeshPart") then
-					part.MeshId = data.MeshId
-					part.TextureID = data.TextureID
-				end
-				part.Color = data.Color
-				part.Material = data.Material
-				part.Reflectance = data.Reflectance
-				part.Transparency = data.Transparency
-			end)
-			nexusWriteSA(part:FindFirstChildOfClass("SurfaceAppearance"), data.SA)
-			nexusWriteMesh(part:FindFirstChildOfClass("SpecialMesh"), data.Mesh)
+	local staged = {}
+	for _, child in ipairs(skin:GetChildren()) do
+		local ok, clone = pcall(function() return child:Clone() end)
+		if ok and clone then
+			table.insert(staged, clone)
 		end
 	end
-end
-local function nexusApplyVisualPart(dst, src)
-	pcall(function()
-		if dst:IsA("MeshPart") and src:IsA("MeshPart") then
-			if src.MeshId ~= "" then dst.MeshId = src.MeshId end
-			dst.TextureID = src.TextureID
-		end
-	end)
-	pcall(function()
-		dst.Color = src.Color
-		dst.Material = src.Material
-		dst.Reflectance = src.Reflectance
-		if src.Transparency < 0.99 then
-			dst.Transparency = src.Transparency
-		end
-	end)
-	local srcSA = src:FindFirstChildOfClass("SurfaceAppearance")
-	local dstSA = dst:FindFirstChildOfClass("SurfaceAppearance")
-	if srcSA and dstSA then
-		nexusWriteSA(dstSA, nexusReadSA(srcSA))
-	end
-	local srcMesh = src:FindFirstChildOfClass("SpecialMesh")
-	local dstMesh = dst:FindFirstChildOfClass("SpecialMesh")
-	if srcMesh and dstMesh then
-		nexusWriteMesh(dstMesh, nexusReadMesh(srcMesh))
-	end
-end
-local function nexusGroupBy(list, keyFn)
-	local groups = {}
-	for _, item in ipairs(list) do
-		local key = keyFn(item)
-		if key then
-			if not groups[key] then groups[key] = {} end
-			local queue = groups[key]
-			queue[#queue + 1] = item
-		end
-	end
-	return groups
-end
-local function nexusMatchVisuals(dstList, srcList, dstRoot, srcRoot)
-	local pairsMap = {}
-	local usedSrc = {}
-	local matchCount = 0
-	local function pairUp(dst, src)
-		if src and not pairsMap[dst] and not usedSrc[src] then
-			pairsMap[dst] = src
-			usedSrc[src] = true
-			matchCount = matchCount + 1
-			return true
+	if #staged == 0 then
+		if savedController then
+			pcall(function() savedController:Destroy() end)
 		end
 		return false
 	end
-	local function passByKey(keyFnDst, keyFnSrc)
-		local groups = nexusGroupBy(srcList, keyFnSrc)
-		local taken = {}
-		for _, dst in ipairs(dstList) do
-			if not pairsMap[dst] then
-				local key = keyFnDst(dst)
-				local queue = key and groups[key]
-				if queue then
-					local idx = (taken[key] or 0) + 1
-					while queue[idx] and usedSrc[queue[idx]] do
-						idx = idx + 1
-					end
-					if queue[idx] and pairUp(dst, queue[idx]) then
-						taken[key] = idx
-					end
-				end
-			end
-		end
+	for _, child in ipairs(weapon:GetChildren()) do
+		child:Destroy()
 	end
-	passByKey(function(p) return nexusRelPath(dstRoot, p) end, function(p) return nexusRelPath(srcRoot, p) end)
-	passByKey(function(p) return (p.Parent and p.Parent.Name or "") .. "/" .. p.Name end, function(p) return (p.Parent and p.Parent.Name or "") .. "/" .. p.Name end)
-	passByKey(function(p) return p.Name end, function(p) return p.Name end)
-	if #dstList == #srcList then
-		for i, dst in ipairs(dstList) do
-			if not pairsMap[dst] then
-				pairUp(dst, srcList[i])
-			end
-		end
+	for _, clone in ipairs(staged) do
+		clone.Parent = weapon
 	end
-	return pairsMap, matchCount
-end
-local function nexusApplySkinModel(target, source)
-	if not target or not source or target == source then return false end
-	nexusSnapshotModel(target)
-	nexusRestoreSkinModel(target)
-	local dstRoot = nexusVisualRoot(target)
-	local srcRoot = nexusVisualRoot(source)
-	if not dstRoot or not srcRoot then return false end
-	local dstList = nexusCollectVisuals(dstRoot)
-	local srcList = nexusCollectVisuals(srcRoot)
-	if #dstList == 0 or #srcList == 0 then return false end
-	local pairsMap, matchCount = nexusMatchVisuals(dstList, srcList, dstRoot, srcRoot)
-	if matchCount == 0 then return false end
-	if #dstList > 3 and matchCount < math.ceil(#dstList * 0.4) then return false end
-	for dst, src in pairs(pairsMap) do
-		nexusApplyVisualPart(dst, src)
+	if savedController then
+		savedController.Parent = weapon
 	end
 	return true
 end
-local function bp(ey, ew)
-	if not ew then return end
-	nexusSnapshotModel(ew)
-end
-local function bl(hn, hc)
-	if not hn or not hc then return end
-	pcall(function()
-		nexusApplySkinModel(hn, hc)
-	end)
-end
-local function gb(hn, bq, gp)
-	if not hn then return end
-	pcall(function()
-		nexusRestoreSkinModel(hn)
-		if nexusFixPrimary then nexusFixPrimary(hn) end
-	end)
-end
+
 task.spawn(function()
 	local ok, err = pcall(function()
 		local Players = game:GetService("Players")
@@ -12681,7 +12527,7 @@ task.spawn(function()
 			if not weapon then return false end
 			local skin = FindSkin(skinName)
 			if not skin or skin == weapon then return false end
-			return nexusApplySkinModel(weapon, skin)
+			return nexusSwapModelChildren(weapon, skin)
 		end
 		local skins = {
 			{"Permafrost", "Ice Permafrost"},
@@ -13917,247 +13763,49 @@ RunService.Heartbeat:Connect(function()
 end)
 
 do
-local nexusSkinBackup = setmetatable({}, {__mode = "k"})
-local function nexusIsVisualPart(inst)
-	if inst:IsA("MeshPart") then return true end
-	if inst:IsA("Part") and inst:FindFirstChildOfClass("SpecialMesh") then return true end
-	return false
-end
-local function nexusVisualRoot(model)
-	if not model then return nil end
-	local itemVisual = model:FindFirstChild("ItemVisual", true)
-	if itemVisual then return itemVisual end
-	return model
-end
-local function nexusRelPath(root, inst)
-	local names = {}
-	local cur = inst
-	while cur and cur ~= root do
-		table.insert(names, 1, cur.Name)
-		cur = cur.Parent
-	end
-	return table.concat(names, "/")
-end
-local function nexusCollectVisuals(root)
-	local list = {}
-	if nexusIsVisualPart(root) then
-		list[#list + 1] = root
-	end
-	for _, d in ipairs(root:GetDescendants()) do
-		if nexusIsVisualPart(d) then
-			list[#list + 1] = d
+local function nexusSwapModelChildren(weapon, skin)
+	if not weapon or not skin or weapon == skin then return false end
+	local skinHasController = false
+	for _, child in ipairs(skin:GetChildren()) do
+		if child:IsA("AnimationController") then
+			skinHasController = true
+			break
 		end
 	end
-	return list
-end
-local function nexusReadSA(sa)
-	if not sa then return nil end
-	local data = {}
-	pcall(function()
-		data.ColorMap = sa.ColorMap
-		data.NormalMap = sa.NormalMap
-		data.MetalnessMap = sa.MetalnessMap
-		data.RoughnessMap = sa.RoughnessMap
-		data.AlphaMode = sa.AlphaMode
-	end)
-	return data
-end
-local function nexusWriteSA(sa, data)
-	if not sa or not data then return end
-	pcall(function()
-		if data.ColorMap ~= nil then sa.ColorMap = data.ColorMap end
-		if data.NormalMap ~= nil then sa.NormalMap = data.NormalMap end
-		if data.MetalnessMap ~= nil then sa.MetalnessMap = data.MetalnessMap end
-		if data.RoughnessMap ~= nil then sa.RoughnessMap = data.RoughnessMap end
-		if data.AlphaMode ~= nil then sa.AlphaMode = data.AlphaMode end
-	end)
-end
-local function nexusReadMesh(mesh)
-	if not mesh then return nil end
-	local data = {}
-	pcall(function()
-		data.MeshId = mesh.MeshId
-		data.TextureId = mesh.TextureId
-		data.Scale = mesh.Scale
-		data.Offset = mesh.Offset
-		data.MeshType = mesh.MeshType
-		data.VertexColor = mesh.VertexColor
-	end)
-	return data
-end
-local function nexusWriteMesh(mesh, data)
-	if not mesh or not data then return end
-	pcall(function()
-		if data.MeshId ~= nil then mesh.MeshId = data.MeshId end
-		if data.TextureId ~= nil then mesh.TextureId = data.TextureId end
-		if data.Scale ~= nil then mesh.Scale = data.Scale end
-		if data.Offset ~= nil then mesh.Offset = data.Offset end
-		if data.MeshType ~= nil then mesh.MeshType = data.MeshType end
-		if data.VertexColor ~= nil then mesh.VertexColor = data.VertexColor end
-	end)
-end
-local function nexusSnapshotModel(model)
-	if not model or nexusSkinBackup[model] then return end
-	local root = nexusVisualRoot(model)
-	if not root then return end
-	local snap = {}
-	for _, part in ipairs(nexusCollectVisuals(root)) do
-		local data = {
-			Color = part.Color,
-			Material = part.Material,
-			Reflectance = part.Reflectance,
-			Transparency = part.Transparency,
-		}
+	local savedController = nil
+	if not skinHasController then
 		pcall(function()
-			if part:IsA("MeshPart") then
-				data.MeshId = part.MeshId
-				data.TextureID = part.TextureID
+			local existing = weapon:FindFirstChildOfClass("AnimationController")
+			if existing then
+				savedController = existing:Clone()
 			end
 		end)
-		data.SA = nexusReadSA(part:FindFirstChildOfClass("SurfaceAppearance"))
-		data.Mesh = nexusReadMesh(part:FindFirstChildOfClass("SpecialMesh"))
-		snap[part] = data
 	end
-	nexusSkinBackup[model] = snap
-end
-local function nexusRestoreSkinModel(model)
-	if not model then return end
-	local snap = nexusSkinBackup[model]
-	if not snap then return end
-	for part, data in pairs(snap) do
-		if part and part.Parent then
-			pcall(function()
-				if data.MeshId ~= nil and part:IsA("MeshPart") then
-					part.MeshId = data.MeshId
-					part.TextureID = data.TextureID
-				end
-				part.Color = data.Color
-				part.Material = data.Material
-				part.Reflectance = data.Reflectance
-				part.Transparency = data.Transparency
-			end)
-			nexusWriteSA(part:FindFirstChildOfClass("SurfaceAppearance"), data.SA)
-			nexusWriteMesh(part:FindFirstChildOfClass("SpecialMesh"), data.Mesh)
+	local staged = {}
+	for _, child in ipairs(skin:GetChildren()) do
+		local ok, clone = pcall(function() return child:Clone() end)
+		if ok and clone then
+			table.insert(staged, clone)
 		end
 	end
-end
-local function nexusApplyVisualPart(dst, src)
-	pcall(function()
-		if dst:IsA("MeshPart") and src:IsA("MeshPart") then
-			if src.MeshId ~= "" then dst.MeshId = src.MeshId end
-			dst.TextureID = src.TextureID
-		end
-	end)
-	pcall(function()
-		dst.Color = src.Color
-		dst.Material = src.Material
-		dst.Reflectance = src.Reflectance
-		if src.Transparency < 0.99 then
-			dst.Transparency = src.Transparency
-		end
-	end)
-	local srcSA = src:FindFirstChildOfClass("SurfaceAppearance")
-	local dstSA = dst:FindFirstChildOfClass("SurfaceAppearance")
-	if srcSA and dstSA then
-		nexusWriteSA(dstSA, nexusReadSA(srcSA))
-	end
-	local srcMesh = src:FindFirstChildOfClass("SpecialMesh")
-	local dstMesh = dst:FindFirstChildOfClass("SpecialMesh")
-	if srcMesh and dstMesh then
-		nexusWriteMesh(dstMesh, nexusReadMesh(srcMesh))
-	end
-end
-local function nexusGroupBy(list, keyFn)
-	local groups = {}
-	for _, item in ipairs(list) do
-		local key = keyFn(item)
-		if key then
-			if not groups[key] then groups[key] = {} end
-			local queue = groups[key]
-			queue[#queue + 1] = item
-		end
-	end
-	return groups
-end
-local function nexusMatchVisuals(dstList, srcList, dstRoot, srcRoot)
-	local pairsMap = {}
-	local usedSrc = {}
-	local matchCount = 0
-	local function pairUp(dst, src)
-		if src and not pairsMap[dst] and not usedSrc[src] then
-			pairsMap[dst] = src
-			usedSrc[src] = true
-			matchCount = matchCount + 1
-			return true
+	if #staged == 0 then
+		if savedController then
+			pcall(function() savedController:Destroy() end)
 		end
 		return false
 	end
-	local function passByKey(keyFnDst, keyFnSrc)
-		local groups = nexusGroupBy(srcList, keyFnSrc)
-		local taken = {}
-		for _, dst in ipairs(dstList) do
-			if not pairsMap[dst] then
-				local key = keyFnDst(dst)
-				local queue = key and groups[key]
-				if queue then
-					local idx = (taken[key] or 0) + 1
-					while queue[idx] and usedSrc[queue[idx]] do
-						idx = idx + 1
-					end
-					if queue[idx] and pairUp(dst, queue[idx]) then
-						taken[key] = idx
-					end
-				end
-			end
-		end
+	for _, child in ipairs(weapon:GetChildren()) do
+		child:Destroy()
 	end
-	passByKey(function(p) return nexusRelPath(dstRoot, p) end, function(p) return nexusRelPath(srcRoot, p) end)
-	passByKey(function(p) return (p.Parent and p.Parent.Name or "") .. "/" .. p.Name end, function(p) return (p.Parent and p.Parent.Name or "") .. "/" .. p.Name end)
-	passByKey(function(p) return p.Name end, function(p) return p.Name end)
-	if #dstList == #srcList then
-		for i, dst in ipairs(dstList) do
-			if not pairsMap[dst] then
-				pairUp(dst, srcList[i])
-			end
-		end
+	for _, clone in ipairs(staged) do
+		clone.Parent = weapon
 	end
-	return pairsMap, matchCount
-end
-local function nexusApplySkinModel(target, source)
-	if not target or not source or target == source then return false end
-	nexusSnapshotModel(target)
-	nexusRestoreSkinModel(target)
-	local dstRoot = nexusVisualRoot(target)
-	local srcRoot = nexusVisualRoot(source)
-	if not dstRoot or not srcRoot then return false end
-	local dstList = nexusCollectVisuals(dstRoot)
-	local srcList = nexusCollectVisuals(srcRoot)
-	if #dstList == 0 or #srcList == 0 then return false end
-	local pairsMap, matchCount = nexusMatchVisuals(dstList, srcList, dstRoot, srcRoot)
-	if matchCount == 0 then return false end
-	if #dstList > 3 and matchCount < math.ceil(#dstList * 0.4) then return false end
-	for dst, src in pairs(pairsMap) do
-		nexusApplyVisualPart(dst, src)
+	if savedController then
+		savedController.Parent = weapon
 	end
 	return true
 end
-local function bp(ey, ew)
-	if not ew then return end
-	nexusSnapshotModel(ew)
-end
-local function bl(hn, hc)
-	if not hn or not hc then return end
-	pcall(function()
-		nexusApplySkinModel(hn, hc)
-	end)
-end
-local function gb(hn, bq, gp)
-	if not hn then return end
-	pcall(function()
-		nexusRestoreSkinModel(hn)
-		if nexusFixPrimary then nexusFixPrimary(hn) end
-	end)
-end
+
 task.spawn(function()
 	local ok, err = pcall(function()
 		local Players = game:GetService("Players")
@@ -14198,7 +13846,7 @@ task.spawn(function()
 			if not weapon then return false end
 			local skin = FindSkin(skinName)
 			if not skin or skin == weapon then return false end
-			return nexusApplySkinModel(weapon, skin)
+			return nexusSwapModelChildren(weapon, skin)
 		end
 		local skins = {
 			{"Permafrost", "Ice Permafrost"},
@@ -22207,7 +21855,7 @@ end
                                                            
 
 
-local ef, ch, aq, y, Players, ReplicatedStorage, Lighting, k, m, al, ai, go, ao, l, af, d, hw, hx, hy, hl, bk, nexusHideBlockParts, nexusFixPrimary, bj, as, az, fk, ia, applyUnlockAll, startUnlockLoop, applyAllWeaponSkins, Workspace, UserInputService, RunService, Stats, Camera, RootPart, musicSound, toggleMusic, spoofPlatformType
+local ef, ch, aq, y, Players, ReplicatedStorage, Lighting, k, m, al, ai, go, ao, l, af, d, hw, hx, hy, hl, bk, nexusHideBlockParts, nexusFixPrimary, nexusHarvestSkinSounds, nexusHarvestedAnims, nexusWatchSound, bj, as, az, fk, ia, applyUnlockAll, startUnlockLoop, applyAllWeaponSkins, Workspace, UserInputService, RunService, Stats, Camera, RootPart, musicSound, toggleMusic, spoofPlatformType
 local updateServerControlMode
 do
 ef = table.insert
@@ -22223,6 +21871,7 @@ aq = j:CreateWindow({
 	["UnlockMouseWhileOpen"] = false,
 	["ShowCustomCursor"] = false,
 })
+print("[Nexus Ultra] window ok")
 y = {}
 Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
@@ -22233,7 +21882,10 @@ m = k.Name
 
 do
 	local ok, vm = pcall(function()
-		return k:WaitForChild("PlayerScripts", 10):WaitForChild("Assets", 10):WaitForChild("ViewModels", 10)
+		local ps = k:FindFirstChild("PlayerScripts") or k:WaitForChild("PlayerScripts", 5)
+		local assetsFolder = ps and (ps:FindFirstChild("Assets") or ps:WaitForChild("Assets", 5))
+		local viewModelsFolder = assetsFolder and (assetsFolder:FindFirstChild("ViewModels") or assetsFolder:WaitForChild("ViewModels", 5))
+		return viewModelsFolder
 	end)
 	al = ok and vm or nil
 	if not al then warn("[Nexus Skin] ViewModels missing — join a match first") end
@@ -23197,25 +22849,25 @@ local function nexusSkinResolveParent(root, path)
 	return cur
 end
 local function bp(ey, ew)
-	if not ew or not q then return end
-	if q:FindFirstChild(ey) then return end
-	local bo = Instance.new("Folder")
-	bo.Name = ey
-	for _, item in ipairs(ew:GetChildren()) do
-		local ok, cf = pcall(function() return item:Clone() end)
-		if ok and cf then
-			cf.Parent = bo
-		end
-	end
-	bo.Parent = q
+if not ew then return end
+if q:FindFirstChild(ey) then return end
+local bo = Instance.new("Folder")
+bo.Name = ey
+for _, item in ipairs(ew:GetChildren()) do
+local cf = item:Clone()
+if cf then
+cf.Parent = bo
+end
+end
+bo.Parent = q
 end
 local function bl(hn, hc)
 	if not hn or not hc then return end
 	pcall(function()
 		local oldPivot = nil
 		pcall(function() oldPivot = hn:GetPivot() end)
+
 		local savedAnim = nil
-		local savedAnimParentPath = {}
 		pcall(function()
 			local ax = hn:FindFirstChildOfClass("AnimationController")
 				or hn:FindFirstChildWhichIsA("AnimationController", true)
@@ -23226,43 +22878,42 @@ local function bl(hn, hc)
 						pcall(function() tr:Stop(0) end)
 					end
 				end
-				savedAnimParentPath = nexusSkinParentPath(hn, ax)
 				savedAnim = ax:Clone()
 			end
 		end)
-		local template = nil
-		pcall(function() template = hc:Clone() end)
-		if not template then
-			if savedAnim then pcall(function() savedAnim:Destroy() end) end
-			return
-		end
-		local staged = {}
+
+		local template = hc:Clone()
+		if not template then return end
+
+		hn:ClearAllChildren()
+
+		local intactMelee = (hn.Name == "Knife" or hn.Name == "Daggers")
 		for _, item in ipairs(template:GetChildren()) do
-			if item:IsA("AnimationController") or item:IsA("Animation") then
+			if intactMelee then
+				item.Parent = hn
+			elseif item:IsA("AnimationController") or item:IsA("Animation") then
 				item:Destroy()
 			else
 				for _, d in ipairs(item:GetDescendants()) do
 					if d:IsA("Animation") then pcall(function() d:Destroy() end) end
 				end
-				staged[#staged + 1] = item
+				item.Parent = hn
 			end
-		end
-		if #staged == 0 then
-			pcall(function() template:Destroy() end)
-			if savedAnim then pcall(function() savedAnim:Destroy() end) end
-			return
-		end
-		hn:ClearAllChildren()
-		for _, item in ipairs(staged) do
-			item.Parent = hn
 		end
 		template:Destroy()
+
 		if savedAnim then
-			for _, c in ipairs(hn:GetChildren()) do
-				if c:IsA("AnimationController") then pcall(function() c:Destroy() end) end
+			if intactMelee and hn:FindFirstChildWhichIsA("AnimationController", true) then
+				savedAnim:Destroy()
+			else
+				for _, c in ipairs(hn:GetChildren()) do
+					if c:IsA("AnimationController") then pcall(function() c:Destroy() end) end
+				end
+				savedAnim.Parent = hn
 			end
-			savedAnim.Parent = nexusSkinResolveParent(hn, savedAnimParentPath)
 		end
+
+		-- PrimaryPart fix (stops "Primary is not a valid member")
 		pcall(function()
 			local prim = hn:FindFirstChild("Primary", true)
 				or hn:FindFirstChild("Handle", true)
@@ -23281,9 +22932,12 @@ local function bl(hn, hc)
 				end
 			end
 		end)
+
+		-- Ensure visible (some skins ship with Transparency=1 on extras)
 		pcall(function()
 			for _, p in ipairs(hn:GetDescendants()) do
 				if p:IsA("BasePart") then
+					-- do not force all to 0 (scopes/sights may be intentional)
 					if p.Transparency >= 1 and (p.Name == "Primary" or p.Name == "Handle" or p.Name:lower():find("blade") or p.Name:lower():find("knife")) then
 						p.Transparency = 0
 					end
@@ -23293,15 +22947,15 @@ local function bl(hn, hc)
 				end
 			end
 		end)
-		if nexusHideBlockParts then nexusHideBlockParts(hn) end
+
+		nexusHideBlockParts(hn)
 		if oldPivot then pcall(function() hn:PivotTo(oldPivot) end) end
 	end)
 end
+
 local function gb(hn, bq, gp)
-	if not hn or not q then return end
 	local bo = q:FindFirstChild(bq)
-	if not bo then return end
-	if #bo:GetChildren() == 0 then return end
+	if not bo or not hn then return end
 	pcall(function()
 		hn:ClearAllChildren()
 		for _, item in ipairs(bo:GetChildren()) do
@@ -23334,11 +22988,11 @@ nexusHideBlockParts = function(model)
 					or n:find("bladebox") or n:find("proxy")
 				local size = p.Size
 				local isBlocky = (not isMeshPart and not hasSpecial) or (isMeshPart and not meshOk)
-				
+				-- white/grey default material blocks at tip
 				if looksHitbox or isBlocky then
-					
+					-- keep Primary/Handle if it has a real mesh
 					if meshOk and (n == "primary" or n == "handle" or n:find("blade") or n:find("knife") or n:find("weapon")) then
-						
+						-- keep visible
 					else
 						if isBlocky or looksHitbox then
 							p.Transparency = 1
@@ -23383,7 +23037,7 @@ end
 local nexusSkinApplied = {}
 local nexusSkinLock = {}
 
-
+-- Weapons that break the game if fully replaced (complex constraints / multi-part)
 local NEXUS_UNSAFE_REPLACE = {
 	["Bow"] = true,
 	["Crossbow"] = true,
@@ -23406,6 +23060,7 @@ local NEXUS_UNSAFE_REPLACE = {
 	["Fists"] = true,
 }
 
+-- Soft skin: only swap MeshId / TextureID / SurfaceAppearance (keeps joints)
 local function nexusSoftSkin(target, source)
 	if not target or not source then return false end
 	local ok = pcall(function()
@@ -23430,6 +23085,7 @@ local function nexusSoftSkin(target, source)
 							d.Material = s.Material
 							d.Reflectance = s.Reflectance
 						end
+						-- SurfaceAppearance
 						local sa = s:FindFirstChildOfClass("SurfaceAppearance")
 						if sa then
 							local old = d:FindFirstChildOfClass("SurfaceAppearance")
@@ -23441,6 +23097,12 @@ local function nexusSoftSkin(target, source)
 				end
 			end
 		end
+		-- copy extra particle emitters from source that target lacks
+		for _, d in ipairs(source:GetDescendants()) do
+			if d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") then
+				-- skip if already many
+			end
+		end
 	end)
 	return ok
 end
@@ -23449,9 +23111,9 @@ bj = function(it, gx, cy)
 if not it then return end
 if not al then return end
 if nexusSkinLock[it] then return end
-
+-- skip identical re-apply (stops knife flicker)
 if cy and gx and nexusSkinApplied[it] == gx then
-	
+	-- still refresh primary/fx lightly
 	return
 end
 nexusSkinLock[it] = true
@@ -23462,7 +23124,7 @@ iu = v
 break
 end
 end
-if not iu then nexusSkinLock[it] = nil; return end
+if not iu then return end
 if cy and gx then
 local hc
 for _, v in ipairs(al:GetDescendants()) do
@@ -23471,8 +23133,10 @@ hc = v
 break
 end
 end
-if not hc then nexusSkinLock[it] = nil; return end
+if not hc then return end
 bp(it, iu)
+if nexusHarvestSkinSounds then pcall(nexusHarvestSkinSounds, it, gx, iu, hc) end
+-- Bow / Crossbow / gadgets: soft mesh swap only (full replace breaks game)
 if NEXUS_UNSAFE_REPLACE[it] or string.lower(tostring(it or "")):find("bow", 1, true) or string.lower(tostring(it or "")):find("crossbow", 1, true) then
 	bl(iu, hc)
 	nexusFixPrimary(iu)
@@ -23488,14 +23152,14 @@ if NEXUS_UNSAFE_REPLACE[it] or string.lower(tostring(it or "")):find("bow", 1, t
 else
 	bl(iu, hc)
 	nexusFixPrimary(iu)
-	nexusHideBlockParts(iu)
+nexusHideBlockParts(iu)
 	local iy = workspace:FindFirstChild(it)
 	if iy then
 		bp(it .. "_ws", iy)
 		local gp = iy:GetPivot()
 		bl(iy, hc)
 		nexusFixPrimary(iy)
-		nexusHideBlockParts(iy)
+nexusHideBlockParts(iy)
 		iy:PivotTo(gp)
 	end
 end
@@ -23758,6 +23422,65 @@ end
 local ar = nil
 local at = nil
 as = nil
+nexusHarvestedAnims = {}
+nexusHarvestSkinSounds = function(it, gx, iu, hc)
+	if not it or not gx or not iu or not hc then return end
+	pcall(function()
+		local function relPath(root, inst)
+			local names = {}
+			local cur = inst
+			while cur and cur ~= root do
+				table.insert(names, 1, cur.Name)
+				cur = cur.Parent
+			end
+			return table.concat(names, "/")
+		end
+		local function leafName(path)
+			return string.match(path, "([^/]+)$") or path
+		end
+		local function collect(root, className, prop)
+			local map = {}
+			if not root then return map end
+			for _, d in ipairs(root:GetDescendants()) do
+				if d.ClassName == className and d[prop] ~= "" then
+					map[relPath(root, d)] = d[prop]
+				end
+			end
+			return map
+		end
+		local function pairUp(baseMap, skinMap, apply)
+			for path, skinId in pairs(skinMap) do
+				local baseId = baseMap[path]
+				if baseId and skinId and baseId ~= skinId then apply(baseId, skinId) end
+			end
+			local baseByName, skinByName = {}, {}
+			for path, id in pairs(baseMap) do
+				local n = leafName(path)
+				if not baseByName[n] then baseByName[n] = id end
+			end
+			for path, id in pairs(skinMap) do
+				local n = leafName(path)
+				if not skinByName[n] then skinByName[n] = id end
+			end
+			for name, skinId in pairs(skinByName) do
+				local baseId = baseByName[name]
+				if baseId and skinId and baseId ~= skinId then apply(baseId, skinId) end
+			end
+		end
+		local baseRoot = iu
+		if q then
+			local bo = q:FindFirstChild(it)
+			if bo then baseRoot = bo end
+		end
+		pairUp(collect(baseRoot, "Sound", "SoundId"), collect(hc, "Sound", "SoundId"), function(baseId, skinId)
+			if not ag[gx] then ag[gx] = {} end
+			if ag[gx][baseId] == nil then ag[gx][baseId] = skinId end
+		end)
+		pairUp(collect(baseRoot, "Animation", "AnimationId"), collect(hc, "Animation", "AnimationId"), function(baseId, skinId)
+			nexusHarvestedAnims[it .. "|" .. gx .. "|" .. baseId] = skinId
+		end)
+	end)
+end
 az = {}
 local ge = {}
 local aw = nil
@@ -23786,28 +23509,12 @@ if not gf then return end
 for base, fw in next, gf do az[base] = fw end
 end
 fk = function(et)
-if type(et) ~= "table" then return end
 local cc = dl()
 if not cc then return end
-for _, fc in ipairs(cc:GetDescendants()) do
+for _, fc in next, cc:GetChildren() do
 if fc:IsA("Sound") then
-pcall(function()
-local cur = fc.SoundId
-local orig = fc:GetAttribute("NexusOrigSoundId")
-local last = fc:GetAttribute("NexusLastSoundId")
-if orig == nil or (cur ~= orig and cur ~= last) then
-orig = cur
-fc:SetAttribute("NexusOrigSoundId", cur)
-end
-local fw = et[orig]
-if not fw and cur ~= orig then fw = et[cur] end
-if fw and fw ~= cur then
-fc.SoundId = fw
-fc:SetAttribute("NexusLastSoundId", fw)
-else
-fc:SetAttribute("NexusLastSoundId", cur)
-end
-end)
+local fw = et[fc.SoundId]
+if fw then fc.SoundId = fw end
 end
 end
 end
@@ -23817,39 +23524,29 @@ for base, sk in next, fx do gd[sk] = base end
 ge[it] = gd
 return gd
 end
+nexusWatchSound = function(fc)
+if not fc or not fc:IsA("Sound") then return end
+if fc:GetAttribute("NexusWatched") then return end
+fc:SetAttribute("NexusWatched", true)
+local function applyMap()
+if type(az) ~= "table" then return end
+local cur = fc.SoundId
+if not cur or cur == "" then return end
+if fc:GetAttribute("NexusLastSoundId") == cur then return end
+local fw = az[cur]
+if fw and fw ~= cur then
+fc:SetAttribute("NexusLastSoundId", fw)
+fc.SoundId = fw
+end
+end
+applyMap()
+fc:GetPropertyChangedSignal("SoundId"):Connect(applyMap)
+end
 local function db()
 if aw then return end
-task.spawn(function()
-local cc = nil
-for _ = 1, 40 do
-cc = dl()
-if cc then break end
-task.wait(0.5)
-end
-if not cc or aw then return end
-aw = cc.DescendantAdded:Connect(function(fc)
-if fc:IsA("Sound") then
-local cur = fc.SoundId
-local orig = nil
-local last = nil
-pcall(function()
-orig = fc:GetAttribute("NexusOrigSoundId")
-last = fc:GetAttribute("NexusLastSoundId")
-end)
-if orig == nil or (cur ~= orig and cur ~= last) then
-orig = cur
-pcall(function() fc:SetAttribute("NexusOrigSoundId", cur) end)
-end
-local fw = az[orig]
-if fw and fw ~= cur then
-fc.SoundId = fw
-pcall(function() fc:SetAttribute("NexusLastSoundId", fw) end)
-else
-pcall(function() fc:SetAttribute("NexusLastSoundId", cur) end)
-end
-end
-end)
-end)
+local cc = dl()
+if not cc then return end
+aw = cc.ChildAdded:Connect(nexusWatchSound)
 end
 local function hk()
 task.spawn(function()
@@ -23895,6 +23592,59 @@ dl()
 db()
 hk()
 end)
+task.spawn(function()
+task.wait(2)
+local function probeOnce(id)
+pcall(function() game:GetService("ContentProvider"):PreloadAsync({id}) end)
+local valid = false
+pcall(function()
+local probe = Instance.new("Sound")
+probe.Name = "NexusSoundProbe"
+probe.Volume = 0
+probe.SoundId = id
+probe.Parent = game:GetService("SoundService")
+local deadline = os.clock() + 5
+while os.clock() < deadline do
+if probe.IsLoaded then break end
+task.wait(0.05)
+end
+valid = probe.IsLoaded and probe.TimeLength and probe.TimeLength > 0
+probe:Destroy()
+end)
+return valid
+end
+local queue = {}
+local seen = {}
+for _, map in pairs(ag) do
+for _, target in pairs(map) do
+if type(target) == "string" and not seen[target] then
+seen[target] = true
+queue[#queue + 1] = target
+end
+end
+end
+local idx = 0
+local function worker()
+while true do
+idx += 1
+local id = queue[idx]
+if not id then return end
+if not probeOnce(id) and not probeOnce(id) then
+for _, map in pairs(ag) do
+for base, target in pairs(map) do
+if target == id then map[base] = nil end
+end
+end
+if type(az) == "table" then
+for base, target in pairs(az) do
+if target == id then az[base] = nil end
+end
+end
+end
+end
+end
+for _ = 1, 6 do task.spawn(worker) end
+end)
 bk = function(it, gx, cy)
 if cy and gx then
 local fx = ag[gx]
@@ -23905,13 +23655,15 @@ fv(it)
 fk(az)
 end
 else
-local gd = ge[it]
-if not gd and gx and ag[gx] then gd = bv(it, ag[gx]) end
-if gd and as == it then
+local fx = gx and ag[gx]
+if fx then
+if as == it then
+local gd = ge[it] or bv(it, fx)
 fk(gd)
 for k in next, az do az[k] = nil end
 end
 ge[it] = nil
+end
 end
 end
 local function gu(ew, ev)
@@ -24132,9 +23884,16 @@ local TweenService = game:GetService("TweenService")
 local GuiService = game:GetService("GuiService")
 Stats = game:GetService("Stats")
 Camera = Workspace.CurrentCamera
-local Character = k.Character or k.CharacterAdded:Wait()
-local Humanoid = Character:WaitForChild("Humanoid")
-RootPart = Character:WaitForChild("HumanoidRootPart")
+local Character = k.Character
+if not Character then
+	local characterDeadline = os.clock() + 5
+	while not Character and os.clock() < characterDeadline do
+		task.wait(0.25)
+		Character = k.Character
+	end
+end
+local Humanoid = Character and (Character:FindFirstChild("Humanoid") or Character:WaitForChild("Humanoid", 5)) or nil
+RootPart = Character and (Character:FindFirstChild("HumanoidRootPart") or Character:WaitForChild("HumanoidRootPart", 5)) or nil
 
 k.CharacterAdded:Connect(function(char)
 	Character = char
@@ -25270,6 +25029,7 @@ local combatTab = aq:AddTab("Combat")
 local visualTab = aq:AddTab("Visuals")
 local trollTab = aq:AddTab("Troll & Fun")
 local cosmeticTab = aq:AddTab("Cosmetics")
+print("[Nexus Ultra] tabs ok")
 
 
 local combatLeft = combatTab:AddLeftGroupbox("Aimbot & Targeting")
@@ -25346,6 +25106,20 @@ boxUnlock:AddToggle("NexusUnlockAll", {
 })
 boxUnlock:AddButton({ Text = "Apply Unlock Now", Func = function() applyUnlockAll() end })
 boxUnlock:AddButton({ Text = "Apply First Skin → All Guns", Func = function() applyAllWeaponSkins() end })
+boxUnlock:AddButton({ Text = "Apply Nexus Premium Pack (46)", Func = function()
+	task.spawn(function()
+		local pack = {
+			{"Permafrost", "Ice Permafrost"}, {"Grappler", "Genie Lamp"}, {"Freeze Ray", "Temporal Ray"}, {"Slingshot", "Boneshot"}, {"Exogun", "Repulsor"}, {"Flare Gun", "Firework Gun"}, {"Warper", "Frost Warper"}, {"Trowel", "Paintbrush"}, {"Scythe", "Crystal Scythe"}, {"Shorty", "Demon Shorty"}, {"Bow", "Bat Bow"}, {"Crossbow", "Frostbite Crossbow"}, {"Wildcat", "Plasma Wildcat"}, {"Daggers", "Aces"}, {"Spray", "Spray Bottle"}, {"Katana", "Crystal Katana"}, {"Spear", "Thunderpike"}, {"Minigun", "Fighter Jet"}, {"Burst Rifle", "Keyst Rifle"}, {"Gunblade", "Boneblade"}, {"RPG", "Nuke Launcher"}, {"Shotgun", "Broomstick"}, {"Maul", "Ban Hammer"}, {"Warpstone", "Warpeye"}, {"Smoke Grenade", "Hourglass"}, {"Jump Pad", "Spider Web"}, {"Grenade", "Soul Grenade"}, {"Molotov", "Torch"}, {"Riot Shield", "Energy Shield"}, {"Medkit", "Laptop"}, {"Paintball Gun", "Boba Gun"}, {"Energy Pistols", "Void Pistols"}, {"Energy Rifle", "Hacker Rifle"}, {"Distortion", "Magma Distortion"}, {"Knife", "Caladbolg"}, {"Assault Rifle", "AKEY-47"}, {"Sniper", "Event Horizon"}, {"Handgun", "Pixel Handgun"}, {"Uzi", "Keyzi"}, {"Fists", "Brass Knuckles"}, {"War Horn", "Megaphone"}, {"Battle Axe", "Ban Axe"}, {"Flamethrower", "Pixel Flamethrower"}, {"Flashbang", "Camera"}, {"Grenade Launcher", "Swashbuckler"}, {"Subspace Tripmine", "Don't Press"}
+		}
+		local done = 0
+		for _, pair in ipairs(pack) do
+			local okCall = pcall(function() bj(pair[1], pair[2], true) end)
+			if okCall then done += 1 end
+			task.wait(0.05)
+		end
+		print("[Nexus] Premium skin pack applied: " .. tostring(done) .. "/" .. tostring(#pack))
+	end)
+end })
 local boxInfo = tabExtra:AddRightGroupbox("Info")
 boxInfo:AddLabel("Fully offline")
 boxInfo:AddLabel("Mouse unlock disabled")
@@ -25595,7 +25369,8 @@ for _, ch in ipairs(io:GetChildren()) do
 if ch:IsA("TextButton") and y[ch] then
 local el = ch:FindFirstChildOfClass("TextLabel")
 if el and el.Text == iv then
-y[ch].dot.Visible = (ai.ActiveSkins[iv] ~= nil)
+local dotEntry = y[ch]
+if dotEntry and dotEntry.dot then dotEntry.dot.Visible = (ai.ActiveSkins[iv] ~= nil) end
 end
 end
 end
@@ -26816,87 +26591,224 @@ pcall(function()
 local ax = ew:WaitForChild("AnimationController", 8)
 if ax then be = ax:WaitForChild("Animator", 8) end
 if not be then
-	
+	-- retry once
 	task.wait(0.5)
 	ax = ew:FindFirstChild("AnimationController") or ew:FindFirstChildOfClass("AnimationController")
 	if ax then be = ax:FindFirstChildOfClass("Animator") or ax:FindFirstChild("Animator") end
 end
 end)
-if not be then dz[ew] = nil return end
-local ee = {}
+if not be then return end
+local ee = setmetatable({}, {__mode = "k"})
 local df = fs .. "_"
+local nexusIsMeleeVM = (iv == "Knife" or iv == "Daggers")
+local nexusMirrorTracks = setmetatable({}, {__mode = "k"})
+local function nexusFindLocalAnimators()
+local list = {}
+if not ew or not ew.Parent then return list end
+pcall(function()
+for _, d in ipairs(ew:GetDescendants()) do
+if d:IsA("AnimationController") then
+local an = d:FindFirstChildOfClass("Animator") or d:FindFirstChild("Animator")
+if an and an ~= be then table.insert(list, an) end
+end
+end
+end)
+return list
+end
+local function nexusMirrorLocal(gzId, speed, prio, looped, tp, origId)
+if not nexusIsMeleeVM then return end
+for _, an in ipairs(nexusFindLocalAnimators()) do
+pcall(function()
+local existing = nil
+for _, tr in ipairs(an:GetPlayingAnimationTracks()) do
+pcall(function()
+local aid = tr.Animation and tr.Animation.AnimationId
+if aid == gzId and tr.IsPlaying then existing = tr end
+if aid == origId and aid ~= gzId then tr:AdjustWeight(0, 0.05) end
+end)
+end
+if existing then
+pcall(function()
+existing.TimePosition = tp or 0
+existing:AdjustSpeed(speed or 1)
+existing:AdjustWeight(1, 0.05)
+end)
+return
+end
+local prevMap = nexusMirrorTracks[an]
+if not prevMap then prevMap = {} nexusMirrorTracks[an] = prevMap end
+local prev = prevMap[origId]
+if prev then pcall(function() prev:Stop(0) end) end
+local tmp = Instance.new("Animation")
+tmp.AnimationId = gzId
+local okL, tr = pcall(function() return an:LoadAnimation(tmp) end)
+if not okL or not tr then
+pcall(function() tmp:Destroy() end)
+return
+end
+if prio then pcall(function() tr.Priority = prio end) end
+pcall(function() tr.Looped = looped and true or false end)
+pcall(function() tr:Play(0.05, 1, speed or 1) end)
+pcall(function() tr.TimePosition = tp or 0 end)
+prevMap[origId] = tr
+tr.Stopped:Connect(function()
+if prevMap[origId] == tr then prevMap[origId] = nil end
+pcall(function() tmp:Destroy() end)
+end)
+end)
+end
+end
 local function hv(hr)
-if not hr then return end
-local animOk, animObj = pcall(function() return hr.Animation end)
-if not animOk or not animObj then return end
-local bb = animObj.AnimationId
-if not bb or ee[bb] then return end
+if not hr or not hr.Animation then return end
+local bb = hr.Animation.AnimationId
+if not bb or bb == "" then return end
+if ee[hr] then return end
+ee[hr] = true
 local bc = a[bb]
 if not bc then return end
 if bc:sub(1, #df) ~= df then return end
 local co = ai.ActiveSkins[iv]
 if not co or co == "Default" then return end
-local fa = fb(co)
 local bd = bc:sub(#df + 1)
-local ha = fs .. "_" .. fa .. "_" .. bd
-local gz = b[ha]
+local ha = fs .. "_" .. fb(co) .. "_" .. bd
+local gz = b[ha] or (nexusHarvestedAnims and nexusHarvestedAnims[iv .. "|" .. co .. "|" .. bb])
 if not gz or gz == bb then return end
-ee[gz] = true
-local timePos = 0
+if ee["bad:" .. gz] then return end
+task.spawn(function()
 local speed = 1
+pcall(function()
+if hr.Speed and hr.Speed ~= 0 then speed = hr.Speed end
+end)
+local prio = nil
+pcall(function() prio = hr.Priority end)
 local looped = false
-local priority = Enum.AnimationPriority.Core
-local weight = 1
-pcall(function()
-timePos = hr.TimePosition
-speed = hr.Speed
-looped = hr.Looped
-priority = hr.Priority
-weight = hr.WeightCurrent
-end)
-if not weight or weight <= 0 then weight = 1 end
+pcall(function() looped = hr.Looped end)
+local origLength = 0
+pcall(function() origLength = hr.Length or 0 end)
 local gy = Instance.new("Animation")
-gy.Name = "NexusSkinAnim"
 gy.AnimationId = gz
-local loadOk, hd = pcall(function() return be:LoadAnimation(gy) end)
-if not loadOk or not hd then
-ee[gz] = nil
-pcall(function() gy:Destroy() end)
+local okL, hd = pcall(function() return be:LoadAnimation(gy) end)
+if not okL or not hd then
+ee["bad:" .. gz] = true
 return
 end
-pcall(function() gy.Parent = be end)
-pcall(function()
-hd.Priority = priority
-hd.Looped = looped
-end)
-pcall(function() hr:Stop(0.05) end)
-local playOk = pcall(function() hd:Play(0.05, weight, speed) end)
-if not playOk then
-ee[gz] = nil
+if prio then pcall(function() hd.Priority = prio end) end
+pcall(function() hd.Looped = looped end)
+pcall(function() hd:Play(0, 0, speed) end)
+local deadline = os.clock() + 1
+while os.clock() < deadline do
+local len = 0
+pcall(function() len = hd.Length or 0 end)
+if len > 0 then break end
+task.wait(0.03)
+end
+local newLength = 0
+pcall(function() newLength = hd.Length or 0 end)
+if newLength <= 0 then
+ee["bad:" .. gz] = true
+pcall(function() hd:Stop(0) end)
 pcall(function() hd:Destroy() end)
-pcall(function() gy:Destroy() end)
 return
 end
-pcall(function()
-local len = hd.Length
-if len and len > 0 and timePos and timePos > 0 then
-if looped then
-hd.TimePosition = timePos % len
-else
-hd.TimePosition = math.min(timePos, math.max(len - 0.03, 0))
+local stillPlaying = false
+pcall(function() stillPlaying = hr.IsPlaying end)
+if not stillPlaying then
+pcall(function() hd:Stop(0) end)
+pcall(function() hd:Destroy() end)
+return
+end
+if not looped and origLength > 0 then
+local remaining = origLength
+pcall(function() remaining = origLength - (hr.TimePosition or 0) end)
+if remaining < 0.18 then
+pcall(function() hd:Stop(0) end)
+pcall(function() hd:Destroy() end)
+return
 end
 end
-end)
+local prev = ee["cur:" .. bb]
+if prev and prev ~= hd then pcall(function() prev:Stop(0) end) end
+ee["cur:" .. bb] = hd
 hd.Stopped:Connect(function()
-ee[gz] = nil
-pcall(function() hd:Destroy() end)
-pcall(function() gy:Destroy() end)
+if ee["cur:" .. bb] == hd then ee["cur:" .. bb] = nil end
+end)
+pcall(function()
+local tp = hr.TimePosition or 0
+if newLength > 0 then tp = tp % newLength end
+hd.TimePosition = tp
+hd:AdjustSpeed(speed)
+hd:AdjustWeight(1, 0.05)
+end)
+pcall(function() hr:AdjustWeight(0, 0.05) end)
+if nexusIsMeleeVM then
+local tp2 = 0
+pcall(function() tp2 = hd.TimePosition or 0 end)
+pcall(nexusMirrorLocal, gz, speed, prio, looped, tp2, bb)
+end
 end)
 end
 be.AnimationPlayed:Connect(hv)
 for _, hr in ipairs(be:GetPlayingAnimationTracks()) do
 task.defer(hv, hr)
 end
+if nexusIsMeleeVM and not ew:GetAttribute("NexusMeleeWatch") then
+ew:SetAttribute("NexusMeleeWatch", true)
+task.spawn(function()
+local defaultIdleId = nil
+for id, canon in pairs(a) do
+if canon == fs .. "_idle" then defaultIdleId = id break end
+end
+while ew and ew.Parent do
+task.wait(1)
+pcall(function()
+local co = ai.ActiveSkins[iv]
+if not co or co == "Default" then return end
+local idleId = b[fs .. "_" .. fb(co) .. "_idle"]
+if not idleId then return end
+for _, an in ipairs(nexusFindLocalAnimators()) do
+pcall(function()
+local hasSkinIdle = false
+local defaultIdleTrack = nil
+local anyPlaying = false
+for _, tr in ipairs(an:GetPlayingAnimationTracks()) do
+if tr.IsPlaying then
+anyPlaying = true
+local aid = tr.Animation and tr.Animation.AnimationId
+if aid == idleId then hasSkinIdle = true end
+if defaultIdleId and aid == defaultIdleId then defaultIdleTrack = tr end
+end
+end
+if hasSkinIdle then return end
+if defaultIdleTrack then
+nexusMirrorLocal(idleId, 1, nil, true, defaultIdleTrack.TimePosition or 0, defaultIdleId)
+elseif not anyPlaying then
+nexusMirrorLocal(idleId, 1, nil, true, 0, defaultIdleId or (fs .. "_idle"))
+end
+end)
+end
+end)
+end
+end)
+end
+task.spawn(function()
+local co = ai.ActiveSkins[iv]
+if not co or co == "Default" then return end
+local prefix = fs .. "_" .. fb(co) .. "_"
+for key, id in pairs(b) do
+if type(key) == "string" and type(id) == "string" and key:sub(1, #prefix) == prefix then
+pcall(function()
+local tmp = Instance.new("Animation")
+tmp.AnimationId = id
+local tr = be:LoadAnimation(tmp)
+task.delay(0.6, function()
+pcall(function() tr:Destroy() end)
+pcall(function() tmp:Destroy() end)
+end)
+end)
+task.wait()
+end
+end
+end)
 end
 task.spawn(function()
 local ii = workspace:WaitForChild("ViewModels", 15)
@@ -26917,7 +26829,7 @@ dj.ChildAdded:Connect(hu)
 end)
 
 
-
+-- ========== NEXUS SFX / ANIM BOOST ==========
 task.spawn(function()
 	task.wait(1.2)
 	pcall(function()
@@ -26928,7 +26840,7 @@ task.spawn(function()
 					local nw = map[fc.SoundId]
 					if nw then fc.SoundId = nw end
 				elseif fc:IsA("ParticleEmitter") or fc:IsA("Trail") or fc:IsA("Beam") then
-					fc.Enabled = true
+					fc.Enabled = fc.Enabled
 				end
 			end
 		end
@@ -26941,15 +26853,19 @@ task.spawn(function()
 				if type(nexusFixPrimary) == "function" then nexusFixPrimary(mdl) end
 				if type(nexusHideBlockParts) == "function" then nexusHideBlockParts(mdl) end
 				if type(az) == "table" then remap(mdl, az) end
+				for _, fc in ipairs(mdl:GetDescendants()) do
+					if fc:IsA("Sound") then nexusWatchSound(fc) end
+				end
+				if type(dz) == "table" then dz[mdl] = nil end
 				local ix = mdl.Name:match("^.+ %- (.+) %- .+$")
 				if ix and type(dt) == "function" and type(ap) == "table" and ap[ix] then
 					pcall(dt, mdl, ix)
 				end
-				
+				-- re-enable skin FX
 				pcall(function()
 					for _, d in ipairs(mdl:GetDescendants()) do
 						if d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") then
-							d.Enabled = true
+							d.Enabled = d.Enabled
 						end
 					end
 				end)
@@ -26958,27 +26874,34 @@ task.spawn(function()
 		for _, c in ipairs(fp:GetChildren()) do onVM(c) end
 		fp.ChildAdded:Connect(onVM)
 		vm.DescendantAdded:Connect(function(fc)
-			if fc:IsA("Sound") and type(az) == "table" then
-				local cur = fc.SoundId
-				local orig = nil
-				local last = nil
-				pcall(function()
-					orig = fc:GetAttribute("NexusOrigSoundId")
-					last = fc:GetAttribute("NexusLastSoundId")
-				end)
-				if orig == nil or (cur ~= orig and cur ~= last) then
-					orig = cur
-					pcall(function() fc:SetAttribute("NexusOrigSoundId", cur) end)
-				end
-				local nw = az[orig]
-				if nw and nw ~= cur then
-					fc.SoundId = nw
-					pcall(function() fc:SetAttribute("NexusLastSoundId", nw) end)
-				end
+			if fc:IsA("Sound") then
+				task.defer(function() nexusWatchSound(fc) end)
 			end
 		end)
+		pcall(function()
+			game:GetService("SoundService").DescendantAdded:Connect(function(fc)
+				if fc:IsA("Sound") then
+					task.defer(function() nexusWatchSound(fc) end)
+				end
+			end)
+		end)
+		pcall(function()
+			local function hookChar(chr)
+				if not chr then return end
+				chr.DescendantAdded:Connect(function(fc)
+					if fc:IsA("Sound") then
+						task.defer(function() nexusWatchSound(fc) end)
+					end
+				end)
+				for _, fc in ipairs(chr:GetDescendants()) do
+					if fc:IsA("Sound") then nexusWatchSound(fc) end
+				end
+			end
+			if k.Character then hookChar(k.Character) end
+			k.CharacterAdded:Connect(hookChar)
+		end)
 	end)
-	
+	-- periodic SFX fix
 	while task.wait(0.6) do
 		pcall(function()
 			if type(as) == "string" and as ~= "" and type(az) == "table" and type(fk) == "function" then
@@ -27189,6 +27112,7 @@ do
 		end)
 	end
 end
+print("[Nexus Ultra] ready")
 ]==],
 [5] = [=[
 if getgenv().NexusMM2Unload then
@@ -36777,6 +36701,26 @@ local function FindGunDrop(forceScan)
 end
 local CoinContainerCache = nil
 local LastCoinContainerScan = 0
+local CoinIgnore = {}
+local function HasCoinName(obj)
+	local cur = obj
+	for _ = 1, 4 do
+		if not cur then break end
+		if string.find(string.lower(cur.Name), "coin", 1, true) then
+			return true
+		end
+		cur = cur.Parent
+	end
+	return false
+end
+local function IsCoinCandidate(obj)
+	if not obj:IsA("BasePart") then return false end
+	if obj.Transparency >= 0.9 then return false end
+	if obj:FindFirstAncestorOfClass("Tool") then return false end
+	local expire = CoinIgnore[obj]
+	if expire and os.clock() < expire then return false end
+	return HasCoinName(obj)
+end
 local function FindNearestCoin()
 	if not RootPart then
 		return nil
@@ -36793,14 +36737,11 @@ local function FindNearestCoin()
 	local best = nil
 	local bestDistance = math.huge
 	for _, obj in ipairs(searchRoot:GetDescendants()) do
-		if obj:IsA("BasePart") then
-			local lowerName = string.lower(obj.Name)
-			if CoinContainerCache or string.find(lowerName, "coin", 1, true) then
-				local distance = (obj.Position - RootPart.Position).Magnitude
-				if distance < bestDistance then
-					bestDistance = distance
-					best = obj
-				end
+		if IsCoinCandidate(obj) then
+			local distance = (obj.Position - RootPart.Position).Magnitude
+			if distance < bestDistance then
+				bestDistance = distance
+				best = obj
 			end
 		end
 	end
@@ -38005,8 +37946,9 @@ local function ScanSkinDatabase()
 				local entry = {}
 				readEntry(data, entry)
 				local meshDigits = entry.Mesh and string.match(tostring(entry.Mesh), "%d+")
-				if meshDigits and entry.ItemType then
-					local preset = {Name = tostring(itemName), Mesh = meshDigits, Texture = entry.Texture and string.match(tostring(entry.Texture), "%d+") or nil}
+				local textureDigits = entry.Texture and string.match(tostring(entry.Texture), "%d+")
+				if meshDigits and textureDigits and entry.ItemType then
+					local preset = {Name = tostring(itemName), Mesh = meshDigits, Texture = textureDigits}
 					local lt = string.lower(entry.ItemType)
 					if string.find(lt, "knife", 1, true) then
 						table.insert(foundKnife, preset)
@@ -38114,6 +38056,7 @@ local function ApplySkinToHandle(handle, meshId, textureId, chroma)
 		return
 	end
 	BackupSkinHandle(handle)
+	local info = SkinBackups[handle]
 	local meshContent = SkinContentId(meshId)
 	local textureContent = SkinContentId(textureId)
 	pcall(function()
@@ -38136,6 +38079,17 @@ local function ApplySkinToHandle(handle, meshId, textureId, chroma)
 				special.TextureId = textureContent
 			end
 		end)
+	end
+	if textureContent then
+		local appearance = handle:FindFirstChildOfClass("SurfaceAppearance")
+		if appearance then
+			if info and not info.SurfaceAppearance then
+				info.SurfaceAppearance = appearance
+			end
+			pcall(function()
+				appearance.Parent = nil
+			end)
+		end
 	end
 	if chroma then
 		pcall(function()
@@ -38161,6 +38115,9 @@ local function RestoreSkinHandle(handle)
 			info.SpecialMesh.MeshId = info.SpecialMeshId
 			info.SpecialMesh.TextureId = info.SpecialTextureId
 		end
+		if info.SurfaceAppearance then
+			info.SurfaceAppearance.Parent = handle
+		end
 		handle.Color = info.Color
 	end)
 end
@@ -38169,10 +38126,59 @@ local function RestoreAllSkins()
 		RestoreSkinHandle(handle)
 	end
 end
+local function PartHasSkinMesh(part)
+	local ok = false
+	pcall(function()
+		if part:IsA("MeshPart") and part.MeshId ~= "" and part.MeshId ~= "rbxassetid://0" then
+			ok = true
+		end
+	end)
+	if ok then
+		return true
+	end
+	local special = part:FindFirstChildOfClass("SpecialMesh")
+	if special then
+		pcall(function()
+			if special.MeshId ~= "" then
+				ok = true
+			end
+		end)
+	end
+	return ok
+end
+local function CollectToolVisualParts(tool)
+	local parts = {}
+	if not tool then
+		return parts
+	end
+	local handle = tool:FindFirstChild("Handle")
+	if handle and handle:IsA("BasePart") and PartHasSkinMesh(handle) then
+		table.insert(parts, handle)
+		return parts
+	end
+	for _, d in ipairs(tool:GetDescendants()) do
+		if d:IsA("BasePart") and PartHasSkinMesh(d) then
+			table.insert(parts, d)
+		end
+	end
+	if #parts == 0 and handle and handle:IsA("BasePart") then
+		table.insert(parts, handle)
+	end
+	return parts
+end
+local function ReadToolSkin(tool)
+	for _, part in ipairs(CollectToolVisualParts(tool)) do
+		local meshId, textureId = ReadHandleSkin(part)
+		if meshId then
+			return meshId, textureId
+		end
+	end
+	return nil, nil
+end
 local function RestoreWeaponSkin(role)
-	local handle = GetToolHandle(FindToolByRole(LocalPlayer, role, false))
-	if handle then
-		RestoreSkinHandle(handle)
+	local tool = FindToolByRole(LocalPlayer, role, false)
+	for _, part in ipairs(CollectToolVisualParts(tool)) do
+		RestoreSkinHandle(part)
 	end
 end
 local function ResolveKnifeSkin()
@@ -38205,30 +38211,55 @@ local function ResolveGunSkin()
 	local chroma = State.SkinChroma or (preset ~= nil and string.find(string.lower(tostring(preset.Name)), "chroma", 1, true) ~= nil)
 	return meshId, textureId, chroma
 end
+local function ApplySkinToTool(tool, meshId, textureId, chroma)
+	for _, part in ipairs(CollectToolVisualParts(tool)) do
+		ApplySkinToHandle(part, meshId, textureId, chroma)
+	end
+end
 local function UpdateSkinChanger()
 	if State.KnifeSkinEnabled then
-		local handle = GetToolHandle(FindToolByRole(LocalPlayer, "Murderer", false))
-		if handle then
+		local tool = FindToolByRole(LocalPlayer, "Murderer", false)
+		if tool then
 			local meshId, textureId, chroma = ResolveKnifeSkin()
 			if meshId or textureId then
-				ApplySkinToHandle(handle, meshId, textureId, chroma)
+				ApplySkinToTool(tool, meshId, textureId, chroma)
 			else
-				RestoreSkinHandle(handle)
+				RestoreWeaponSkin("Murderer")
 			end
 		end
 	end
 	if State.GunSkinEnabled then
-		local handle = GetToolHandle(FindToolByRole(LocalPlayer, "Sheriff", false))
-		if handle then
+		local tool = FindToolByRole(LocalPlayer, "Sheriff", false)
+		if tool then
 			local meshId, textureId, chroma = ResolveGunSkin()
 			if meshId or textureId then
-				ApplySkinToHandle(handle, meshId, textureId, chroma)
+				ApplySkinToTool(tool, meshId, textureId, chroma)
 			else
-				RestoreSkinHandle(handle)
+				RestoreWeaponSkin("Sheriff")
 			end
 		end
 	end
 end
+local function BindSkinWatch(container)
+	if not container then
+		return
+	end
+	Connect(container.ChildAdded:Connect(function(child)
+		if child and child:IsA("Tool") then
+			task.defer(UpdateSkinChanger)
+			task.delay(0.3, UpdateSkinChanger)
+			task.delay(1, UpdateSkinChanger)
+		end
+	end))
+end
+BindSkinWatch(LocalPlayer:FindFirstChildOfClass("Backpack"))
+if Character then
+	BindSkinWatch(Character)
+end
+Connect(LocalPlayer.CharacterAdded:Connect(function(char)
+	BindSkinWatch(char)
+	task.defer(UpdateSkinChanger)
+end))
 local SkinBox = Tabs.Tools:AddLeftGroupbox("Skin Changer")
 SkinBox:AddToggle("KnifeSkinEnabled", {
 	Text = "Knife skin changer",
@@ -38286,8 +38317,7 @@ SkinBox:AddButton({
 	Func = function()
 		UpdateESP()
 		local target = RoleSummary.Murderer
-		local handle = target and GetToolHandle(FindToolByRole(target, "Murderer", false))
-		local meshId, textureId = ReadHandleSkin(handle)
+		local meshId, textureId = ReadToolSkin(target and FindToolByRole(target, "Murderer", false))
 		if meshId then
 			CopiedKnifePreset.Mesh = meshId
 			CopiedKnifePreset.Texture = textureId
@@ -38342,8 +38372,7 @@ GunSkinBox:AddButton({
 	Func = function()
 		UpdateESP()
 		local target = RoleSummary.Sheriff
-		local handle = target and GetToolHandle(FindToolByRole(target, "Sheriff", false))
-		local meshId, textureId = ReadHandleSkin(handle)
+		local meshId, textureId = ReadToolSkin(target and FindToolByRole(target, "Sheriff", false))
 		if meshId then
 			CopiedGunPreset.Mesh = meshId
 			CopiedGunPreset.Texture = textureId
@@ -38373,7 +38402,75 @@ GunSkinBox:AddButton({
 		Notify("Original skins restored", 3)
 	end,
 })
-GunSkinBox:AddLabel("Skins are visual on your screen only. Game database skins found: " .. tostring(ScannedSkinCount) .. ". Use Copy to grab any godly you see in a match, or paste your own Mesh/Texture IDs.", true)
+GunSkinBox:AddButton({
+	Text = "Debug: dump my tools",
+	Func = function()
+		local lines = {}
+		local function log(text)
+			table.insert(lines, text)
+		end
+		log("=== MM2 SKIN DEBUG ===")
+		log("KnifeEnabled=" .. tostring(State.KnifeSkinEnabled) .. " preset=" .. tostring(State.KnifeSkinPreset) .. " mesh=" .. tostring(State.KnifeSkinMesh) .. " texture=" .. tostring(State.KnifeSkinTexture))
+		local knifeMesh, knifeTexture = ResolveKnifeSkin()
+		log("Resolved knife mesh=" .. tostring(knifeMesh) .. " texture=" .. tostring(knifeTexture))
+		log("GunEnabled=" .. tostring(State.GunSkinEnabled) .. " preset=" .. tostring(State.GunSkinPreset))
+		local gunMesh, gunTexture = ResolveGunSkin()
+		log("Resolved gun mesh=" .. tostring(gunMesh) .. " texture=" .. tostring(gunTexture))
+		log("Database skins scanned=" .. tostring(ScannedSkinCount))
+		local function dumpContainer(container, label)
+			if not container then
+				log(label .. ": none")
+				return
+			end
+			local foundTool = false
+			for _, tool in ipairs(container:GetChildren()) do
+				if tool:IsA("Tool") then
+					foundTool = true
+					log(label .. " Tool: " .. tool.Name .. " [" .. tool.ClassName .. "]")
+					local visualParts = CollectToolVisualParts(tool)
+					log("  visual parts: " .. tostring(#visualParts))
+					for _, d in ipairs(tool:GetDescendants()) do
+						local extra = ""
+						pcall(function()
+							if d:IsA("MeshPart") then
+								extra = " MeshId=" .. tostring(d.MeshId) .. " TextureID=" .. tostring(d.TextureID)
+							elseif d:IsA("SpecialMesh") then
+								extra = " SpecialMesh MeshId=" .. tostring(d.MeshId) .. " TextureId=" .. tostring(d.TextureId)
+							elseif d:IsA("SurfaceAppearance") then
+								extra = " (SurfaceAppearance)"
+							end
+						end)
+						log("  - " .. d.Name .. " [" .. d.ClassName .. "]" .. extra)
+					end
+				end
+			end
+			if not foundTool then
+				log(label .. ": no tools")
+			end
+		end
+		dumpContainer(Character, "Character")
+		dumpContainer(LocalPlayer:FindFirstChildOfClass("Backpack"), "Backpack")
+		for _, line in ipairs(lines) do
+			print(line)
+		end
+		local report = table.concat(lines, "\n")
+		pcall(function()
+			if typeof(setclipboard) == "function" then
+				setclipboard(report)
+			end
+		end)
+		pcall(function()
+			if typeof(writefile) == "function" then
+				if typeof(makefolder) == "function" and typeof(isfolder) == "function" and not isfolder("ApexEngine") then
+					makefolder("ApexEngine")
+				end
+				writefile("ApexEngine/MM2_skin_debug.txt", report)
+			end
+		end)
+		Notify("Skin debug printed and copied to clipboard. Paste the report to the developer.", 5)
+	end,
+})
+GunSkinBox:AddLabel("Skins apply in-round while the weapon exists (Murderer knife / Sheriff gun in hand or Backpack) and are visual on your screen only. Database skins found: " .. tostring(ScannedSkinCount) .. ". If a skin does not show, hold the weapon, press Debug and send the copied report.", true)
 local ToolsLeft = Tabs.Tools:AddLeftGroupbox("Tools")
 local ToolsRight = Tabs.Tools:AddRightGroupbox("Server")
 ToolsLeft:AddToggle("AntiAFK", {
@@ -38641,6 +38738,8 @@ local function UpdateMM2Pro()
 end
 local CoinPathService = game:GetService("PathfindingService")
 local CoinWalkActive = false
+local LastTPCoin = nil
+local LastTPAt = 0
 local function StopCoinWalk()
 	if CoinWalkActive and Humanoid and RootPart then
 		pcall(function()
@@ -38650,7 +38749,7 @@ local function StopCoinWalk()
 	CoinWalkActive = false
 end
 local function CoinWalkOk(coin)
-	return not State.Unloaded and State.AutoCoin and State.CoinMode == "Walk" and RootPart ~= nil and RootPart.Parent ~= nil and Humanoid ~= nil and Humanoid.Health > 0 and coin ~= nil and coin.Parent ~= nil and not (State.CoinSafeMode and IsMurdererNear(RootPart.Position, 22))
+	return not State.Unloaded and State.AutoCoin and State.CoinMode == "Walk" and RootPart ~= nil and RootPart.Parent ~= nil and Humanoid ~= nil and Humanoid.Health > 0 and coin ~= nil and coin.Parent ~= nil and coin.Transparency < 0.9 and not (State.CoinSafeMode and IsMurdererNear(RootPart.Position, 22))
 end
 local function WalkToCoin(coin)
 	local targetPos = coin.Position
@@ -38671,6 +38770,7 @@ local function WalkToCoin(coin)
 	CoinWalkActive = true
 	local lastPos = RootPart.Position
 	local stuckClock = os.clock()
+	local stuckCount = 0
 	for _, waypoint in ipairs(waypoints) do
 		if not CoinWalkOk(coin) then
 			StopCoinWalk()
@@ -38685,7 +38785,11 @@ local function WalkToCoin(coin)
 		local waypointStart = os.clock()
 		while CoinWalkOk(coin) do
 			task.wait(0.1)
-			if not RootPart or (RootPart.Position - waypoint.Position).Magnitude <= 2.5 then
+			if not RootPart then
+				break
+			end
+			local flatDelta = Vector3.new(RootPart.Position.X - waypoint.Position.X, 0, RootPart.Position.Z - waypoint.Position.Z)
+			if flatDelta.Magnitude <= 3 then
 				break
 			end
 			if os.clock() - waypointStart > 4 then
@@ -38694,12 +38798,17 @@ local function WalkToCoin(coin)
 			if (RootPart.Position - lastPos).Magnitude > 1.5 then
 				lastPos = RootPart.Position
 				stuckClock = os.clock()
+				stuckCount = 0
 			elseif os.clock() - stuckClock > 1.6 then
 				pcall(function()
 					Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
 				end)
 				lastPos = RootPart.Position
 				stuckClock = os.clock()
+				stuckCount += 1
+				if stuckCount >= 2 then
+					return
+				end
 			end
 		end
 	end
@@ -38715,6 +38824,9 @@ task.spawn(function()
 				if coin then
 					if (coin.Position - RootPart.Position).Magnitude > 2.5 then
 						WalkToCoin(coin)
+						if coin and coin.Parent and RootPart and (coin.Position - RootPart.Position).Magnitude <= 5 then
+							CoinIgnore[coin] = os.clock() + 4
+						end
 					end
 				else
 					StopCoinWalk()
@@ -39202,11 +39314,20 @@ task.spawn(function()
 			local coin = FindNearestCoin()
 			if coin then
 				didWork = true
-				pcall(function()
-					RootPart.CFrame = coin.CFrame + Vector3.new(0, 1, 0)
-					RootPart.AssemblyLinearVelocity = Vector3.zero
-				end)
-				task.wait(math.clamp(State.CoinDelay / 1000, 0.04, 0.5))
+				if coin == LastTPCoin then
+					if os.clock() - LastTPAt >= 0.8 then
+						CoinIgnore[coin] = os.clock() + 5
+						LastTPCoin = nil
+					end
+				else
+					LastTPCoin = coin
+					LastTPAt = os.clock()
+					pcall(function()
+						RootPart.CFrame = coin.CFrame + Vector3.new(0, 1, 0)
+						RootPart.AssemblyLinearVelocity = Vector3.zero
+					end)
+					task.wait(math.clamp(State.CoinDelay / 1000, 0.04, 0.5))
+				end
 			end
 		end
 		if not State.Unloaded and State.AutoGrabGun and RootPart then
@@ -62995,6 +63116,2074 @@ Tab:AddToggle({
     end
 })
 ]=],
+[8] = [=[
+-- Nexus Blox Fruits v1.1
+-- Standalone script. Menu key: RightShift. Fully self-contained (no external libraries).
+
+local env = (getgenv and getgenv()) or _G
+if env.NexusBF and env.NexusBF.Unload then
+	pcall(env.NexusBF.Unload)
+end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+local StarterGui = game:GetService("StarterGui")
+
+local LP = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+local S = {
+	Farming = false,
+	FarmMode = "Level (Quest)",
+	SelectedMob = "",
+	AutoQuest = true,
+	FarmHeight = 9,
+	TweenSpeed = 170,
+	BringMobs = false,
+	CameraAim = true,
+	KillAura = false,
+	KillAuraRange = 45,
+	AttackSpeed = 0.12,
+	Weapon = "Auto (First Tool)",
+	SkillZ = false, SkillX = false, SkillC = false, SkillV = false, SkillF = false,
+	SkillCooldown = 1.2,
+	AutoHaki = false,
+	HakiKey = "J",
+	AutoInstinct = false,
+	InstinctKey = "K",
+	FruitESP = false,
+	FruitSniper = false,
+	AutoRandomFruit = false,
+	RandomFruitDelay = 30,
+	AutoStats = false,
+	StatMelee = true, StatDefense = true, StatSword = false, StatGun = false, StatFruit = false,
+	StatPoints = 3,
+	Fly = false,
+	FlySpeed = 90,
+	NoClip = false,
+	PlayerMods = false,
+	WalkSpeed = 60,
+	JumpPower = 80,
+	InfiniteEnergy = false,
+	PlayerESP = false,
+	ChestFarm = false,
+	Aimbot = false,
+	AimbotPart = "Head",
+	AimbotFOV = 200,
+	AimPrediction = 0.12,
+	AntiAFK = true,
+	FPSBoost = false,
+	TPLocation = "",
+	TPNpc = "",
+	TPBoss = "",
+}
+
+local State = {
+	Unloaded = false,
+	Connections = {},
+	CurrentTarget = nil,
+	TweenId = 0,
+	TweenBusy = false,
+	LastQuestTry = 0,
+	QuestBlacklistUntil = 0,
+	WasOnQuest = false,
+	MobPosCache = {},
+	ESPObjects = {},
+	FruitESPObjects = {},
+	CachedFruits = {},
+	LastSnipeObject = nil,
+	OrigWalkSpeed = 16,
+	OrigJumpPower = 50,
+	OrigShadows = nil,
+	SavedParticles = {},
+	CollisionsOff = false,
+	VisitedChests = {},
+	ChestCache = {},
+	ChestCacheTime = -10,
+	ChestsCollected = 0,
+	StatIndex = 0,
+	LastBring = 0,
+}
+
+local function Connect(signal, fn)
+	local c = signal:Connect(fn)
+	table.insert(State.Connections, c)
+	return c
+end
+
+local function Notify(title, text)
+	pcall(function()
+		StarterGui:SetCore("SendNotification", { Title = title, Text = text, Duration = 4 })
+	end)
+end
+
+local function GetChar()
+	local c = LP.Character
+	if c and c.Parent then return c end
+	return nil
+end
+
+local function GetRoot()
+	local c = GetChar()
+	return c and c:FindFirstChild("HumanoidRootPart") or nil
+end
+
+local function GetHumanoid()
+	local c = GetChar()
+	return c and c:FindFirstChildOfClass("Humanoid") or nil
+end
+
+local function GetLevel()
+	local ok, v = pcall(function() return LP.Data.Level.Value end)
+	if ok and type(v) == "number" then return v end
+	local ls = LP:FindFirstChild("leaderstats")
+	if ls then
+		local lv = ls:FindFirstChild("Level")
+		if lv then return lv.Value end
+	end
+	return 1
+end
+
+local CommF = nil
+local function GetCommF()
+	if CommF and CommF.Parent then return CommF end
+	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+	if remotes then
+		CommF = remotes:FindFirstChild("CommF_")
+	end
+	return CommF
+end
+
+local function InvokeCommF(...)
+	local remote = GetCommF()
+	if not remote then return nil end
+	local ok, res = pcall(function(...) return remote:InvokeServer(...) end, ...)
+	if ok then return res end
+	return nil
+end
+
+-- Quest progression: { minLevel, questId, tier, mobName }
+local QUESTS = {
+	{1,"BanditQuest1",1,"Bandit"},{10,"JungleQuest",1,"Monkey"},{15,"JungleQuest",2,"Gorilla"},
+	{30,"BuggyQuest1",1,"Pirate"},{40,"BuggyQuest1",2,"Brute"},{60,"DesertQuest",1,"Desert Bandit"},
+	{75,"DesertQuest",2,"Desert Officer"},{90,"SnowQuest",1,"Snow Bandit"},{100,"SnowQuest",2,"Snowman"},
+	{120,"MarineQuest2",1,"Chief Petty Officer"},{130,"MarineQuest2",2,"Vice Admiral"},
+	{150,"SkyQuest",1,"Sky Bandit"},{175,"SkyQuest",2,"Dark Master"},
+	{190,"PrisonerQuest",1,"Prisoner"},{210,"PrisonerQuest",2,"Dangerous Prisoner"},
+	{250,"ColosseumQuest",1,"Toga Warrior"},{275,"ColosseumQuest",2,"Gladiator"},
+	{300,"MagmaQuest",1,"Military Soldier"},{325,"MagmaQuest",2,"Military Spy"},
+	{375,"FishmanQuest",1,"Fishman Warrior"},{400,"FishmanQuest",2,"Fishman Commando"},
+	{450,"SkyExp1Quest",1,"God's Guard"},{475,"SkyExp1Quest",2,"Shanda"},
+	{525,"SkyExp2Quest",1,"Royal Squad"},{550,"SkyExp2Quest",2,"Royal Soldier"},
+	{625,"FountainQuest",1,"Galley Pirate"},{650,"FountainQuest",2,"Galley Captain"},
+	{700,"Area1Quest",1,"Raider"},{725,"Area1Quest",2,"Mercenary"},
+	{775,"Area2Quest",1,"Swan Pirate"},{800,"Area2Quest",2,"Factory Staff"},
+	{875,"MarineQuest3",1,"Marine Lieutenant"},{900,"MarineQuest3",2,"Marine Captain"},
+	{950,"ZombieQuest",1,"Zombie"},{975,"ZombieQuest",2,"Vampire"},
+	{1000,"SnowMountainQuest",1,"Snow Trooper"},{1050,"SnowMountainQuest",2,"Winter Warrior"},
+	{1100,"IceSideQuest",1,"Lab Subordinate"},{1125,"IceSideQuest",2,"Horned Warrior"},
+	{1175,"FireSideQuest",1,"Magma Ninja"},{1200,"FireSideQuest",2,"Lava Pirate"},
+	{1250,"ShipQuest1",1,"Ship Deckhand"},{1275,"ShipQuest1",2,"Ship Engineer"},
+	{1300,"ShipQuest2",1,"Ship Steward"},{1325,"ShipQuest2",2,"Ship Officer"},
+	{1350,"FrostQuest",1,"Arctic Warrior"},{1375,"FrostQuest",2,"Snow Lurker"},
+	{1425,"ForgottenQuest",1,"Sea Soldier"},{1450,"ForgottenQuest",2,"Water Fighter"},
+	{1500,"PiratePortQuest",1,"Pirate Millionaire"},{1525,"PiratePortQuest",2,"Pistol Billionaire"},
+	{1575,"DragonCrewQuest",1,"Dragon Crew Warrior"},
+	{1700,"VenomCrewQuest",4,"Marine Commodore"},{1725,"VenomCrewQuest",5,"Marine Rear Admiral"},
+	{1775,"VenomCrewQuest",7,"Fishman Raider"},{1800,"VenomCrewQuest",8,"Fishman Captain"},
+	{1825,"VenomCrewQuest",9,"Forest Pirate"},{1850,"VenomCrewQuest",10,"Mythological Pirate"},
+	{1900,"VenomCrewQuest",12,"Jungle Pirate"},{1925,"VenomCrewQuest",13,"Musketeer Pirate"},
+	{1975,"HauntedQuest1",1,"Reborn Skeleton"},{2000,"HauntedQuest1",2,"Living Zombie"},
+	{2050,"HauntedQuest2",2,"Posessed Mummy"},
+	{2075,"NutsIslandQuest",1,"Peanut Scout"},{2100,"NutsIslandQuest",2,"Peanut President"},
+	{2125,"IceCreamIslandQuest",1,"Ice Cream Chef"},{2150,"IceCreamIslandQuest",2,"Ice Cream Commander"},
+	{2250,"CakeQuest2",1,"Baking Staff"},{2275,"CakeQuest2",2,"Head Baker"},
+	{2300,"ChocQuest1",1,"Cocoa Warrior"},{2325,"ChocQuest1",2,"Chocolate Bar Battler"},
+	{2350,"ChocQuest2",1,"Sweet Thief"},{2375,"ChocQuest2",2,"Candy Rebel"},
+	{2400,"CandyQuest1",1,"Candy Pirate"},{2425,"CandyQuest1",2,"Snow Demon"},
+	{2450,"TikiQuest1",1,"Isle Outlaw"},{2475,"TikiQuest1",2,"Island Boy"},
+	{2500,"TikiQuest2",1,"Sun-kissed Warrior"},{2525,"TikiQuest2",2,"Isle Champion"},
+	{2550,"TikiQuest3",1,"Serpent Hunter"},{2575,"TikiQuest3",2,"Skull Slayer"},
+	{2600,"SubmergedQuest1",1,"Reef Bandit"},{2625,"SubmergedQuest1",2,"Coral Pirate"},
+	{2650,"SubmergedQuest2",1,"Sea Chanter"},{2675,"SubmergedQuest2",2,"Ocean Prophet"},
+	{2700,"SubmergedQuest3",2,"Grand Devotee"},
+}
+
+-- Boss spawn positions (in-world facts)
+local BOSSES = {
+	{"Chef",55,Vector3.new(-1120.5,54.7,4121.2)},{"Yeti",110,Vector3.new(1181.7,104.0,-1616.9)},
+	{"Mob Boss",120,Vector3.new(-2880.7,6.7,5430.9)},{"Saber Expert",200,Vector3.new(-1527.2,34.1,-33.2)},
+	{"Warden",230,Vector3.new(5623.2,1.4,733.8)},{"Magma General",350,Vector3.new(-5625.7,55.4,8623.0)},
+	{"Fishman Lord",425,Vector3.new(61352.9,67.2,1029.1)},{"Sky Warlord",500,Vector3.new(-6271.6,5472.8,1887.8)},
+	{"Cyborg",675,Vector3.new(6252.4,9.3,4941.4)},{"Ice Admiral",700,Vector3.new(1212.4,20.4,-1429.6)},
+	{"Diamond",750,Vector3.new(-1711.4,206.0,-97.1)},{"Jeremy",850,Vector3.new(2338.0,451.4,700.1)},
+	{"Smoke Admiral",1150,Vector3.new(-4857.4,233.7,-5583.2)},{"Awakened Ice Admiral",1400,Vector3.new(6551.8,325.3,-6989.9)},
+	{"rip_indra",1500,Vector3.new(-26952.3,21.5,329.4)},{"Kilo Admiral",1750,Vector3.new(2998.3,508.8,-7344.3)},
+	{"Captain Elephant",1875,Vector3.new(-13365.5,321.2,-8485.0)},{"Longma",2000,Vector3.new(-10156.2,337.8,-9445.9)},
+	{"Cake Queen",2175,Vector3.new(-678.5,381.9,-11114.3)},{"Cake Prince",2200,Vector3.new(-2089.9,4536.9,-14800.0)},
+}
+
+local BOSS_NAMES = {}
+for _, b in ipairs(BOSSES) do BOSS_NAMES[b[1]] = true end
+
+local function GetQuestForLevel(level)
+	local best = QUESTS[1]
+	for _, q in ipairs(QUESTS) do
+		if level >= q[1] then best = q else break end
+	end
+	return best
+end
+
+local function BaseMobName(name)
+	local n = tostring(name)
+	n = n:gsub("%s*%[.*%]$", "")
+	n = n:gsub("^%s+", ""):gsub("%s+$", "")
+	return n
+end
+
+local function NormalizeMobName(name)
+	local n = BaseMobName(name):lower()
+	n = n:gsub("['%s%-_]", "")
+	return n
+end
+
+local function MobNameMatches(mobModelName, wanted)
+	if BaseMobName(mobModelName) == wanted then return true end
+	local a = NormalizeMobName(mobModelName)
+	local b = NormalizeMobName(wanted)
+	if a == b then return true end
+	if #a > 3 and #b > 3 and (a:find(b, 1, true) or b:find(a, 1, true)) then return true end
+	return false
+end
+
+local function GetEnemies()
+	local folder = Workspace:FindFirstChild("Enemies")
+	local list = {}
+	if folder then
+		for _, m in ipairs(folder:GetChildren()) do
+			if m:IsA("Model") then
+				local hum = m:FindFirstChildOfClass("Humanoid")
+				local root = m:FindFirstChild("HumanoidRootPart")
+				if hum and root and hum.Health > 0 then
+					table.insert(list, m)
+				end
+			end
+		end
+	end
+	return list
+end
+
+local function FindMobByName(wantedName)
+	local root = GetRoot()
+	local best, bestDist = nil, math.huge
+	for _, m in ipairs(GetEnemies()) do
+		if MobNameMatches(m.Name, wantedName) then
+			local mr = m:FindFirstChild("HumanoidRootPart")
+			if mr then
+				State.MobPosCache[BaseMobName(m.Name)] = mr.Position
+				if root then
+					local d = (mr.Position - root.Position).Magnitude
+					if d < bestDist then bestDist = d; best = m end
+				elseif not best then
+					best = m
+				end
+			end
+		end
+	end
+	return best
+end
+
+local function FindNearestMob(maxDist)
+	local root = GetRoot()
+	if not root then return nil end
+	local best, bestDist = nil, maxDist or math.huge
+	for _, m in ipairs(GetEnemies()) do
+		local mr = m:FindFirstChild("HumanoidRootPart")
+		if mr then
+			local d = (mr.Position - root.Position).Magnitude
+			if d < bestDist then bestDist = d; best = m end
+		end
+	end
+	return best
+end
+
+local function FindStrongestMob()
+	-- Prefer known bosses that are actually spawned; otherwise highest MaxHealth.
+	local bossBest, bossHp = nil, 0
+	local anyBest, anyHp = nil, 0
+	for _, m in ipairs(GetEnemies()) do
+		local hum = m:FindFirstChildOfClass("Humanoid")
+		if hum then
+			if hum.MaxHealth > anyHp then anyHp = hum.MaxHealth; anyBest = m end
+			if BOSS_NAMES[BaseMobName(m.Name)] and hum.MaxHealth > bossHp then
+				bossHp = hum.MaxHealth; bossBest = m
+			end
+		end
+	end
+	return bossBest or anyBest
+end
+
+local function GetMobSpawnPos(wantedName)
+	local cached = State.MobPosCache[wantedName]
+	if cached then return cached + Vector3.new(0, S.FarmHeight, 0) end
+	for cachedName, pos in pairs(State.MobPosCache) do
+		if MobNameMatches(cachedName, wantedName) then
+			return pos + Vector3.new(0, S.FarmHeight, 0)
+		end
+	end
+	local origin = Workspace:FindFirstChild("_WorldOrigin")
+	if origin then
+		local spawns = origin:FindFirstChild("EnemySpawns")
+		if spawns then
+			local p = spawns:FindFirstChild(wantedName, true)
+			if p and p:IsA("BasePart") then return p.Position + Vector3.new(0, 8, 0) end
+		end
+		local anyPart = origin:FindFirstChild(wantedName, true)
+		if anyPart and anyPart:IsA("BasePart") then return anyPart.Position + Vector3.new(0, 8, 0) end
+	end
+	for _, b in ipairs(BOSSES) do
+		if b[1] == wantedName then return b[3] + Vector3.new(0, 10, 0) end
+	end
+	return nil
+end
+
+local function HasQuest()
+	local ok, res = pcall(function()
+		local main = LP.PlayerGui:FindFirstChild("Main")
+		if not main then return false end
+		local quest = main:FindFirstChild("Quest") or main:FindFirstChild("Quest", true)
+		if quest and quest:IsA("GuiObject") then return quest.Visible end
+		return false
+	end)
+	return ok and res == true
+end
+
+-- Input helpers (executor-native first where available, VirtualInputManager fallback) ---
+
+local function SendKey(keyName)
+	local ok = pcall(function()
+		local code = Enum.KeyCode[keyName]
+		VirtualInputManager:SendKeyEvent(true, code, false, game)
+		task.wait(0.05)
+		VirtualInputManager:SendKeyEvent(false, code, false, game)
+	end)
+	if ok then return end
+	pcall(function()
+		if keypress and keyrelease then
+			local vk = string.byte(string.upper(tostring(keyName)))
+			if vk then
+				keypress(vk)
+				task.wait(0.05)
+				keyrelease(vk)
+			end
+		end
+	end)
+end
+
+local function ClickAttack()
+	local usedNative = pcall(function()
+		if mouse1click then
+			mouse1click()
+			return
+		end
+		if mouse1press and mouse1release then
+			mouse1press()
+			mouse1release()
+			return
+		end
+		error("no native click")
+	end)
+	if usedNative then return end
+	pcall(function()
+		local vp = Camera.ViewportSize
+		VirtualInputManager:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, true, game, 0)
+		VirtualInputManager:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, false, game, 0)
+	end)
+end
+
+local function GetToolList()
+	local names = {}
+	local bp = LP:FindFirstChild("Backpack")
+	if bp then
+		for _, t in ipairs(bp:GetChildren()) do
+			if t:IsA("Tool") then table.insert(names, t.Name) end
+		end
+	end
+	local c = GetChar()
+	if c then
+		for _, t in ipairs(c:GetChildren()) do
+			if t:IsA("Tool") then table.insert(names, t.Name) end
+		end
+	end
+	return names
+end
+
+local function EquipSelectedWeapon()
+	local hum = GetHumanoid()
+	local c = GetChar()
+	if not hum or not c then return nil end
+	local equipped = c:FindFirstChildOfClass("Tool")
+	if S.Weapon ~= "Auto (First Tool)" then
+		if equipped and equipped.Name == S.Weapon then return equipped end
+		local bp = LP:FindFirstChild("Backpack")
+		local tool = bp and bp:FindFirstChild(S.Weapon)
+		if tool then
+			pcall(function() hum:EquipTool(tool) end)
+			return tool
+		end
+		return equipped
+	end
+	-- Auto: keep current tool if it is not a fruit; otherwise equip first non-fruit tool.
+	if equipped and not equipped.Name:find("Fruit") then return equipped end
+	local bp = LP:FindFirstChild("Backpack")
+	if bp then
+		for _, t in ipairs(bp:GetChildren()) do
+			if t:IsA("Tool") and not t.Name:find("Fruit") then
+				pcall(function() hum:EquipTool(t) end)
+				return t
+			end
+		end
+		local anyTool = bp:FindFirstChildOfClass("Tool")
+		if anyTool then
+			pcall(function() hum:EquipTool(anyTool) end)
+			return anyTool
+		end
+	end
+	return equipped
+end
+
+-- Movement -------------------------------------------------------------------
+
+local FarmPlatform = nil
+local function EnsurePlatform()
+	if FarmPlatform and FarmPlatform.Parent then return FarmPlatform end
+	FarmPlatform = Instance.new("Part")
+	FarmPlatform.Name = "NexusPlatform"
+	FarmPlatform.Size = Vector3.new(8, 1, 8)
+	FarmPlatform.Anchored = true
+	FarmPlatform.CanCollide = true
+	FarmPlatform.Transparency = 1
+	FarmPlatform.Parent = Workspace
+	return FarmPlatform
+end
+
+local function DestroyPlatform()
+	if FarmPlatform then pcall(function() FarmPlatform:Destroy() end); FarmPlatform = nil end
+end
+
+local FlyBV, FlyBG = nil, nil
+local function SetFly(on)
+	local root = GetRoot()
+	if on and root then
+		if not FlyBV then
+			FlyBV = Instance.new("BodyVelocity")
+			FlyBV.Name = "NexusFlyBV"
+			FlyBV.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+			FlyBV.P = 9000
+		end
+		if FlyBV.Parent ~= root then FlyBV.Parent = root end
+		if not FlyBG then
+			FlyBG = Instance.new("BodyGyro")
+			FlyBG.Name = "NexusFlyBG"
+			FlyBG.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+			FlyBG.P = 9000
+		end
+		if FlyBG.Parent ~= root then FlyBG.Parent = root end
+	else
+		if FlyBV then pcall(function() FlyBV:Destroy() end); FlyBV = nil end
+		if FlyBG then pcall(function() FlyBG:Destroy() end); FlyBG = nil end
+	end
+end
+
+local function TweenActive() return State.TweenBusy == true end
+
+local function CancelTween()
+	State.TweenId += 1
+	State.TweenBusy = false
+end
+
+local function TweenTo(targetPos, speed)
+	local root = GetRoot()
+	if not root or not targetPos then return false end
+	local hum = GetHumanoid()
+	if hum and hum.Sit then
+		pcall(function() hum.Sit = false end)
+		task.wait(0.1)
+		root = GetRoot()
+		if not root then return false end
+	end
+	State.TweenId += 1
+	local myId = State.TweenId
+	State.TweenBusy = true
+	speed = speed or S.TweenSpeed
+	while not State.Unloaded and State.TweenId == myId do
+		root = GetRoot()
+		if not root then break end
+		local pos = root.Position
+		local diff = targetPos - pos
+		local dist = diff.Magnitude
+		if dist < 4 then break end
+		local dt = RunService.Heartbeat:Wait()
+		local lookDir = diff.Unit
+		local step = math.min(dist, speed * dt)
+		local newPos = pos + lookDir * step
+		root.CFrame = CFrame.new(newPos, newPos + lookDir)
+		root.AssemblyLinearVelocity = Vector3.zero
+	end
+	if State.TweenId == myId then State.TweenBusy = false end
+	return State.TweenId == myId
+end
+
+local function InstantTeleport(pos)
+	local root = GetRoot()
+	if root and pos then
+		CancelTween()
+		root.CFrame = CFrame.new(pos)
+		root.AssemblyLinearVelocity = Vector3.zero
+	end
+end
+
+-- Character collision manager: snapshots original CanCollide so it can be restored exactly.
+local CollisionSnapshot = setmetatable({}, { __mode = "k" })
+local function SetCharacterCollisions(enabled)
+	local c = GetChar()
+	if not c then return end
+	for _, part in ipairs(c:GetDescendants()) do
+		if part:IsA("BasePart") then
+			if enabled then
+				local orig = CollisionSnapshot[part]
+				if orig ~= nil then part.CanCollide = orig end
+			else
+				if CollisionSnapshot[part] == nil then
+					CollisionSnapshot[part] = part.CanCollide
+				end
+				if part.CanCollide then part.CanCollide = false end
+			end
+		end
+	end
+end
+
+-- Config (loaded before the GUI is built so widgets reflect saved values) -----
+
+local ConfigFolder = "NexusBF"
+local ConfigFile = ConfigFolder .. "/config.json"
+
+pcall(function()
+	if readfile and isfile and isfile(ConfigFile) then
+		local data = HttpService:JSONDecode(readfile(ConfigFile))
+		if type(data) == "table" then
+			for k, v in pairs(data) do
+				if S[k] ~= nil and type(S[k]) == type(v) then S[k] = v end
+			end
+			S.Farming = false
+			S.ChestFarm = false
+			S.Fly = false
+		end
+	end
+end)
+
+-- GUI -------------------------------------------------------------------------
+
+local COLORS = {
+	Bg = Color3.fromRGB(16, 16, 22),
+	Panel = Color3.fromRGB(24, 24, 34),
+	Panel2 = Color3.fromRGB(30, 30, 42),
+	Accent = Color3.fromRGB(139, 92, 246),
+	Accent2 = Color3.fromRGB(167, 139, 250),
+	Text = Color3.fromRGB(235, 235, 245),
+	Dim = Color3.fromRGB(150, 150, 170),
+	Stroke = Color3.fromRGB(52, 52, 72),
+	On = Color3.fromRGB(139, 92, 246),
+	Off = Color3.fromRGB(58, 58, 74),
+}
+
+local function New(class, props, parent)
+	local obj = Instance.new(class)
+	for k, v in pairs(props or {}) do
+		if k ~= "Parent" then
+			pcall(function() obj[k] = v end)
+		end
+	end
+	if parent then obj.Parent = parent end
+	return obj
+end
+
+local function Corner(parent, radius)
+	return New("UICorner", { CornerRadius = UDim.new(0, radius or 8) }, parent)
+end
+
+local function Stroke(parent, color, thickness)
+	return New("UIStroke", { Color = color or COLORS.Stroke, Thickness = thickness or 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, parent)
+end
+
+do
+	local old = CoreGui:FindFirstChild("NexusBF") or LP.PlayerGui:FindFirstChild("NexusBF")
+	if old then pcall(function() old:Destroy() end) end
+end
+
+local Screen = New("ScreenGui", { Name = "NexusBF", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 999 })
+local okCore = pcall(function() Screen.Parent = CoreGui end)
+if not okCore or not Screen.Parent then Screen.Parent = LP:WaitForChild("PlayerGui") end
+
+local Main = New("Frame", {
+	Name = "Main", Size = UDim2.fromOffset(660, 440),
+	Position = UDim2.new(0.5, -330, 0.5, -220),
+	BackgroundColor3 = COLORS.Bg, BorderSizePixel = 0, Active = true,
+}, Screen)
+Corner(Main, 12)
+Stroke(Main, COLORS.Stroke, 1)
+
+local TopBar = New("Frame", {
+	Name = "TopBar", Size = UDim2.new(1, 0, 0, 44),
+	BackgroundColor3 = COLORS.Panel, BorderSizePixel = 0,
+}, Main)
+Corner(TopBar, 12)
+New("Frame", { Size = UDim2.new(1, 0, 0, 12), Position = UDim2.new(0, 0, 1, -12), BackgroundColor3 = COLORS.Panel, BorderSizePixel = 0 }, TopBar)
+
+local LogoMark = New("TextLabel", {
+	Size = UDim2.fromOffset(46, 30), Position = UDim2.fromOffset(10, 7),
+	BackgroundColor3 = COLORS.Accent, Text = "N", TextColor3 = Color3.new(1, 1, 1),
+	Font = Enum.Font.GothamBlack, TextSize = 18, BorderSizePixel = 0,
+}, TopBar)
+Corner(LogoMark, 8)
+
+New("TextLabel", {
+	Size = UDim2.fromOffset(300, 22), Position = UDim2.fromOffset(64, 4),
+	BackgroundTransparency = 1, Text = "NEXUS  ·  Blox Fruits", TextColor3 = COLORS.Text,
+	Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left,
+}, TopBar)
+New("TextLabel", {
+	Size = UDim2.fromOffset(300, 16), Position = UDim2.fromOffset(64, 24),
+	BackgroundTransparency = 1, Text = "v1.1  —  RightShift to toggle menu", TextColor3 = COLORS.Dim,
+	Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
+}, TopBar)
+
+local StatusLabel = New("TextLabel", {
+	Size = UDim2.fromOffset(220, 20), Position = UDim2.new(1, -300, 0, 12),
+	BackgroundTransparency = 1, Text = "", TextColor3 = COLORS.Accent2,
+	Font = Enum.Font.GothamSemibold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right,
+}, TopBar)
+
+local MinBtn = New("TextButton", {
+	Size = UDim2.fromOffset(30, 30), Position = UDim2.new(1, -72, 0, 7),
+	BackgroundColor3 = COLORS.Panel2, Text = "–", TextColor3 = COLORS.Text,
+	Font = Enum.Font.GothamBold, TextSize = 16, BorderSizePixel = 0, AutoButtonColor = true,
+}, TopBar)
+Corner(MinBtn, 8)
+local CloseBtn = New("TextButton", {
+	Size = UDim2.fromOffset(30, 30), Position = UDim2.new(1, -38, 0, 7),
+	BackgroundColor3 = Color3.fromRGB(120, 40, 55), Text = "×", TextColor3 = Color3.new(1, 1, 1),
+	Font = Enum.Font.GothamBold, TextSize = 16, BorderSizePixel = 0, AutoButtonColor = true,
+}, TopBar)
+Corner(CloseBtn, 8)
+
+local Sidebar = New("Frame", {
+	Name = "Sidebar", Size = UDim2.new(0, 138, 1, -44), Position = UDim2.new(0, 0, 0, 44),
+	BackgroundColor3 = COLORS.Panel, BorderSizePixel = 0,
+}, Main)
+New("UIPadding", { PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, Sidebar)
+New("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, Sidebar)
+
+local Content = New("Frame", {
+	Name = "Content", Size = UDim2.new(1, -138, 1, -44), Position = UDim2.new(0, 138, 0, 44),
+	BackgroundTransparency = 1, BorderSizePixel = 0,
+}, Main)
+
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+	minimized = not minimized
+	Sidebar.Visible = not minimized
+	Content.Visible = not minimized
+	Main.Size = minimized and UDim2.fromOffset(660, 44) or UDim2.fromOffset(660, 440)
+end)
+CloseBtn.MouseButton1Click:Connect(function()
+	Main.Visible = false
+end)
+
+do
+	local dragging, dragStart, startPos = false, nil, nil
+	TopBar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = Main.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then dragging = false end
+			end)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+	end)
+end
+
+local DropdownPopup = New("Frame", {
+	Name = "DropdownPopup", Visible = false, Size = UDim2.fromOffset(220, 10),
+	BackgroundColor3 = COLORS.Panel2, BorderSizePixel = 0, ZIndex = 50,
+}, Main)
+Corner(DropdownPopup, 8)
+Stroke(DropdownPopup, COLORS.Accent, 1)
+local PopupScroll = New("ScrollingFrame", {
+	Size = UDim2.new(1, -8, 1, -8), Position = UDim2.fromOffset(4, 4),
+	BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4,
+	CanvasSize = UDim2.new(), ZIndex = 51,
+}, DropdownPopup)
+New("UIListLayout", { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }, PopupScroll)
+
+local function CloseDropdown() DropdownPopup.Visible = false end
+
+local Tabs = {}
+local CurrentTab = nil
+
+local function CreateTab(name)
+	local btn = New("TextButton", {
+		Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = COLORS.Panel2,
+		Text = name, TextColor3 = COLORS.Dim, Font = Enum.Font.GothamSemibold,
+		TextSize = 13, BorderSizePixel = 0, AutoButtonColor = false,
+	}, Sidebar)
+	Corner(btn, 8)
+
+	local page = New("ScrollingFrame", {
+		Name = name .. "Page", Size = UDim2.new(1, -16, 1, -16), Position = UDim2.fromOffset(8, 8),
+		BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4,
+		CanvasSize = UDim2.new(), Visible = false,
+	}, Content)
+	local layout = New("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, page)
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		page.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + 12)
+	end)
+
+	local tab = { Button = btn, Page = page, Name = name }
+	Tabs[name] = tab
+
+	btn.MouseButton1Click:Connect(function()
+		CloseDropdown()
+		for _, t in pairs(Tabs) do
+			t.Page.Visible = false
+			t.Button.BackgroundColor3 = COLORS.Panel2
+			t.Button.TextColor3 = COLORS.Dim
+		end
+		page.Visible = true
+		btn.BackgroundColor3 = COLORS.Accent
+		btn.TextColor3 = Color3.new(1, 1, 1)
+		CurrentTab = tab
+	end)
+	return tab
+end
+
+local function Section(tab, title)
+	local holder = New("Frame", {
+		Size = UDim2.new(1, -4, 0, 30), BackgroundColor3 = COLORS.Panel, BorderSizePixel = 0,
+		AutomaticSize = Enum.AutomaticSize.Y,
+	}, tab.Page)
+	Corner(holder, 10)
+	Stroke(holder, COLORS.Stroke, 1)
+	New("UIPadding", { PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }, holder)
+	New("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, holder)
+	New("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1,
+		Text = string.upper(title), TextColor3 = COLORS.Accent2,
+		Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
+	}, holder)
+	return holder
+end
+
+local SaveConfig -- forward declared
+
+local function AddToggle(parent, label, key, callback)
+	local row = New("Frame", { Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1 }, parent)
+	New("TextLabel", {
+		Size = UDim2.new(1, -60, 1, 0), BackgroundTransparency = 1, Text = label,
+		TextColor3 = COLORS.Text, Font = Enum.Font.Gotham, TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, row)
+	local pill = New("TextButton", {
+		Size = UDim2.fromOffset(46, 24), Position = UDim2.new(1, -46, 0.5, -12),
+		BackgroundColor3 = S[key] and COLORS.On or COLORS.Off, Text = "",
+		BorderSizePixel = 0, AutoButtonColor = false,
+	}, row)
+	Corner(pill, 12)
+	local knob = New("Frame", {
+		Size = UDim2.fromOffset(18, 18), Position = S[key] and UDim2.fromOffset(25, 3) or UDim2.fromOffset(3, 3),
+		BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0,
+	}, pill)
+	Corner(knob, 9)
+	local function Refresh()
+		pill.BackgroundColor3 = S[key] and COLORS.On or COLORS.Off
+		knob.Position = S[key] and UDim2.fromOffset(25, 3) or UDim2.fromOffset(3, 3)
+	end
+	pill.MouseButton1Click:Connect(function()
+		S[key] = not S[key]
+		Refresh()
+		if callback then pcall(callback, S[key]) end
+		if SaveConfig then SaveConfig() end
+	end)
+	return { Refresh = Refresh }
+end
+
+local function AddButton(parent, label, callback)
+	local btn = New("TextButton", {
+		Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = COLORS.Panel2,
+		Text = label, TextColor3 = COLORS.Text, Font = Enum.Font.GothamSemibold,
+		TextSize = 13, BorderSizePixel = 0, AutoButtonColor = true,
+	}, parent)
+	Corner(btn, 8)
+	Stroke(btn, COLORS.Stroke, 1)
+	btn.MouseButton1Click:Connect(function() pcall(callback) end)
+	return btn
+end
+
+local function AddLabel(parent, text)
+	local l = New("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = text,
+		TextColor3 = COLORS.Dim, Font = Enum.Font.Gotham, TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y,
+	}, parent)
+	return l
+end
+
+local function AddSlider(parent, label, key, min, max, step, callback)
+	step = step or 1
+	local holder = New("Frame", { Size = UDim2.new(1, 0, 0, 44), BackgroundTransparency = 1 }, parent)
+	New("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1,
+		Text = label, TextColor3 = COLORS.Text, Font = Enum.Font.Gotham, TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, holder)
+	local valueLabel = New("TextLabel", {
+		Size = UDim2.fromOffset(70, 16), Position = UDim2.new(1, -70, 0, 0), BackgroundTransparency = 1,
+		Text = tostring(S[key]), TextColor3 = COLORS.Accent2, Font = Enum.Font.GothamSemibold, TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Right,
+	}, holder)
+	local bar = New("Frame", {
+		Size = UDim2.new(1, 0, 0, 8), Position = UDim2.fromOffset(0, 26),
+		BackgroundColor3 = COLORS.Off, BorderSizePixel = 0,
+	}, holder)
+	Corner(bar, 4)
+	local fill = New("Frame", { BackgroundColor3 = COLORS.Accent, BorderSizePixel = 0, Size = UDim2.new(0, 0, 1, 0) }, bar)
+	Corner(fill, 4)
+	local hit = New("TextButton", { Size = UDim2.new(1, 0, 1, 10), Position = UDim2.fromOffset(0, -5), BackgroundTransparency = 1, Text = "" }, bar)
+
+	local function Refresh()
+		local ratio = (S[key] - min) / (max - min)
+		fill.Size = UDim2.new(math.clamp(ratio, 0, 1), 0, 1, 0)
+		if step < 1 then
+			valueLabel.Text = string.format("%.2f", S[key])
+		else
+			valueLabel.Text = tostring(math.floor(S[key] + 0.5))
+		end
+	end
+	Refresh()
+	local sliding = false
+	local function ApplyFromX(x)
+		local ratio = math.clamp((x - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
+		local raw = min + ratio * (max - min)
+		S[key] = math.floor(raw / step + 0.5) * step
+		Refresh()
+		if callback then pcall(callback, S[key]) end
+	end
+	hit.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			sliding = true
+			ApplyFromX(input.Position.X)
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					sliding = false
+					if SaveConfig then SaveConfig() end
+				end
+			end)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if sliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			ApplyFromX(input.Position.X)
+		end
+	end)
+	return { Refresh = Refresh }
+end
+
+local function AddDropdown(parent, label, key, optionsOrFn, callback)
+	local holder = New("Frame", { Size = UDim2.new(1, 0, 0, 52), BackgroundTransparency = 1 }, parent)
+	New("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1, Text = label,
+		TextColor3 = COLORS.Text, Font = Enum.Font.Gotham, TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, holder)
+	local btn = New("TextButton", {
+		Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 20),
+		BackgroundColor3 = COLORS.Panel2, Text = tostring(S[key]) .. "  ▾",
+		TextColor3 = COLORS.Text, Font = Enum.Font.GothamSemibold, TextSize = 12,
+		BorderSizePixel = 0, AutoButtonColor = true, TextTruncate = Enum.TextTruncate.AtEnd,
+	}, holder)
+	Corner(btn, 8)
+	Stroke(btn, COLORS.Stroke, 1)
+
+	local api = {}
+	function api.Refresh()
+		btn.Text = tostring(S[key]) .. "  ▾"
+	end
+	btn.MouseButton1Click:Connect(function()
+		if DropdownPopup.Visible then CloseDropdown(); return end
+		for _, ch in ipairs(PopupScroll:GetChildren()) do
+			if ch:IsA("TextButton") then ch:Destroy() end
+		end
+		local options = (type(optionsOrFn) == "function") and optionsOrFn() or optionsOrFn
+		if type(options) ~= "table" or #options == 0 then options = { "(none found)" } end
+		for _, opt in ipairs(options) do
+			local ob = New("TextButton", {
+				Size = UDim2.new(1, -4, 0, 26), BackgroundColor3 = (tostring(opt) == tostring(S[key])) and COLORS.Accent or COLORS.Panel,
+				Text = tostring(opt), TextColor3 = COLORS.Text, Font = Enum.Font.Gotham, TextSize = 12,
+				BorderSizePixel = 0, AutoButtonColor = true, ZIndex = 52, TextTruncate = Enum.TextTruncate.AtEnd,
+			}, PopupScroll)
+			Corner(ob, 6)
+			ob.MouseButton1Click:Connect(function()
+				S[key] = opt
+				api.Refresh()
+				CloseDropdown()
+				if callback then pcall(callback, opt) end
+				if SaveConfig then SaveConfig() end
+			end)
+		end
+		PopupScroll.CanvasSize = UDim2.fromOffset(0, #options * 29 + 4)
+		local height = math.min(#options * 29 + 12, 220)
+		DropdownPopup.Size = UDim2.fromOffset(math.max(btn.AbsoluteSize.X, 200), height)
+		local relX = btn.AbsolutePosition.X - Main.AbsolutePosition.X
+		local relY = btn.AbsolutePosition.Y - Main.AbsolutePosition.Y + btn.AbsoluteSize.Y + 4
+		if relY + height > 440 then relY = math.max(48, 440 - height - 6) end
+		DropdownPopup.Position = UDim2.fromOffset(relX, relY)
+		DropdownPopup.Visible = true
+	end)
+	return api
+end
+
+-- Tabs ------------------------------------------------------------------------
+
+local FarmTab = CreateTab("Farm")
+local CombatTab = CreateTab("Combat")
+local FruitTab = CreateTab("Fruit")
+local TeleportTab = CreateTab("Teleport")
+local StatsTab = CreateTab("Stats")
+local PlayerTab = CreateTab("Player")
+local MiscTab = CreateTab("Misc")
+
+local Refs = {}
+local farmStatusLabel
+local chestStatusLabel
+
+do
+	local sec = Section(FarmTab, "Auto Farm")
+	Refs.FarmingToggle = AddToggle(sec, "Enable Auto Farm", "Farming", function(on)
+		if on and S.ChestFarm then
+			S.ChestFarm = false
+			if Refs.ChestToggle then Refs.ChestToggle.Refresh() end
+		end
+		if not on then CancelTween(); State.CurrentTarget = nil; DestroyPlatform() end
+	end)
+	AddDropdown(sec, "Farm Mode", "FarmMode", { "Level (Quest)", "Nearest Mob", "Boss (Highest HP)", "Selected Mob" }, function()
+		CancelTween()
+		State.CurrentTarget = nil
+	end)
+	AddDropdown(sec, "Selected Mob (from world)", "SelectedMob", function()
+		local seen, list = {}, {}
+		for _, m in ipairs(GetEnemies()) do
+			local b = BaseMobName(m.Name)
+			if not seen[b] then seen[b] = true; table.insert(list, b) end
+		end
+		table.sort(list)
+		return list
+	end)
+	AddToggle(sec, "Auto Accept Quest", "AutoQuest")
+	AddToggle(sec, "Aim Camera At Mob (helps melee hits)", "CameraAim")
+	AddToggle(sec, "Bring Mobs Together (experimental)", "BringMobs")
+	AddSlider(sec, "Hover Height (studs)", "FarmHeight", 4, 25, 1)
+	AddSlider(sec, "Travel Speed", "TweenSpeed", 80, 350, 5)
+	farmStatusLabel = AddLabel(sec, "Status: idle")
+	AddButton(sec, "Start Bartilo Quest (Lv 775+, 50 Swan Pirates)", function()
+		InvokeCommF("StartQuest", "BartiloQuest", 1)
+		Notify("Nexus BF", "Bartilo quest requested.")
+	end)
+
+	local sec2 = Section(FarmTab, "Chests")
+	Refs.ChestToggle = AddToggle(sec2, "Auto Collect Chests", "ChestFarm", function(on)
+		if on and S.Farming then
+			S.Farming = false
+			if Refs.FarmingToggle then Refs.FarmingToggle.Refresh() end
+			State.CurrentTarget = nil
+			DestroyPlatform()
+		end
+		if on then
+			State.ChestCacheTime = -10
+		else
+			CancelTween()
+		end
+	end)
+	chestStatusLabel = AddLabel(sec2, "Status: idle")
+	AddButton(sec2, "Reset Visited Chests", function()
+		table.clear(State.VisitedChests)
+		State.ChestsCollected = 0
+		State.ChestCacheTime = -10
+		Notify("Nexus BF", "Visited chest list cleared.")
+	end)
+end
+
+do
+	local sec = Section(CombatTab, "Attack")
+	AddDropdown(sec, "Weapon", "Weapon", function()
+		local list = { "Auto (First Tool)" }
+		for _, n in ipairs(GetToolList()) do table.insert(list, n) end
+		return list
+	end)
+	AddSlider(sec, "Attack Delay (seconds)", "AttackSpeed", 0.05, 0.6, 0.01)
+	AddToggle(sec, "Kill Aura (attack nearby, no movement)", "KillAura")
+	AddSlider(sec, "Kill Aura Range", "KillAuraRange", 15, 90, 1)
+
+	local sec2 = Section(CombatTab, "Auto Skills (only in melee range)")
+	AddToggle(sec2, "Skill Z", "SkillZ")
+	AddToggle(sec2, "Skill X", "SkillX")
+	AddToggle(sec2, "Skill C", "SkillC")
+	AddToggle(sec2, "Skill V", "SkillV")
+	AddToggle(sec2, "Skill F", "SkillF")
+	AddSlider(sec2, "Skill Cooldown (seconds)", "SkillCooldown", 0.4, 6, 0.1)
+
+	local sec3 = Section(CombatTab, "Haki (pressed on enable / respawn)")
+	AddToggle(sec3, "Auto Aura (Buso)", "AutoHaki", function(on)
+		if on then task.spawn(SendKey, S.HakiKey) end
+	end)
+	AddDropdown(sec3, "Aura Key", "HakiKey", { "J", "K", "E", "H" })
+	AddToggle(sec3, "Auto Instinct (Ken)", "AutoInstinct", function(on)
+		if on then task.spawn(SendKey, S.InstinctKey) end
+	end)
+	AddDropdown(sec3, "Instinct Key", "InstinctKey", { "K", "E", "J", "L" })
+
+	local sec4 = Section(CombatTab, "Aimbot (hold Right Mouse)")
+	AddToggle(sec4, "Enable Aimbot", "Aimbot")
+	AddDropdown(sec4, "Aim Part", "AimbotPart", { "Head", "HumanoidRootPart", "Torso" })
+	AddSlider(sec4, "FOV (pixels)", "AimbotFOV", 60, 600, 10)
+	AddSlider(sec4, "Prediction", "AimPrediction", 0, 0.35, 0.01)
+end
+
+local fruitInfoLabel
+do
+	local sec = Section(FruitTab, "Devil Fruits")
+	AddToggle(sec, "Fruit ESP", "FruitESP", function(on)
+		if not on then
+			for _, parts in pairs(State.FruitESPObjects) do
+				pcall(function() parts.Highlight:Destroy() end)
+				pcall(function() parts.Billboard:Destroy() end)
+			end
+			table.clear(State.FruitESPObjects)
+		end
+	end)
+	AddToggle(sec, "Fruit Sniper (fly to spawned fruit)", "FruitSniper")
+	AddLabel(sec, "Note: Fruit Sniper pauses while Auto Farm / Chest Farm is running.")
+	fruitInfoLabel = AddLabel(sec, "Spawned fruits: -")
+	AddButton(sec, "Go To Nearest Fruit Now", function()
+		local pos = FindNearestFruitPos()
+		if pos then
+			StopMovementModes()
+			task.spawn(TweenTo, pos + Vector3.new(0, 2, 0))
+		else
+			Notify("Nexus BF", "No spawned fruit found.")
+		end
+	end)
+	AddButton(sec, "Store Equipped Fruit", function()
+		StoreEquippedFruit()
+	end)
+
+	local sec2 = Section(FruitTab, "Gacha")
+	AddToggle(sec2, "Auto Random Fruit (Blox Fruit Cousin)", "AutoRandomFruit")
+	AddSlider(sec2, "Buy Interval (seconds)", "RandomFruitDelay", 10, 300, 5)
+	AddButton(sec2, "Buy Random Fruit Now", function()
+		InvokeCommF("Cousin", "Buy")
+		Notify("Nexus BF", "Random fruit purchase requested.")
+	end)
+end
+
+do
+	local sec = Section(TeleportTab, "Seas")
+	AddButton(sec, "Travel: First Sea (Main)", function() InvokeCommF("TravelMain"); Notify("Nexus BF", "TravelMain requested.") end)
+	AddButton(sec, "Travel: Second Sea (Dressrosa)", function() InvokeCommF("TravelDressrosa"); Notify("Nexus BF", "TravelDressrosa requested.") end)
+	AddButton(sec, "Travel: Third Sea (Zou)", function() InvokeCommF("TravelZou"); Notify("Nexus BF", "TravelZou requested.") end)
+
+	local sec2 = Section(TeleportTab, "Locations (runtime list)")
+	AddDropdown(sec2, "Location", "TPLocation", function()
+		local list = {}
+		local origin = Workspace:FindFirstChild("_WorldOrigin")
+		local locs = origin and origin:FindFirstChild("Locations")
+		if locs then
+			for _, p in ipairs(locs:GetChildren()) do table.insert(list, p.Name) end
+		end
+		table.sort(list)
+		return list
+	end)
+	AddButton(sec2, "Fly To Location (stops farm)", function()
+		local origin = Workspace:FindFirstChild("_WorldOrigin")
+		local locs = origin and origin:FindFirstChild("Locations")
+		local target = locs and locs:FindFirstChild(S.TPLocation)
+		if target and target:IsA("BasePart") then
+			StopMovementModes()
+			task.spawn(TweenTo, target.Position + Vector3.new(0, 12, 0))
+		else
+			Notify("Nexus BF", "Location not found. Reopen the dropdown to refresh.")
+		end
+	end)
+
+	local sec3 = Section(TeleportTab, "NPCs (runtime list)")
+	AddDropdown(sec3, "NPC", "TPNpc", function()
+		local list = {}
+		local npcs = Workspace:FindFirstChild("NPCs")
+		if npcs then
+			for _, m in ipairs(npcs:GetChildren()) do table.insert(list, m.Name) end
+		end
+		table.sort(list)
+		return list
+	end)
+	AddButton(sec3, "Fly To NPC (stops farm)", function()
+		local npcs = Workspace:FindFirstChild("NPCs")
+		local target = npcs and npcs:FindFirstChild(S.TPNpc)
+		local part = target and (target:FindFirstChild("HumanoidRootPart") or target:FindFirstChild("Head") or target:FindFirstChildWhichIsA("BasePart", true))
+		if part then
+			StopMovementModes()
+			task.spawn(TweenTo, part.Position + Vector3.new(0, 4, 4))
+		else
+			Notify("Nexus BF", "NPC not found. Reopen the dropdown to refresh.")
+		end
+	end)
+
+	local sec4 = Section(TeleportTab, "Bosses")
+	AddDropdown(sec4, "Boss", "TPBoss", function()
+		local list = {}
+		for _, b in ipairs(BOSSES) do table.insert(list, b[1] .. " (Lv " .. b[2] .. ")") end
+		return list
+	end)
+	AddButton(sec4, "Fly To Boss Spawn (stops farm)", function()
+		for _, b in ipairs(BOSSES) do
+			if (b[1] .. " (Lv " .. b[2] .. ")") == S.TPBoss or b[1] == S.TPBoss then
+				StopMovementModes()
+				local alive = FindMobByName(b[1])
+				if alive then
+					local r = alive:FindFirstChild("HumanoidRootPart")
+					if r then task.spawn(TweenTo, r.Position + Vector3.new(0, 10, 0)); return end
+				end
+				task.spawn(TweenTo, b[3] + Vector3.new(0, 12, 0))
+				return
+			end
+		end
+		Notify("Nexus BF", "Boss not selected.")
+	end)
+end
+
+do
+	local sec = Section(StatsTab, "Auto Stats")
+	AddToggle(sec, "Enable Auto Stats", "AutoStats")
+	AddToggle(sec, "Melee", "StatMelee")
+	AddToggle(sec, "Defense", "StatDefense")
+	AddToggle(sec, "Sword", "StatSword")
+	AddToggle(sec, "Gun", "StatGun")
+	AddToggle(sec, "Blox Fruit", "StatFruit")
+	AddSlider(sec, "Points Per Spend", "StatPoints", 1, 25, 1)
+	AddLabel(sec, "Points are spent round-robin across enabled stats every 2 seconds.")
+	AddButton(sec, "Spend Points Now", function() SpendStatPoints() end)
+end
+
+do
+	local sec = Section(PlayerTab, "Movement")
+	AddToggle(sec, "Fly", "Fly", function(on) SetFly(on) end)
+	AddSlider(sec, "Fly Speed", "FlySpeed", 30, 300, 5)
+	AddLabel(sec, "Fly controls: WASD + camera. Space = up, LeftControl = down.")
+	AddToggle(sec, "NoClip", "NoClip")
+	AddToggle(sec, "Player Mods (speed / jump)", "PlayerMods", function(on)
+		local hum = GetHumanoid()
+		if hum and not on then
+			hum.WalkSpeed = State.OrigWalkSpeed
+			pcall(function() hum.JumpPower = State.OrigJumpPower end)
+		end
+	end)
+	AddSlider(sec, "Walk Speed", "WalkSpeed", 20, 250, 2)
+	AddSlider(sec, "Jump Power", "JumpPower", 55, 250, 5)
+	AddToggle(sec, "Infinite Energy (experimental)", "InfiniteEnergy")
+
+	local sec2 = Section(PlayerTab, "ESP")
+	AddToggle(sec2, "Player ESP", "PlayerESP", function(on)
+		if not on then
+			for _, parts in pairs(State.ESPObjects) do
+				pcall(function() parts.Highlight:Destroy() end)
+				pcall(function() parts.Billboard:Destroy() end)
+			end
+			table.clear(State.ESPObjects)
+		end
+	end)
+end
+
+local Unload
+do
+	local sec = Section(MiscTab, "Server")
+	AddButton(sec, "Rejoin Server", function()
+		pcall(function() TeleportService:Teleport(game.PlaceId, LP) end)
+	end)
+	AddButton(sec, "Server Hop", function()
+		task.spawn(ServerHop)
+	end)
+	AddButton(sec, "Copy JobId", function()
+		pcall(function() setclipboard(game.JobId) end)
+		Notify("Nexus BF", "JobId copied (if clipboard is supported).")
+	end)
+
+	local sec2 = Section(MiscTab, "Performance & Safety")
+	AddToggle(sec2, "Anti AFK", "AntiAFK")
+	AddToggle(sec2, "FPS Boost (shadows/particles off)", "FPSBoost", function(on) ApplyFPSBoost(on) end)
+	AddButton(sec2, "Reset Character", function()
+		local hum = GetHumanoid()
+		if hum then hum.Health = 0 end
+	end)
+
+	local sec3 = Section(MiscTab, "Script")
+	AddButton(sec3, "Save Config Now", function() if SaveConfig then SaveConfig(true) end end)
+	AddButton(sec3, "Unload Nexus BF", function() if Unload then Unload() end end)
+	AddLabel(sec3, "Nexus Blox Fruits v1.1 — standalone build. Features marked experimental rely on network ownership or values that may change between game updates.")
+end
+
+Tabs["Farm"].Button.BackgroundColor3 = COLORS.Accent
+Tabs["Farm"].Button.TextColor3 = Color3.new(1, 1, 1)
+Tabs["Farm"].Page.Visible = true
+CurrentTab = Tabs["Farm"]
+
+Connect(UserInputService.InputBegan, function(input, gpe)
+	if input.KeyCode == Enum.KeyCode.RightShift then
+		Main.Visible = not Main.Visible
+		if not Main.Visible then CloseDropdown() end
+	end
+end)
+
+-- Config saving ---------------------------------------------------------------
+
+local lastSave = 0
+SaveConfig = function(force)
+	local now = os.clock()
+	if not force and now - lastSave < 1 then return end
+	lastSave = now
+	pcall(function()
+		if writefile and HttpService then
+			if isfolder and makefolder and not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
+			local data = {}
+			for k, v in pairs(S) do
+				if type(v) == "boolean" or type(v) == "number" or type(v) == "string" then data[k] = v end
+			end
+			data.Farming = false
+			data.ChestFarm = false
+			data.Fly = false
+			writefile(ConfigFile, HttpService:JSONEncode(data))
+		end
+	end)
+end
+
+-- Runtime feature functions ---------------------------------------------------
+
+function StopMovementModes()
+	if S.Farming then
+		S.Farming = false
+		if Refs.FarmingToggle then Refs.FarmingToggle.Refresh() end
+	end
+	if S.ChestFarm then
+		S.ChestFarm = false
+		if Refs.ChestToggle then Refs.ChestToggle.Refresh() end
+	end
+	State.CurrentTarget = nil
+	CancelTween()
+	DestroyPlatform()
+end
+
+function SpendStatPoints()
+	local stats = {}
+	if S.StatMelee then table.insert(stats, "Melee") end
+	if S.StatDefense then table.insert(stats, "Defense") end
+	if S.StatSword then table.insert(stats, "Sword") end
+	if S.StatGun then table.insert(stats, "Gun") end
+	if S.StatFruit then table.insert(stats, "Demon Fruit") end
+	if #stats == 0 then return end
+	State.StatIndex = ((State.StatIndex or 0) % #stats) + 1
+	InvokeCommF("AddPoint", stats[State.StatIndex], math.floor(S.StatPoints))
+end
+
+function StoreEquippedFruit()
+	local c = GetChar()
+	local bp = LP:FindFirstChild("Backpack")
+	local tool = (c and c:FindFirstChildOfClass("Tool")) or nil
+	local function tryStore(t)
+		if not t then return false end
+		local name = t.Name
+		if not name:find("Fruit") and not name:find("-") then return false end
+		local base = name:gsub("%s*Fruit%s*$", ""):gsub("^%s+", ""):gsub("%s+$", "")
+		local id = base:find("-") and base or (base .. "-" .. base)
+		InvokeCommF("StoreFruit", id, t)
+		Notify("Nexus BF", "Store requested: " .. id)
+		return true
+	end
+	if tryStore(tool) then return end
+	if bp then
+		for _, t in ipairs(bp:GetChildren()) do
+			if t:IsA("Tool") and tryStore(t) then return end
+		end
+	end
+	Notify("Nexus BF", "No fruit tool found in hand/backpack.")
+end
+
+local function GetSpawnedFruits()
+	local fruits = {}
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if (obj:IsA("Tool") or obj:IsA("Model")) and obj.Name:find("Fruit") then
+			local inCharacter = false
+			local node = obj
+			while node and node ~= Workspace do
+				if node ~= obj and node:FindFirstChildOfClass("Humanoid") then inCharacter = true break end
+				node = node.Parent
+			end
+			if not inCharacter then
+				local part = obj:FindFirstChild("Handle", true) or obj:FindFirstChildWhichIsA("BasePart", true)
+				if part then table.insert(fruits, { Object = obj, Part = part }) end
+			end
+		end
+	end
+	return fruits
+end
+
+function FindNearestFruitPos()
+	local root = GetRoot()
+	local best, bestDist = nil, math.huge
+	for _, f in ipairs(GetSpawnedFruits()) do
+		local d = root and (f.Part.Position - root.Position).Magnitude or 0
+		if d < bestDist then bestDist = d; best = f.Part.Position end
+	end
+	return best
+end
+
+function ApplyFPSBoost(on)
+	pcall(function()
+		if on then
+			State.OrigShadows = Lighting.GlobalShadows
+			Lighting.GlobalShadows = false
+			local terrain = Workspace:FindFirstChildOfClass("Terrain")
+			if terrain then
+				terrain.WaterWaveSize = 0
+				terrain.WaterWaveSpeed = 0
+				terrain.WaterReflectance = 0
+				terrain.WaterTransparency = 0
+			end
+			table.clear(State.SavedParticles)
+			for _, d in ipairs(Workspace:GetDescendants()) do
+				if d:IsA("ParticleEmitter") or d:IsA("Trail") then
+					State.SavedParticles[d] = d.Enabled
+					d.Enabled = false
+				end
+			end
+			pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
+		else
+			if State.OrigShadows ~= nil then Lighting.GlobalShadows = State.OrigShadows end
+			for d, enabled in pairs(State.SavedParticles) do
+				pcall(function() d.Enabled = enabled end)
+			end
+			table.clear(State.SavedParticles)
+		end
+	end)
+end
+
+function ServerHop()
+	local placeId = game.PlaceId
+	local ok, result = pcall(function()
+		return game:HttpGet("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100")
+	end)
+	if not ok then
+		Notify("Nexus BF", "Server list fetch failed. Rejoining instead.")
+		pcall(function() TeleportService:Teleport(placeId, LP) end)
+		return
+	end
+	local ok2, data = pcall(function() return HttpService:JSONDecode(result) end)
+	if not ok2 or type(data) ~= "table" or type(data.data) ~= "table" then
+		Notify("Nexus BF", "Could not parse server list.")
+		return
+	end
+	local candidates = {}
+	for _, srv in ipairs(data.data) do
+		if srv.id and srv.id ~= game.JobId and (srv.playing or 0) < (srv.maxPlayers or 12) then
+			table.insert(candidates, srv.id)
+		end
+	end
+	if #candidates == 0 then
+		Notify("Nexus BF", "No other server found.")
+		return
+	end
+	local pick = candidates[math.random(1, #candidates)]
+	Notify("Nexus BF", "Hopping to another server...")
+	pcall(function() TeleportService:TeleportToPlaceInstance(placeId, pick, LP) end)
+end
+
+-- Farm core -------------------------------------------------------------------
+
+local function MobAlive(mob)
+	if not mob or not mob.Parent then return false end
+	local hum = mob:FindFirstChildOfClass("Humanoid")
+	local root = mob:FindFirstChild("HumanoidRootPart")
+	return hum ~= nil and root ~= nil and hum.Health > 0
+end
+
+local function EngageTarget(mob, modeAtStart)
+	local engageStart = os.clock()
+	local hum0 = GetHumanoid()
+	if hum0 then hum0.AutoRotate = false end
+	while not State.Unloaded and MobAlive(mob) do
+		if not S.Farming then break end
+		if S.FarmMode ~= modeAtStart then break end
+		local root = GetRoot()
+		local hum = GetHumanoid()
+		if not root or not hum or hum.Health <= 0 then break end
+		local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+		if not mobRoot then break end
+
+		State.CurrentTarget = mob
+		local mobLook = mobRoot.CFrame.LookVector
+		local flatLook = Vector3.new(mobLook.X, 0, mobLook.Z)
+		if flatLook.Magnitude < 0.01 then flatLook = Vector3.new(0, 0, 1) else flatLook = flatLook.Unit end
+		local desired = mobRoot.Position - flatLook * 2 + Vector3.new(0, S.FarmHeight, 0)
+		local dist = (desired - root.Position).Magnitude
+
+		if dist > 70 then
+			TweenTo(desired)
+		else
+			local dt = RunService.Heartbeat:Wait()
+			local alpha = math.clamp(dt * 12, 0, 1)
+			local newPos = root.Position:Lerp(desired, alpha)
+			root.CFrame = CFrame.new(newPos, mobRoot.Position)
+			root.AssemblyLinearVelocity = Vector3.zero
+			if S.CameraAim then
+				pcall(function()
+					Camera.CFrame = CFrame.new(Camera.CFrame.Position, mobRoot.Position)
+				end)
+			end
+		end
+
+		if S.FarmMode ~= "Nearest Mob" then
+			local platform = EnsurePlatform()
+			local r2 = GetRoot()
+			if r2 then platform.CFrame = CFrame.new(r2.Position - Vector3.new(0, 3.4, 0)) end
+		end
+
+		if S.BringMobs and (os.clock() - State.LastBring > 0.5) then
+			State.LastBring = os.clock()
+			local base = BaseMobName(mob.Name)
+			pcall(function()
+				for _, other in ipairs(GetEnemies()) do
+					if other ~= mob and MobNameMatches(other.Name, base) then
+						local oroot = other:FindFirstChild("HumanoidRootPart")
+						local mr = mob:FindFirstChild("HumanoidRootPart")
+						if oroot and mr and (oroot.Position - mr.Position).Magnitude < 120 then
+							oroot.CFrame = mr.CFrame * CFrame.new(math.random(-3, 3), 0, math.random(-3, 3))
+							oroot.AssemblyLinearVelocity = Vector3.zero
+						end
+					end
+				end
+			end)
+		end
+
+		if os.clock() - engageStart > 120 then break end
+	end
+	if State.CurrentTarget == mob then State.CurrentTarget = nil end
+	local hum1 = GetHumanoid()
+	if hum1 then hum1.AutoRotate = true end
+end
+
+local function FarmTick()
+	if not S.Farming then return end
+	local root = GetRoot()
+	local hum = GetHumanoid()
+	if not root or not hum or hum.Health <= 0 then
+		if farmStatusLabel then farmStatusLabel.Text = "Status: waiting for character..." end
+		return
+	end
+
+	if S.FarmMode == "Level (Quest)" then
+		local level = GetLevel()
+		local q = GetQuestForLevel(level)
+		local onQuest = HasQuest()
+		if State.WasOnQuest and not onQuest then
+			-- Quest just finished: allow immediate re-accept.
+			State.QuestBlacklistUntil = 0
+			State.LastQuestTry = 0
+		end
+		State.WasOnQuest = onQuest
+		if S.AutoQuest and not onQuest and os.clock() - State.LastQuestTry > 2 and os.clock() > State.QuestBlacklistUntil then
+			State.LastQuestTry = os.clock()
+			InvokeCommF("StartQuest", q[2], q[3])
+			task.wait(0.7)
+			if not HasQuest() then
+				State.QuestBlacklistUntil = os.clock() + 8
+			end
+			root = GetRoot()
+			if not root then return end
+		end
+		local mob = FindMobByName(q[4])
+		if mob then
+			if farmStatusLabel then farmStatusLabel.Text = "Status: fighting " .. q[4] .. " (Lv " .. level .. ")" end
+			EngageTarget(mob, S.FarmMode)
+		else
+			local spawnPos = GetMobSpawnPos(q[4])
+			if spawnPos and (root.Position - spawnPos).Magnitude > 25 then
+				if farmStatusLabel then farmStatusLabel.Text = "Status: traveling to " .. q[4] .. " spawn..." end
+				TweenTo(spawnPos)
+			elseif spawnPos then
+				if farmStatusLabel then farmStatusLabel.Text = "Status: waiting for " .. q[4] .. " to spawn..." end
+			else
+				if farmStatusLabel then farmStatusLabel.Text = "Status: " .. q[4] .. " not loaded. Go near its island once so the script learns the spot." end
+			end
+		end
+	elseif S.FarmMode == "Nearest Mob" then
+		local mob = FindNearestMob(4000)
+		if mob then
+			if farmStatusLabel then farmStatusLabel.Text = "Status: fighting " .. BaseMobName(mob.Name) end
+			EngageTarget(mob, S.FarmMode)
+		else
+			if farmStatusLabel then farmStatusLabel.Text = "Status: no mobs found nearby." end
+		end
+	elseif S.FarmMode == "Boss (Highest HP)" then
+		local mob = FindStrongestMob()
+		if mob then
+			if farmStatusLabel then farmStatusLabel.Text = "Status: fighting boss " .. BaseMobName(mob.Name) end
+			EngageTarget(mob, S.FarmMode)
+		else
+			if farmStatusLabel then farmStatusLabel.Text = "Status: no boss spawned." end
+		end
+	elseif S.FarmMode == "Selected Mob" then
+		if S.SelectedMob == "" then
+			if farmStatusLabel then farmStatusLabel.Text = "Status: pick a mob from the dropdown first." end
+			return
+		end
+		local mob = FindMobByName(S.SelectedMob)
+		if mob then
+			if farmStatusLabel then farmStatusLabel.Text = "Status: fighting " .. S.SelectedMob end
+			EngageTarget(mob, S.FarmMode)
+		else
+			local spawnPos = GetMobSpawnPos(S.SelectedMob)
+			if spawnPos and (root.Position - spawnPos).Magnitude > 25 then
+				if farmStatusLabel then farmStatusLabel.Text = "Status: traveling to " .. S.SelectedMob .. " spawn..." end
+				TweenTo(spawnPos)
+			elseif spawnPos then
+				if farmStatusLabel then farmStatusLabel.Text = "Status: waiting for " .. S.SelectedMob .. "..." end
+			else
+				if farmStatusLabel then farmStatusLabel.Text = "Status: " .. S.SelectedMob .. " not loaded near you." end
+			end
+		end
+	end
+end
+
+-- Chests ----------------------------------------------------------------------
+
+local function ChestPositionKey(pos)
+	return string.format("%.0f|%.0f|%.0f", pos.X / 5, pos.Y / 5, pos.Z / 5)
+end
+
+local function ScanChests()
+	local now = os.clock()
+	if now - State.ChestCacheTime < 3 then
+		local alive = {}
+		for _, c in ipairs(State.ChestCache) do
+			if c.Part and c.Part.Parent then table.insert(alive, c) end
+		end
+		return alive
+	end
+	local found = {}
+	local seenKeys = {}
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if (obj:IsA("Model") or obj:IsA("BasePart")) and obj.Name:match("^Chest%d*$") then
+			local anchor = nil
+			if obj:IsA("BasePart") then
+				anchor = obj
+			else
+				local bestVolume = -1
+				for _, d in ipairs(obj:GetDescendants()) do
+					if d:IsA("BasePart") then
+						local s = d.Size
+						local volume = s.X * s.Y * s.Z
+						if volume > bestVolume then
+							bestVolume = volume
+							anchor = d
+						end
+					end
+				end
+			end
+			if anchor then
+				local key = ChestPositionKey(anchor.Position)
+				if not seenKeys[key] then
+					seenKeys[key] = true
+					table.insert(found, { Part = anchor, Name = obj.Name, Key = key })
+				end
+			end
+		end
+	end
+	State.ChestCache = found
+	State.ChestCacheTime = now
+	return found
+end
+
+local function ChestTick()
+	if not S.ChestFarm then return end
+	local root = GetRoot()
+	local hum = GetHumanoid()
+	if not root or not hum or hum.Health <= 0 then
+		if chestStatusLabel then chestStatusLabel.Text = "Status: waiting for character..." end
+		return
+	end
+
+	local now = os.clock()
+	for key, expiry in pairs(State.VisitedChests) do
+		if now > expiry then State.VisitedChests[key] = nil end
+	end
+
+	local chests = ScanChests()
+	local candidates = {}
+	for _, c in ipairs(chests) do
+		if c.Part.Parent and not State.VisitedChests[c.Key] then
+			table.insert(candidates, c)
+		end
+	end
+
+	if #chests == 0 then
+		if chestStatusLabel then chestStatusLabel.Text = "Status: no chest models found in this area (collected: " .. State.ChestsCollected .. ")." end
+		task.wait(2)
+		return
+	end
+	if #candidates == 0 then
+		if chestStatusLabel then chestStatusLabel.Text = "Status: all " .. #chests .. " known chests visited (collected: " .. State.ChestsCollected .. "). Waiting for respawn..." end
+		task.wait(3)
+		return
+	end
+
+	table.sort(candidates, function(a, b)
+		return (a.Part.Position - root.Position).Magnitude < (b.Part.Position - root.Position).Magnitude
+	end)
+	local target = candidates[1]
+	if chestStatusLabel then
+		local dist = math.floor((target.Part.Position - root.Position).Magnitude)
+		chestStatusLabel.Text = "Status: going to " .. target.Name .. " (" .. dist .. "m, " .. #candidates .. " left, collected: " .. State.ChestsCollected .. ")"
+	end
+
+	TweenTo(target.Part.Position + Vector3.new(0, 2, 0))
+	if not S.ChestFarm or State.Unloaded then return end
+
+	-- Touch snap: briefly place the character directly on the chest so the touch registers.
+	local r = GetRoot()
+	if r and target.Part.Parent then
+		r.CFrame = target.Part.CFrame * CFrame.new(0, 1.2, 0)
+		r.AssemblyLinearVelocity = Vector3.zero
+		task.wait(0.3)
+		if target.Part.Parent then
+			r.CFrame = target.Part.CFrame * CFrame.new(0, 2.2, 0)
+			r.AssemblyLinearVelocity = Vector3.zero
+		end
+		task.wait(0.25)
+	end
+
+	State.VisitedChests[target.Key] = os.clock() + 120
+	State.ChestsCollected += 1
+end
+
+-- ESP builders ----------------------------------------------------------------
+
+local function MakeBillboard(adornee, text, color)
+	local bb = New("BillboardGui", {
+		Size = UDim2.fromOffset(160, 36), StudsOffset = Vector3.new(0, 3.2, 0),
+		AlwaysOnTop = true, Adornee = adornee,
+	})
+	local label = New("TextLabel", {
+		Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = text,
+		TextColor3 = color or COLORS.Text, Font = Enum.Font.GothamBold, TextSize = 13,
+		TextStrokeTransparency = 0.4,
+	}, bb)
+	local ok = pcall(function() bb.Parent = CoreGui end)
+	if not ok or not bb.Parent then bb.Parent = LP.PlayerGui end
+	return bb, label
+end
+
+local function MakeHighlight(adornee, color)
+	local hl = New("Highlight", {
+		FillColor = color, OutlineColor = Color3.new(1, 1, 1),
+		FillTransparency = 0.55, OutlineTransparency = 0.1, Adornee = adornee,
+	})
+	local ok = pcall(function() hl.Parent = CoreGui end)
+	if not ok or not hl.Parent then hl.Parent = LP.PlayerGui end
+	return hl
+end
+
+local function UpdatePlayerESP()
+	local root = GetRoot()
+	local seen = {}
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LP and plr.Character then
+			local char = plr.Character
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			local head = char:FindFirstChild("Head")
+			local proot = char:FindFirstChild("HumanoidRootPart")
+			if hum and head and proot and hum.Health > 0 then
+				seen[plr] = true
+				local entry = State.ESPObjects[plr]
+				if not entry or entry.Character ~= char then
+					if entry then
+						pcall(function() entry.Highlight:Destroy() end)
+						pcall(function() entry.Billboard:Destroy() end)
+					end
+					local hl = MakeHighlight(char, Color3.fromRGB(220, 60, 80))
+					local bb, label = MakeBillboard(head, plr.Name, Color3.fromRGB(255, 120, 140))
+					entry = { Highlight = hl, Billboard = bb, Label = label, Character = char }
+					State.ESPObjects[plr] = entry
+				end
+				local dist = root and math.floor((proot.Position - root.Position).Magnitude) or 0
+				local hp = math.floor(hum.Health)
+				local maxHp = math.floor(hum.MaxHealth)
+				entry.Label.Text = plr.Name .. "\nHP " .. hp .. "/" .. maxHp .. "  ·  " .. dist .. "m"
+			end
+		end
+	end
+	for plr, entry in pairs(State.ESPObjects) do
+		if not seen[plr] then
+			pcall(function() entry.Highlight:Destroy() end)
+			pcall(function() entry.Billboard:Destroy() end)
+			State.ESPObjects[plr] = nil
+		end
+	end
+end
+
+local function UpdateFruitESP()
+	local fruits = GetSpawnedFruits()
+	local root = GetRoot()
+	local seen = {}
+	for _, f in ipairs(fruits) do
+		seen[f.Object] = true
+		if S.FruitESP then
+			local entry = State.FruitESPObjects[f.Object]
+			if not entry then
+				local hl = MakeHighlight(f.Object, Color3.fromRGB(255, 170, 40))
+				local bb, label = MakeBillboard(f.Part, f.Object.Name, Color3.fromRGB(255, 200, 90))
+				entry = { Highlight = hl, Billboard = bb, Label = label }
+				State.FruitESPObjects[f.Object] = entry
+			end
+			local dist = root and math.floor((f.Part.Position - root.Position).Magnitude) or 0
+			entry.Label.Text = f.Object.Name .. "\n" .. dist .. "m"
+		end
+	end
+	for obj, entry in pairs(State.FruitESPObjects) do
+		if not seen[obj] or not obj.Parent then
+			pcall(function() entry.Highlight:Destroy() end)
+			pcall(function() entry.Billboard:Destroy() end)
+			State.FruitESPObjects[obj] = nil
+		end
+	end
+	if fruitInfoLabel then
+		if #fruits > 0 then
+			local names = {}
+			for _, f in ipairs(fruits) do table.insert(names, f.Object.Name) end
+			fruitInfoLabel.Text = "Spawned fruits (" .. #fruits .. "): " .. table.concat(names, ", ")
+		else
+			fruitInfoLabel.Text = "Spawned fruits: none"
+		end
+	end
+	return fruits
+end
+
+-- Loops -----------------------------------------------------------------------
+
+task.spawn(function()
+	while not State.Unloaded do
+		pcall(function()
+			if S.Farming then
+				FarmTick()
+			elseif S.ChestFarm then
+				ChestTick()
+			end
+		end)
+		task.wait(0.15)
+	end
+end)
+
+task.spawn(function()
+	while not State.Unloaded do
+		local didAttack = false
+		pcall(function()
+			if S.KillAura and not S.Farming then
+				State.CurrentTarget = FindNearestMob(S.KillAuraRange)
+			end
+			local target = State.CurrentTarget
+			local root = GetRoot()
+			if target and root and MobAlive(target) then
+				local troot = target:FindFirstChild("HumanoidRootPart")
+				local reach = math.max(22, S.FarmHeight + 14)
+				if troot and (troot.Position - root.Position).Magnitude < reach then
+					local tool = EquipSelectedWeapon()
+					if tool then pcall(function() tool:Activate() end) end
+					ClickAttack()
+					didAttack = true
+				end
+			end
+		end)
+		task.wait(didAttack and math.max(S.AttackSpeed, 0.03) or 0.12)
+	end
+end)
+
+task.spawn(function()
+	while not State.Unloaded do
+		pcall(function()
+			local target = State.CurrentTarget
+			local root = GetRoot()
+			if target and root and MobAlive(target) then
+				local troot = target:FindFirstChild("HumanoidRootPart")
+				if troot and (troot.Position - root.Position).Magnitude < 35 then
+					local keys = {}
+					if S.SkillZ then table.insert(keys, "Z") end
+					if S.SkillX then table.insert(keys, "X") end
+					if S.SkillC then table.insert(keys, "C") end
+					if S.SkillV then table.insert(keys, "V") end
+					if S.SkillF then table.insert(keys, "F") end
+					for _, k in ipairs(keys) do
+						if State.Unloaded then break end
+						SendKey(k)
+						task.wait(0.18)
+					end
+				end
+			end
+		end)
+		task.wait(math.max(S.SkillCooldown, 0.3))
+	end
+end)
+
+task.spawn(function()
+	local lastHaki, lastInstinct, lastStats, lastFruit, lastEnergy = -240, -240, 0, 0, 0
+	while not State.Unloaded do
+		local now = os.clock()
+		pcall(function()
+			-- Haki keys toggle on/off, so only refresh rarely (enable/respawn handlers press immediately).
+			if S.AutoHaki and now - lastHaki > 240 then
+				lastHaki = now
+				task.spawn(SendKey, S.HakiKey)
+			end
+			if S.AutoInstinct and now - lastInstinct > 240 then
+				lastInstinct = now
+				task.spawn(SendKey, S.InstinctKey)
+			end
+			if S.AutoStats and now - lastStats > 2 then
+				lastStats = now
+				SpendStatPoints()
+			end
+			if S.AutoRandomFruit and now - lastFruit > math.max(S.RandomFruitDelay, 5) then
+				lastFruit = now
+				InvokeCommF("Cousin", "Buy")
+			end
+			if S.InfiniteEnergy and now - lastEnergy > 0.5 then
+				lastEnergy = now
+				local c = GetChar()
+				local energy = c and c:FindFirstChild("Energy")
+				if energy and (energy:IsA("NumberValue") or energy:IsA("IntValue")) then
+					energy.Value = 10000
+				end
+			end
+			if S.PlayerMods then
+				local hum = GetHumanoid()
+				if hum then
+					if hum.WalkSpeed ~= S.WalkSpeed then hum.WalkSpeed = S.WalkSpeed end
+					pcall(function()
+						hum.UseJumpPower = true
+						if hum.JumpPower ~= S.JumpPower then hum.JumpPower = S.JumpPower end
+					end)
+				end
+			end
+		end)
+		task.wait(0.3)
+	end
+end)
+
+task.spawn(function()
+	local slowTick = 0
+	while not State.Unloaded do
+		pcall(function()
+			if S.PlayerESP then UpdatePlayerESP() end
+			slowTick += 1
+			local fruitTabOpen = CurrentTab and CurrentTab.Name == "Fruit"
+			if slowTick % 4 == 0 and (S.FruitESP or S.FruitSniper or fruitTabOpen) then
+				State.CachedFruits = UpdateFruitESP()
+			end
+			if S.FruitSniper and not S.Farming and not S.ChestFarm and not TweenActive() and #State.CachedFruits > 0 then
+				local root = GetRoot()
+				local best, bestDist = nil, math.huge
+				for _, f in ipairs(State.CachedFruits) do
+					if f.Part and f.Part.Parent then
+						local d = root and (f.Part.Position - root.Position).Magnitude or 0
+						if d < bestDist then bestDist = d; best = f end
+					end
+				end
+				if best and bestDist > 6 then
+					if State.LastSnipeObject ~= best.Object then
+						State.LastSnipeObject = best.Object
+						Notify("Nexus BF", "Fruit found: " .. best.Object.Name .. " — flying to it.")
+					end
+					task.spawn(function()
+						TweenTo(best.Part.Position + Vector3.new(0, 2, 0))
+						local r = GetRoot()
+						if r and best.Part and best.Part.Parent then
+							r.CFrame = CFrame.new(best.Part.Position + Vector3.new(0, 1, 0))
+							r.AssemblyLinearVelocity = Vector3.zero
+						end
+					end)
+				end
+			end
+			local level = GetLevel()
+			local beli = 0
+			pcall(function() beli = LP.Data.Beli.Value end)
+			StatusLabel.Text = "Lv " .. level .. "  ·  $" .. tostring(beli)
+		end)
+		task.wait(0.6)
+	end
+end)
+
+Connect(RunService.Stepped, function()
+	if State.Unloaded then return end
+	local wantNoclip = S.NoClip or TweenActive() or S.Farming or S.ChestFarm
+	if wantNoclip then
+		SetCharacterCollisions(false)
+		State.CollisionsOff = true
+	elseif State.CollisionsOff then
+		SetCharacterCollisions(true)
+		State.CollisionsOff = false
+	end
+end)
+
+Connect(RunService.RenderStepped, function()
+	if State.Unloaded then return end
+	if S.Fly then
+		local root = GetRoot()
+		local hum = GetHumanoid()
+		if root and hum then
+			if not FlyBV or not FlyBG or FlyBV.Parent ~= root then SetFly(true) end
+			if FlyBV and FlyBG then
+				local camCF = Camera.CFrame
+				local move = hum.MoveDirection
+				local vel = Vector3.zero
+				if move.Magnitude > 0.05 then
+					vel = camCF.LookVector * (-move.Z) + camCF.RightVector * move.X
+				end
+				if UserInputService:IsKeyDown(Enum.KeyCode.Space) then vel += Vector3.new(0, 1, 0) end
+				if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then vel -= Vector3.new(0, 1, 0) end
+				if vel.Magnitude > 0 then vel = vel.Unit * S.FlySpeed end
+				FlyBV.Velocity = vel
+				FlyBG.CFrame = camCF
+			end
+		end
+	end
+	if S.Aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+		local mousePos = UserInputService:GetMouseLocation()
+		local bestPart, bestDist = nil, S.AimbotFOV
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LP and plr.Character then
+				local part = plr.Character:FindFirstChild(S.AimbotPart) or plr.Character:FindFirstChild("Head")
+				local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+				if part and hum and hum.Health > 0 then
+					local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+					if onScreen then
+						local d = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+						if d < bestDist then bestDist = d; bestPart = part end
+					end
+				end
+			end
+		end
+		if bestPart then
+			local predicted = bestPart.Position + bestPart.AssemblyLinearVelocity * S.AimPrediction
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, predicted)
+		end
+	end
+end)
+
+Connect(LP.Idled, function()
+	if S.AntiAFK and not State.Unloaded then
+		pcall(function()
+			local vu = game:GetService("VirtualUser")
+			vu:CaptureController()
+			vu:ClickButton2(Vector2.new(0, 0))
+		end)
+	end
+end)
+
+Connect(LP.CharacterAdded, function(char)
+	State.CurrentTarget = nil
+	State.CollisionsOff = false
+	State.WasOnQuest = false
+	CancelTween()
+	DestroyPlatform()
+	task.spawn(function()
+		local hum = char:WaitForChild("Humanoid", 10)
+		if hum then
+			State.OrigWalkSpeed = hum.WalkSpeed
+			pcall(function() State.OrigJumpPower = hum.JumpPower end)
+		end
+		if S.Fly then SetFly(true) end
+		task.wait(2)
+		if State.Unloaded then return end
+		if S.AutoHaki then SendKey(S.HakiKey) end
+		if S.AutoInstinct then SendKey(S.InstinctKey) end
+	end)
+end)
+
+do
+	local hum = GetHumanoid()
+	if hum then
+		State.OrigWalkSpeed = hum.WalkSpeed
+		pcall(function() State.OrigJumpPower = hum.JumpPower end)
+	end
+end
+
+-- Unload ----------------------------------------------------------------------
+
+Unload = function()
+	if State.Unloaded then return end
+	State.Unloaded = true
+	S.Farming = false
+	S.ChestFarm = false
+	CancelTween()
+	SetFly(false)
+	DestroyPlatform()
+	for _, c in ipairs(State.Connections) do pcall(function() c:Disconnect() end) end
+	table.clear(State.Connections)
+	for _, entry in pairs(State.ESPObjects) do
+		pcall(function() entry.Highlight:Destroy() end)
+		pcall(function() entry.Billboard:Destroy() end)
+	end
+	for _, entry in pairs(State.FruitESPObjects) do
+		pcall(function() entry.Highlight:Destroy() end)
+		pcall(function() entry.Billboard:Destroy() end)
+	end
+	if S.FPSBoost then ApplyFPSBoost(false) end
+	local hum = GetHumanoid()
+	if hum then
+		hum.WalkSpeed = State.OrigWalkSpeed
+		hum.AutoRotate = true
+		pcall(function() hum.JumpPower = State.OrigJumpPower end)
+	end
+	SetCharacterCollisions(true)
+	pcall(function() Screen:Destroy() end)
+	env.NexusBF = nil
+	Notify("Nexus BF", "Script unloaded.")
+end
+
+env.NexusBF = { Unload = Unload, Settings = S, Version = "1.1" }
+
+Notify("Nexus BF", "Nexus Blox Fruits v1.1 loaded. Menu key: RightShift.")
+print("[Nexus BF] v1.1 loaded. RightShift toggles the menu.")
+]=],
 }
 
 local APEX_SOURCES = (getgenv and getgenv().APEX_SOURCES) or _G.APEX_SOURCES or {}
@@ -63044,7 +65233,7 @@ local C = {
 }
 local Apex = {
 	Name = "APEX ENGINE",
-	Version = "7.1.4",
+	Version = "7.1.31",
 	Build = "FROM-SCRATCH",
 	Sources = APEX_SOURCES,
 	Registry = {},
@@ -63488,6 +65677,7 @@ function Apex.BuildRegistry()
 		{Id = "game.mm2", Name = "MM2", Sub = "Murder Mystery 2 · Role ESP + Coin Farm · Auto Config", Color = C.Purple, Category = "Games", SourceIndex = 5, Places = {142823291}, GameName = "Murder Mystery 2", Tags = {"ESP", "Farm", "Nexus GUI", "Auto Config"}},
 		{Id = "game.doors", Name = "DOORS", Sub = "DOORS · ESP + Entity alerts (Nexus GUI) · Auto Config", Color = C.Green, Category = "Games", SourceIndex = 6, Places = {6516141723, 6839171747}, GameName = "DOORS", Tags = {"Horror", "ESP", "Nexus GUI", "Auto Config"}},
 		{Id = "game.brookhaven", Name = "BROOKHAVEN", Sub = "Brookhaven RP · Tools + Troll", Color = C.Amber, Category = "Games", SourceIndex = 7, Places = {4924922222}, GameName = "Brookhaven RP", Tags = {"Roleplay", "Tools"}},
+		{Id = "game.bloxfruits", Name = "BLOX FRUITS", Sub = "Blox Fruits · Auto Farm + Fruit ESP/Sniper · Auto Config", Color = C.Purple, Category = "Games", SourceIndex = 8, Places = {2753915549, 4442272183, 7449423635}, GameName = "Blox Fruits", Tags = {"Farm", "ESP", "Nexus GUI", "Auto Config"}},
 	}
 	for _, item in ipairs(games) do Apex.AddItem(item) end
 	local base = "https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/"
