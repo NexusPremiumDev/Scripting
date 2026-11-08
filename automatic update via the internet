@@ -1,0 +1,1 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/Nexus%208%20script%20hub"))() --Paste this into your executor; it will update automatically
