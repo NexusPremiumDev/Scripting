@@ -1,6 +1,6 @@
 --[[
-    Nexus Aim Helper (Aimbot, Silent Aim, Trigger Bot, ESP)
-    Updated: Team Check Removed, FOV Trigger Bot with Wall Check, Rainbow ESP, Max Range
+Dappeeee
+   
 ]]
 
 local Players           = game:GetService("Players")
@@ -16,7 +16,7 @@ if not Drawing or type(Drawing.new) ~= "function" then
     error("Your executor does not support the Drawing library!", 0)
 end
 
-print("[Nexus Aim Helper] Loading...")
+print("[Nexus Aim Helper v2] Loading...")
 
 -- THEME
 local Theme = {
@@ -32,6 +32,7 @@ local Theme = {
     Accent     = Color3.fromRGB(124, 92, 255),
     Accent2    = Color3.fromRGB(92, 217, 255),
     Err        = Color3.fromRGB(255, 85, 102),
+    Ok         = Color3.fromRGB(74, 222, 128),
 }
 local Font       = Enum.Font.Gotham
 local FontMedium = Enum.Font.GothamMedium
@@ -39,44 +40,44 @@ local FontBold   = Enum.Font.GothamBold
 
 -- SETTINGS
 local Settings = {
-    -- Aimbot
-    Aimbot        = false,
-    AimSmoothness = 65,
-    ShowFOV       = true,
-    FOVRadius     = 150,
+    Aimbot           = false,
+    AimSmoothness    = 65,
+    ShowFOV          = true,
+    FOVRadius        = 150,
 
-    -- Silent Aim
-    SilentAim     = false,
+    SilentAim        = false,
     SilentTargetPart = "Head",
 
-    -- Trigger Bot
-    TriggerBot    = false,
-    TriggerDelay  = 0.05,
-    TriggerRange  = 5000,
+    TriggerBot       = false,
+    TriggerDelay     = 0.05,
+    TriggerRange     = 5000,
 
-    -- ESP
-    ESPEnabled    = true,
-    ESPBoxes      = true,
-    ESPNames      = true,
-    ESPDistance   = true,
-    ESPHealthBar  = true,
-    ESPSkeleton   = true,
-    ESPRainbow    = true,
-    MaxDistance   = 5000,
-    EnemyColor    = Color3.fromRGB(255, 60, 60),
+    ESPEnabled       = true,
+    ESPBoxes         = true,
+    ESPNames         = true,
+    ESPDistance      = true,
+    ESPHealthBar     = true,
+    ESPSkeleton      = true,
+    ESPRainbow       = true,
+    MaxDistance      = 5000,
+    EnemyColor       = Color3.fromRGB(255, 60, 60),
+
+    TargetPlayers    = true,
+    TargetNPCs       = false,
 }
 
-local PlayerEntries = {}
-local Running       = true
-local lastTriggerTime = 0
+local PlayerEntries    = {}
+local Running          = true
+local lastTriggerTime  = 0
+local toggleRefs       = {}
 
 -- HELPERS
 local function getAnchor(character)
     if not character then return nil end
-    return character:FindFirstChild("HumanoidRootPart") 
-        or character:FindFirstChild("Torso") 
-        or character:FindFirstChild("UpperTorso") 
-        or character:FindFirstChild("Head") 
+    return character:FindFirstChild("HumanoidRootPart")
+        or character:FindFirstChild("Torso")
+        or character:FindFirstChild("UpperTorso")
+        or character:FindFirstChild("Head")
         or character:FindFirstChildWhichIsA("BasePart")
 end
 
@@ -85,19 +86,46 @@ local function getTargetPart(character, partName)
     if partName == "Head" then
         return character:FindFirstChild("Head") or getAnchor(character)
     else
-        return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso") or getAnchor(character)
+        return character:FindFirstChild("HumanoidRootPart")
+            or character:FindFirstChild("Torso")
+            or character:FindFirstChild("UpperTorso")
+            or getAnchor(character)
     end
 end
 
-local function isAlive(player)
-    local char = player.Character
+local function isCharAlive(char)
     if not char then return false end
     local hum = char:FindFirstChildOfClass("Humanoid")
     return hum and hum.Health > 0
 end
 
+local function isNPC(model)
+    if not model or not model:IsA("Model") then return false end
+    if not model:FindFirstChildOfClass("Humanoid") then return false end
+    return Players:GetPlayerFromCharacter(model) == nil
+end
+
 local function rainbowColor()
     return Color3.fromHSV((tick() * 0.35) % 1, 1, 1)
+end
+
+local function getCandidates()
+    local list = {}
+    if Settings.TargetPlayers then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                table.insert(list, { char = p.Character, name = p.Name })
+            end
+        end
+    end
+    if Settings.TargetNPCs then
+        for _, o in ipairs(Workspace:GetChildren()) do
+            if isNPC(o) then
+                table.insert(list, { char = o, name = o.Name })
+            end
+        end
+    end
+    return list
 end
 
 -- FOV CIRCLE
@@ -150,7 +178,7 @@ grad(LogoBox, Theme.Accent, Theme.Accent2, 45)
 mk("TextLabel", { Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "N", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBlack, TextSize = 16, Active = false }, LogoBox)
 
 mk("TextLabel", { Size = UDim2.new(0,200,0,20), Position = UDim2.new(0,56,0.5,-10), BackgroundTransparency = 1, Text = "NEXUS AIM HELPER", TextColor3 = Theme.Text, Font = FontBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, TitleBar)
-mk("TextLabel", { Size = UDim2.new(0,200,0,12), Position = UDim2.new(0,56,0.5,4), BackgroundTransparency = 1, Text = "WALL CHECK EDITION", TextColor3 = Theme.TextMuted, Font = FontMedium, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, TitleBar)
+mk("TextLabel", { Size = UDim2.new(0,220,0,12), Position = UDim2.new(0,56,0.5,4), BackgroundTransparency = 1, Text = "NPC SUPPORT + PANIC", TextColor3 = Theme.TextMuted, Font = FontMedium, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, TitleBar)
 
 local CloseBtn = mk("TextButton", { Size = UDim2.new(0,26,0,26), Position = UDim2.new(1,-36,0.5,-13), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, Text = "X", TextColor3 = Theme.TextMuted, Font = FontBold, TextSize = 12, AutoButtonColor = false }, TitleBar)
 corner(CloseBtn, 8)
@@ -169,7 +197,7 @@ local function unload()
         end)
     end
     pcall(function() ScreenGui:Destroy() end)
-    print("[Nexus Aim Helper] Unloaded.")
+    print("[Nexus Aim Helper v2] Unloaded.")
 end
 
 local function onClick(inst, callback)
@@ -290,6 +318,13 @@ local function UI_Toggle(parent, label, key, onChange)
         upd(Settings[key], true)
         if onChange then pcall(onChange, Settings[key]) end
     end)
+    return {
+        Row = row,
+        Update = function(state)
+            Settings[key] = state
+            upd(state, true)
+        end
+    }
 end
 
 local function UI_Slider(parent, label, key, minVal, maxVal, step, suffix, onChange)
@@ -329,16 +364,17 @@ end
 -- BUILD TABS
 local combatTab = UI_Tab("Combat", "Combat")
 local visualTab = UI_Tab("Visual", "Visual")
+local miscTab   = UI_Tab("Misc",   "Misc")
 
 -- COMBAT
 UI_Section(combatTab.Content, "Aimbot Settings")
-UI_Toggle(combatTab.Content, "Enable Aimbot (Hold RMB)", "Aimbot")
+toggleRefs.Aimbot = UI_Toggle(combatTab.Content, "Enable Aimbot (Hold RMB)", "Aimbot")
 UI_Slider(combatTab.Content, "Aim Smoothness", "AimSmoothness", 1, 100, 1, "")
 UI_Toggle(combatTab.Content, "Show FOV Circle", "ShowFOV")
 UI_Slider(combatTab.Content, "FOV Radius", "FOVRadius", 50, 600, 10, "px")
 
 UI_Section(combatTab.Content, "Silent Aim")
-UI_Toggle(combatTab.Content, "Enable Silent Aim", "SilentAim")
+toggleRefs.SilentAim = UI_Toggle(combatTab.Content, "Enable Silent Aim", "SilentAim")
 
 local modeHolder = mk("Frame", { Size = UDim2.new(1,-8,0,36), BackgroundTransparency = 1 }, combatTab.Content)
 local headBtn = mk("TextButton", { Size = UDim2.new(0.48,0,1,0), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, Text = "Head", TextColor3 = Color3.new(1,1,1), Font = FontBold, TextSize = 11, AutoButtonColor = false }, modeHolder)
@@ -349,12 +385,12 @@ headBtn.MouseButton1Click:Connect(function() Settings.SilentTargetPart = "Head" 
 bodyBtn.MouseButton1Click:Connect(function() Settings.SilentTargetPart = "Body" bodyBtn.BackgroundColor3 = Theme.Accent bodyBtn.TextColor3 = Color3.new(1,1,1) headBtn.BackgroundColor3 = Theme.SurfaceAlt headBtn.TextColor3 = Theme.TextMuted end)
 
 UI_Section(combatTab.Content, "Trigger Bot")
-UI_Toggle(combatTab.Content, "Enable FOV Trigger Bot", "TriggerBot")
+toggleRefs.TriggerBot = UI_Toggle(combatTab.Content, "Enable FOV Trigger Bot", "TriggerBot")
 UI_Slider(combatTab.Content, "Fire Delay", "TriggerDelay", 0.01, 0.5, 0.01, "s")
 
 -- VISUAL
 UI_Section(visualTab.Content, "Player ESP")
-UI_Toggle(visualTab.Content, "Enable ESP", "ESPEnabled")
+toggleRefs.ESPEnabled = UI_Toggle(visualTab.Content, "Enable ESP", "ESPEnabled")
 UI_Toggle(visualTab.Content, "Boxes", "ESPBoxes")
 UI_Toggle(visualTab.Content, "Names", "ESPNames")
 UI_Toggle(visualTab.Content, "Distance", "ESPDistance")
@@ -363,6 +399,25 @@ UI_Toggle(visualTab.Content, "Skeleton", "ESPSkeleton")
 UI_Toggle(visualTab.Content, "Rainbow Box", "ESPRainbow")
 UI_Slider(visualTab.Content, "Max Distance", "MaxDistance", 200, 5000, 100, "m")
 
+-- MISC
+UI_Section(miscTab.Content, "Targeting")
+UI_Toggle(miscTab.Content, "Target Players", "TargetPlayers")
+UI_Toggle(miscTab.Content, "Target NPCs (Workspace scan)", "TargetNPCs")
+mk("TextLabel", { Size = UDim2.new(1,-16,0,30), BackgroundTransparency = 1, Text = "NPC scan iterates Workspace children each frame. Turn off if laggy.", TextColor3 = Theme.TextMuted, Font = FontMedium, TextSize = 10, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, miscTab.Content)
+
+UI_Section(miscTab.Content, "Panic")
+local panicKeyRow = mk("Frame", { Size = UDim2.new(1,-8,0,38), BackgroundColor3 = Theme.SurfaceAlt, BorderSizePixel = 0 }, miscTab.Content)
+corner(panicKeyRow, 8)
+stroke(panicKeyRow, Theme.Border, 1, 0.5)
+mk("TextLabel", { Size = UDim2.new(1,-100,1,0), Position = UDim2.new(0,14,0,0), BackgroundTransparency = 1, Text = "Panic Key", TextColor3 = Theme.Text, Font = FontMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, panicKeyRow)
+local panicKeyBadge = mk("TextLabel", { Size = UDim2.new(0,70,0,22), Position = UDim2.new(1,-78,0.5,-11), BackgroundColor3 = Theme.Bg, Text = "X", TextColor3 = Theme.Accent, Font = FontBold, TextSize = 12, Active = false }, panicKeyRow)
+corner(panicKeyBadge, 6)
+
+local panicBtn = mk("TextButton", { Size = UDim2.new(1,-8,0,44), BackgroundColor3 = Theme.Err, BorderSizePixel = 0, Text = "PANIC — DISABLE ALL", TextColor3 = Color3.new(1,1,1), Font = FontBold, TextSize = 13, AutoButtonColor = false }, miscTab.Content)
+corner(panicBtn, 8)
+
+mk("TextLabel", { Size = UDim2.new(1,-16,0,44), BackgroundTransparency = 1, Text = "Disables Aimbot, Silent Aim, Trigger Bot, and ESP master toggle. Individual ESP sub-options stay saved.", TextColor3 = Theme.TextMuted, Font = FontMedium, TextSize = 10, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, Active = false }, miscTab.Content)
+
 -- Open first tab
 combatTab.Active = true
 combatTab.Content.Visible = true
@@ -370,23 +425,36 @@ TweenService:Create(combatTab.Button, TweenInfo.new(0), { BackgroundColor3 = Col
 TweenService:Create(combatTab.Text, TweenInfo.new(0), { TextColor3 = Theme.Text }):Play()
 TweenService:Create(combatTab.Indicator, TweenInfo.new(0), { Size = UDim2.new(0,3,0,20) }):Play()
 
+-- PANIC (X only)
+local PANIC_KEY = Enum.KeyCode.X
+
+local function panic()
+    if toggleRefs.Aimbot      then toggleRefs.Aimbot.Update(false) end
+    if toggleRefs.SilentAim   then toggleRefs.SilentAim.Update(false) end
+    if toggleRefs.TriggerBot  then toggleRefs.TriggerBot.Update(false) end
+    if toggleRefs.ESPEnabled  then toggleRefs.ESPEnabled.Update(false) end
+    print("[Nexus] PANIC — features disabled.")
+end
+
+onClick(panicBtn, panic)
+panicBtn.MouseEnter:Connect(function() TweenService:Create(panicBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(255, 120, 135) }):Play() end)
+panicBtn.MouseLeave:Connect(function() TweenService:Create(panicBtn, TweenInfo.new(0.15), { BackgroundColor3 = Theme.Err }):Play() end)
+
 -- LOGIC
 local function getClosestTargetInFov()
     local mousePos = UserInputService:GetMouseLocation()
-    local bestPlayer, bestDist = nil, math.huge
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == LocalPlayer then continue end
-        local char = plr.Character
-        if not char then continue end
-        local targetPart = getTargetPart(char, Settings.SilentTargetPart)
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not targetPart or not hum or hum.Health <= 0 then continue end
+    local bestTarget, bestDist = nil, math.huge
+    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
-        -- Menzil kontrolü
-        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local targetRoot = char:FindFirstChild("HumanoidRootPart")
-        if root and targetRoot then
-            if (root.Position - targetRoot.Position).Magnitude > Settings.TriggerRange then continue end
+    for _, c in ipairs(getCandidates()) do
+        local char = c.char
+        if not isCharAlive(char) then continue end
+        local targetPart = getTargetPart(char, Settings.SilentTargetPart)
+        if not targetPart then continue end
+
+        if myRoot then
+            local tr = char:FindFirstChild("HumanoidRootPart")
+            if tr and (myRoot.Position - tr.Position).Magnitude > Settings.TriggerRange then continue end
         end
 
         local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
@@ -395,51 +463,46 @@ local function getClosestTargetInFov()
         local dist2d = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
         if dist2d < Settings.FOVRadius and dist2d < bestDist then
             bestDist = dist2d
-            bestPlayer = plr
+            bestTarget = { char = char, part = targetPart, name = c.name }
         end
     end
-    return bestPlayer
+    return bestTarget
 end
 
--- TRIGGER BOT LOGIC (WALL CHECK EKLENDİ)
+-- TRIGGER BOT (with wall check)
 local function checkTriggerBot()
     if not Settings.TriggerBot then return end
-    
+
     local now = tick()
     if now - lastTriggerTime < Settings.TriggerDelay then return end
-    
-    -- FOV içindeki en yakın düşmanı bul
+
     local target = getClosestTargetInFov()
-    if target then
-        local targetPart = getTargetPart(target.Character, Settings.SilentTargetPart)
-        if not targetPart then return end
+    if not target or not target.part then return end
+    local targetPart = target.part
 
-        -- DUVAR KONTROLÜ (WALL CHECK / VISIBILITY CHECK)
-        local origin = Camera.CFrame.Position
-        local direction = targetPart.Position - origin
+    local origin = Camera.CFrame.Position
+    local direction = targetPart.Position - origin
 
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.FilterDescendantsInstances = { LocalPlayer.Character, Camera }
 
-        local result = Workspace:Raycast(origin, direction, raycastParams)
+    local result = Workspace:Raycast(origin, direction, raycastParams)
 
-        if result then
-            local hitCharacter = result.Instance:FindFirstAncestorOfClass("Model")
-            -- Eğer ışın düşmana çarptıysa (araya duvar girmediyse) ateş et
-            if hitCharacter == target.Character then
-                lastTriggerTime = now
-                if mouse1click then
-                    mouse1click()
-                elseif mouse1down and mouse1up then
-                    mouse1down()
-                    task.wait(0.01)
-                    mouse1up()
-                else
-                    local VirtualUser = game:GetService("VirtualUser")
-                    VirtualUser:CaptureController()
-                    VirtualUser:ClickButton1(Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2))
-                end
+    if result then
+        local hitChar = result.Instance:FindFirstAncestorOfClass("Model")
+        if hitChar == target.char then
+            lastTriggerTime = now
+            if mouse1click then
+                mouse1click()
+            elseif mouse1down and mouse1up then
+                mouse1down()
+                task.wait(0.01)
+                mouse1up()
+            else
+                local VU = game:GetService("VirtualUser")
+                VU:CaptureController()
+                VU:ClickButton1(Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2))
             end
         end
     end
@@ -447,21 +510,25 @@ end
 
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
+
+    -- Panic key (X only)
+    if input.KeyCode == PANIC_KEY then
+        panic()
+        return
+    end
+
     if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightShift then
         MainFrame.Visible = not MainFrame.Visible
     elseif input.KeyCode == Enum.KeyCode.RightControl then
         unload()
     elseif input.UserInputType == Enum.UserInputType.MouseButton1 and Settings.SilentAim then
         local target = getClosestTargetInFov()
-        if target then
-            local targetPart = getTargetPart(target.Character, Settings.SilentTargetPart)
-            if targetPart then
-                local saved = Camera.CFrame
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
-                task.delay(0.015, function()
-                    if Camera then Camera.CFrame = saved end
-                end)
-            end
+        if target and target.part then
+            local saved = Camera.CFrame
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.part.Position)
+            task.delay(0.015, function()
+                if Camera then Camera.CFrame = saved end
+            end)
         end
     end
 end)
@@ -478,24 +545,21 @@ RunService.RenderStepped:Connect(function()
         FOVCircle.Visible = false
     end
 
-    -- Aimbot Logic
+    -- Aimbot
     if Settings.Aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local target = getClosestTargetInFov()
-        if target then
-            local targetPart = getTargetPart(target.Character, Settings.SilentTargetPart)
-            if targetPart then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-                if onScreen then
-                    local current = UserInputService:GetMouseLocation()
-                    local goal = Vector2.new(screenPos.X, screenPos.Y)
-                    local delta = (goal - current) / math.max(1, (Settings.AimSmoothness / 10))
-                    mousemoverel(delta.X, delta.Y)
-                end
+        if target and target.part then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(target.part.Position)
+            if onScreen then
+                local current = UserInputService:GetMouseLocation()
+                local goal = Vector2.new(screenPos.X, screenPos.Y)
+                local delta = (goal - current) / math.max(1, (Settings.AimSmoothness / 10))
+                mousemoverel(delta.X, delta.Y)
             end
         end
     end
 
-    -- Trigger Bot Logic
+    -- Trigger Bot
     if Settings.TriggerBot then
         pcall(checkTriggerBot)
     end
@@ -545,77 +609,127 @@ local function removeVisual(v)
     end)
 end
 
+local function hideVisual(v)
+    if not v then return end
+    v.Box.Visible    = false
+    v.Name.Visible   = false
+    v.Dist.Visible   = false
+    v.HpBg.Visible   = false
+    v.HpFill.Visible = false
+    for _, ln in ipairs(v.SkeletonLines) do ln.Visible = false end
+end
+
 RunService.RenderStepped:Connect(function()
     if not Running then return end
     pcall(function()
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then
-                if not PlayerEntries[p] then PlayerEntries[p] = createVisual() end
-                local v = PlayerEntries[p]
+        local charSet = {}
+        local charList = {}
 
-                if Settings.ESPEnabled and isAlive(p) and p.Character then
-                    local char = p.Character
-                    local root = getAnchor(char)
-                    local hum = char:FindFirstChildOfClass("Humanoid")
+        if Settings.TargetPlayers then
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Character then
+                    charSet[p.Character] = true
+                    table.insert(charList, { char = p.Character, name = p.Name })
+                end
+            end
+        end
+        if Settings.TargetNPCs then
+            for _, o in ipairs(Workspace:GetChildren()) do
+                if isNPC(o) then
+                    charSet[o] = true
+                    table.insert(charList, { char = o, name = o.Name })
+                end
+            end
+        end
 
-                    if root and hum then
-                        local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
-                        local dist = (root.Position - Camera.CFrame.Position).Magnitude
+        -- Cleanup removed characters entirely (respawn, despawn, leave)
+        for char, v in pairs(PlayerEntries) do
+            if not charSet[char] then
+                removeVisual(v)
+                PlayerEntries[char] = nil
+            end
+        end
 
-                        if onScreen and pos.Z > 0.5 and dist <= Settings.MaxDistance then
-                            local color = Settings.ESPRainbow and rainbowColor() or Settings.EnemyColor
-                            local z = math.max(pos.Z, 1)
-                            local sx = math.clamp(1800 / z, 10, 400)
-                            local sy = math.clamp(2800 / z, 14, 620)
-                            local topX, topY = pos.X - sx/2, pos.Y - sy/2
+        for _, e in ipairs(charList) do
+            local char = e.char
+            local hum = char:FindFirstChildOfClass("Humanoid")
 
-                            v.Box.Size = Vector2.new(sx, sy) v.Box.Position = Vector2.new(topX, topY)
-                            v.Box.Color = color v.Box.Thickness = 1 v.Box.Visible = Settings.ESPBoxes
-                            v.Name.Text = p.Name v.Name.Position = Vector2.new(pos.X, topY - 26) v.Name.Color = color v.Name.Visible = Settings.ESPNames
-                            v.Dist.Text = "[" .. math.floor(dist) .. "m]" v.Dist.Position = Vector2.new(pos.X, topY - 12) v.Dist.Color = color v.Dist.Visible = Settings.ESPDistance
+            -- BUG FIX: dead/removed characters → hide stale drawings instead of leaving them frozen
+            if not hum or hum.Health <= 0 then
+                local v = PlayerEntries[char]
+                if v then hideVisual(v) end
+                continue
+            end
 
-                            if Settings.ESPHealthBar then
-                                local maxHp = math.max(1, hum.MaxHealth)
-                                local hpPct = math.clamp(hum.Health / maxHp, 0, 1)
-                                local barW, barX, barY, barH = 3, topX - 7, topY, sy
-                                local hpColor = hpPct > 0.5 and Color3.fromRGB(74, 222, 128) or (hpPct > 0.25 and Color3.fromRGB(255, 200, 87) or Color3.fromRGB(255, 85, 102))
-                                v.HpBg.Size = Vector2.new(barW + 2, barH + 2) v.HpBg.Position = Vector2.new(barX - 1, barY - 1) v.HpBg.Color = Color3.new(0,0,0) v.HpBg.Visible = true
-                                local fillH = barH * hpPct
-                                v.HpFill.Size = Vector2.new(barW, math.max(0, fillH)) v.HpFill.Position = Vector2.new(barX, barY + (barH - fillH)) v.HpFill.Color = hpColor v.HpFill.Visible = true
-                            else v.HpBg.Visible = false v.HpFill.Visible = false end
+            if not PlayerEntries[char] then PlayerEntries[char] = createVisual() end
+            local v = PlayerEntries[char]
 
-                            if Settings.ESPSkeleton then
-                                for i, pair in ipairs(BonePairs) do
-                                    local ln = v.SkeletonLines[i]
-                                    local partA, partB = char:FindFirstChild(pair[1]), char:FindFirstChild(pair[2])
-                                    if partA and partB then
-                                        local a2, aOn = Camera:WorldToViewportPoint(partA.Position)
-                                        local b2, bOn = Camera:WorldToViewportPoint(partB.Position)
-                                        if aOn and bOn and a2.Z > 0.5 and b2.Z > 0.5 then
-                                            ln.From = Vector2.new(a2.X, a2.Y) ln.To = Vector2.new(b2.X, b2.Y) ln.Color = color ln.Visible = true
-                                        else ln.Visible = false end
+            if Settings.ESPEnabled then
+                local root = getAnchor(char)
+                if root then
+                    local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
+                    local dist = (root.Position - Camera.CFrame.Position).Magnitude
+
+                    if onScreen and pos.Z > 0.5 and dist <= Settings.MaxDistance then
+                        local color = Settings.ESPRainbow and rainbowColor() or Settings.EnemyColor
+                        local z = math.max(pos.Z, 1)
+                        local sx = math.clamp(1800 / z, 10, 400)
+                        local sy = math.clamp(2800 / z, 14, 620)
+                        local topX, topY = pos.X - sx/2, pos.Y - sy/2
+
+                        v.Box.Size = Vector2.new(sx, sy) v.Box.Position = Vector2.new(topX, topY)
+                        v.Box.Color = color v.Box.Thickness = 1 v.Box.Visible = Settings.ESPBoxes
+                        v.Name.Text = e.name v.Name.Position = Vector2.new(pos.X, topY - 26) v.Name.Color = color v.Name.Visible = Settings.ESPNames
+                        v.Dist.Text = "[" .. math.floor(dist) .. "m]" v.Dist.Position = Vector2.new(pos.X, topY - 12) v.Dist.Color = color v.Dist.Visible = Settings.ESPDistance
+
+                        if Settings.ESPHealthBar then
+                            local maxHp = math.max(1, hum.MaxHealth)
+                            local hpPct = math.clamp(hum.Health / maxHp, 0, 1)
+                            local barW, barX, barY, barH = 3, topX - 7, topY, sy
+                            local hpColor = hpPct > 0.5 and Color3.fromRGB(74, 222, 128) or (hpPct > 0.25 and Color3.fromRGB(255, 200, 87) or Color3.fromRGB(255, 85, 102))
+                            v.HpBg.Size = Vector2.new(barW + 2, barH + 2) v.HpBg.Position = Vector2.new(barX - 1, barY - 1) v.HpBg.Color = Color3.new(0,0,0) v.HpBg.Visible = true
+                            local fillH = barH * hpPct
+                            v.HpFill.Size = Vector2.new(barW, math.max(0, fillH)) v.HpFill.Position = Vector2.new(barX, barY + (barH - fillH)) v.HpFill.Color = hpColor v.HpFill.Visible = true
+                        else v.HpBg.Visible = false v.HpFill.Visible = false end
+
+                        if Settings.ESPSkeleton then
+                            for i, pair in ipairs(BonePairs) do
+                                local ln = v.SkeletonLines[i]
+                                local partA, partB = char:FindFirstChild(pair[1]), char:FindFirstChild(pair[2])
+                                if partA and partB then
+                                    local a2, aOn = Camera:WorldToViewportPoint(partA.Position)
+                                    local b2, bOn = Camera:WorldToViewportPoint(partB.Position)
+                                    if aOn and bOn and a2.Z > 0.5 and b2.Z > 0.5 then
+                                        ln.From = Vector2.new(a2.X, a2.Y) ln.To = Vector2.new(b2.X, b2.Y) ln.Color = color ln.Visible = true
                                     else ln.Visible = false end
-                                end
-                            else for _, ln in ipairs(v.SkeletonLines) do ln.Visible = false end end
-                        else
-                            v.Box.Visible = false v.Name.Visible = false v.Dist.Visible = false v.HpBg.Visible = false v.HpFill.Visible = false
-                            for _, ln in ipairs(v.SkeletonLines) do ln.Visible = false end
-                        end
+                                else ln.Visible = false end
+                            end
+                        else for _, ln in ipairs(v.SkeletonLines) do ln.Visible = false end end
                     else
-                        v.Box.Visible = false v.Name.Visible = false v.Dist.Visible = false v.HpBg.Visible = false v.HpFill.Visible = false
-                        for _, ln in ipairs(v.SkeletonLines) do ln.Visible = false end
+                        hideVisual(v)
                     end
                 else
-                    v.Box.Visible = false v.Name.Visible = false v.Dist.Visible = false v.HpBg.Visible = false v.HpFill.Visible = false
-                    for _, ln in ipairs(v.SkeletonLines) do ln.Visible = false end
+                    hideVisual(v)
                 end
+            else
+                hideVisual(v)
             end
         end
     end)
 end)
 
 Players.PlayerRemoving:Connect(function(p)
-    if PlayerEntries[p] then removeVisual(PlayerEntries[p]) PlayerEntries[p] = nil end
+    if p.Character and PlayerEntries[p.Character] then
+        removeVisual(PlayerEntries[p.Character])
+        PlayerEntries[p.Character] = nil
+    end
+    -- fallback: any orphaned entries for this player's old characters
+    for char, v in pairs(PlayerEntries) do
+        if Players:GetPlayerFromCharacter(char) == p then
+            removeVisual(v)
+            PlayerEntries[char] = nil
+        end
+    end
 end)
 
-print("[Nexus Aim Helper] Loaded successfully! (Press Right Shift or Insert to toggle)")
+print("[Nexus Aim Helper v2] Loaded! (Insert/RightShift = UI, RightCtrl = unload, X = PANIC)")
