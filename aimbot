@@ -10,7 +10,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 local aimbotEnabled = false
 local aimbotFov     = 150
-local aimbotSmooth  = 65 -- Sert kilitlenme için optimize edildi
+local aimbotSmooth  = 50 -- Sert kilitlenme için optimize edildi
 local aimbotMaxDist = 150
 
 local fovGui = Instance.new("ScreenGui")
