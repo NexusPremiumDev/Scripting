@@ -8578,7 +8578,20 @@ local ThemeManager = {} do
 	end
 
 	function ThemeManager:LoadDefault()
-		local theme = 'Default'
+		-- Nexus · requested default theme: BBot
+		local theme = 'BBot'
+		local marker = self.Folder .. '/themes/.nexus_bbot_v1'
+		local firstRun = not (type(isfile) == 'function' and isfile(marker))
+		if firstRun and type(writefile) == 'function' then
+			pcall(function()
+				local path = self.Folder .. '/themes/default.txt'
+				local current = (type(isfile) == 'function' and isfile(path)) and readfile(path) or nil
+				if current == nil or current == 'Default' then
+					writefile(path, 'BBot')
+				end
+				writefile(marker, '1')
+			end)
+		end
 		local content = isfile(self.Folder .. '/themes/default.txt') and readfile(self.Folder .. '/themes/default.txt')
 
 		local isDefault = true
@@ -8591,6 +8604,9 @@ local ThemeManager = {} do
 			end
 		elseif self.BuiltInThemes[self.DefaultTheme] then
 			theme = self.DefaultTheme
+		end
+		if theme == 'Default' and self.BuiltInThemes['BBot'] then
+			theme = 'BBot'
 		end
 
 		if isDefault then
@@ -9855,8 +9871,20 @@ MoveLeft:AddToggle("WalkSpeedEnabled", {
 	Default = false,
 	Callback = function(value)
 		State.WalkEnabled = value
-		if value and Humanoid then
+		if not Humanoid then
+			return
+		end
+		if value then
+			-- v5.2 · ilk acilista gercek degeri sakla, kapatinca geri yaz
+			if State.OrigWalkSpeed == nil then
+				State.OrigWalkSpeed = Humanoid.WalkSpeed
+			end
 			Humanoid.WalkSpeed = State.WalkSpeed
+		else
+			pcall(function()
+				Humanoid.WalkSpeed = State.OrigWalkSpeed or 16
+			end)
+			State.OrigWalkSpeed = nil
 		end
 	end,
 })
@@ -9878,9 +9906,28 @@ MoveLeft:AddToggle("JumpPowerEnabled", {
 	Default = false,
 	Callback = function(value)
 		State.JumpEnabled = value
-		if value and Humanoid then
+		if not Humanoid then
+			return
+		end
+		if value then
+			if State.OrigJumpPower == nil then
+				State.OrigJumpPower = Humanoid.JumpPower
+				State.OrigUseJumpPower = Humanoid.UseJumpPower
+			end
 			Humanoid.UseJumpPower = true
 			Humanoid.JumpPower = State.JumpPower
+		else
+			pcall(function()
+				Humanoid.JumpPower = State.OrigJumpPower or 50
+				if State.OrigUseJumpPower ~= nil then
+					Humanoid.UseJumpPower = State.OrigUseJumpPower
+				end
+				if Humanoid.JumpHeight == 0 then
+					Humanoid.JumpHeight = 7.2
+				end
+			end)
+			State.OrigJumpPower = nil
+			State.OrigUseJumpPower = nil
 		end
 	end,
 })
@@ -13797,8 +13844,8 @@ do
 	end))
 end
 
-Notify("Nexus TSB v4.0 FIXED loaded. Menu: RightShift", 4)
-print("[Nexus] TSB ready")
+Notify("Nexus TSB v5.2 loaded. Menu: RightShift", 4)
+print("[Nexus] TSB v5.2 ready · BBot theme · walk/jump off fix")
 ]=],
 [2] = [=[--[[═══════════════════════════════════════════════════════════════════════════
   NEXUS · RIVALS LEGIT · v4.3
@@ -17223,7 +17270,7 @@ print("[Nexus Legit] v4.4 ready")
 setStatus("● ready · RightShift panel", C.Good)
 
 ]=],
-[3] = [=[-- NEXUS ENGINE · NATURAL DISASTER SURVIVAL  v4.0 "GOD"  (Apex Engine embedded module)
+[3] = [=[-- NEXUS ENGINE · NATURAL DISASTER SURVIVAL  v6.2 "MEGA"  (Apex Engine embedded module)
 -- Place: 189707 · Natural Disaster Survival
 --
 -- Rewritten from scratch. The old module had 10+ separate "protections" that
@@ -17234,6 +17281,29 @@ setStatus("● ready · RightShift panel", C.Good)
 -- Everything is pcall-guarded, nothing requires an executor-only function to
 -- exist: if hookmetamethod is missing the module simply uses the loop based
 -- layers instead.
+--
+-- v4.1 · BRING PARTS: pulls the parts lying on the ground into your body and
+-- can weld them to you so they follow you around.
+--
+-- v5.0 · TROLL
+--   * protection: part shield (debris cannot touch you), anti launch (velocity
+--     clamp), instant health restore on touch/fall damage, anti-afk, fullbright
+--   * bring parts: orbit mode (parts circle around you) and every brought part
+--     is made harmless (CanCollide / CanTouch off, Massless)
+--   * fling without welds: 360 jump spin fling, fling all, helicopter, dance fling
+--   * Egor mode (slow walk + fast animation + floaty jump), dance emote
+--
+-- v6.0 · MEGA
+--   * EMOTES tab (v6.1): emotes play through Humanoid:PlayEmote first (works for
+--     every emote the player owns, on R6 and R15) and only then fall back to
+--     verified Roblox-owned animation ids. Third-party animation ids can NOT be
+--     loaded in another game, which is why v6.0 threw "Animation failed to load".
+--   * (v6.0 notes) famous emotes (Take the L, Floss,
+--     Griddy, Helicopter, Thriller ...), speed slider, random, stop
+--   * VISUAL tab: fullbright, fog off, clock, FOV, low graphics, hide accessories
+--   * SURVIVE: safe platform under you, respawn at the last safe spot, anti void
+--   * TROLL: part tornado, part rain, auto fling loop
+--   * PLAYERS: BRING (pull to you) and CAM (spectate) per player
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -17285,8 +17355,48 @@ local S = {
 	SafeHeight = 90,
 	Alerts = true,
 	-- fun
-	PartMagnet = false,
-	MagnetRange = 120,
+	-- v4.1 · BRING PARTS (yerdeki parcalar -> vucut)
+	BringParts = false,
+	BringRange = 200,
+	BringSpeed = 140,
+	BringStick = true,
+	BringAnchored = false,
+	BringMax = 200,
+	-- v5.0 · bring parts extras
+	BringOrbit = false,        -- parcalar senin etrafinda doner
+	BringOrbitRadius = 9,
+	BringOrbitSpeed = 160,     -- derece/sn
+	BringNoDamage = true,      -- parcalar sana zarar veremez (CanCollide/CanTouch kapali)
+	-- v5.0 · protection
+	NoTouchDamage = true,      -- carpma / dusme hasari aninda geri dolar
+	PartShield = true,         -- etraftaki kopan parcalar sana carpmaz
+	ShieldRange = 70,
+	AntiLaunch = true,         -- firlatilirsan hiz sinirlanir, void'e ucmazsin
+	MaxVelocity = 220,
+	AntiAFK = false,
+	Fullbright = false,
+	-- v5.0 · troll
+	Helicopter = false,
+	DanceFling = false,
+	Egor = false,
+	SpinPower = 4500,
+	FlingRange = 400,
+	-- v6.0 · emotes
+	EmoteLoop = false,
+	EmoteSpeed = 1,
+	-- v6.0 · visual
+	Fog = false,
+	LowGfx = false,
+	HideAcc = false,
+	ClockTime = 14,
+	FOV = 70,
+	-- v6.0 · survive extras
+	SafePlatform = false,
+	RespawnSafe = false,
+	AntiVoid = false,
+	-- v6.0 · troll extras
+	AutoFling = false,
+	AutoFlingDelay = 6,
 	-- misc
 	GUIKey = "RightShift",
 	LastError = "",
@@ -17431,6 +17541,9 @@ local function addStroke(obj, color, thickness)
 end
 
 -- toast stack ---------------------------------------------------------------
+-- v5.0 · ileri bildirim (dosyanin geri kalaninda global sizintisi olmasin)
+local updateStatusBar
+
 local function notify(text, color)
 	if not GUI.Screen then return end
 	if not GUI.Toasts then
@@ -17708,7 +17821,7 @@ local function tabContainer(name, order, icon)
 end
 
 local function section(parent, text, order)
-	mk("TextLabel", {
+	local head = mk("TextLabel", {
 		BackgroundTransparency = 1,
 		Size = UDim2.new(1, 0, 0, 20),
 		Font = Enum.Font.GothamBold,
@@ -17718,6 +17831,7 @@ local function section(parent, text, order)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		LayoutOrder = order,
 	}, parent)
+	return head
 end
 
 local function label(parent, text, order, color)
@@ -18499,23 +18613,782 @@ end
 --===========================================================================
 -- 8 · SMALL EXTRAS (part magnet, spin, teleports)
 --===========================================================================
-local function partMagnetTick()
-	if not S.PartMagnet then return end
+--===========================================================================
+-- 8b · BRING PARTS  (v4.1 · yerdeki parcalari vucuduna cek)
+--===========================================================================
+-- Aday parca listesi 0.75 saniyede bir tazelenir, hareket her karede yapilir:
+--   · kendi karakterin, diger oyuncularin karakterleri, tool'lar ve haritanin
+--     dev zemin parcalari listeye hic girmez
+--   · parca menzile girdiyse vucuda dogru cekilir (saniyede Speed stud)
+--   · 4 stud'a yaklasinca "Stick to body" aciksa WeldConstraint ile govdeye
+--     yapisir ve seninle birlikte hareket eder
+-- v6.2 · BRING PARTS artik tamamen CLIENT-SIDE (FE):
+--   * WeldConstraint istemcide olusturulunca sunucuya gitmez ve sunucuya ait
+--     parcalari KALDIRMAZ -> v6.1'de "calismiyor" gorunmesinin sebebi buydu.
+--   * Cozum: parcanin orijinal hali saklanir, istemcide Anchored = true yapilir
+--     (fizik durur), her karede CFrame yazilir. Kapatinca her sey geri yuklenir.
+local Bring = {
+	Welds = {},      -- (eski surum uyumlulugu, artik kullanilmiyor)
+	List = {},       -- aday parcalar
+	Original = {},   -- [part] = {CFrame, Anchored, CanCollide, CanTouch, Massless}
+	Index = {},      -- [part] = sira (orbit/ring konumu icin)
+	Count = 0,
+	LastScan = 0,
+	Held = 0,
+}
+
+-- v5.0 · getirilen parcalar sana zarar veremez (CanCollide / CanTouch kapali, massless)
+local function makePartHarmless(part)
+	if not S.BringNoDamage then return end
+	safe(function() part.CanCollide = false end)
+	safe(function() part.CanTouch = false end)
+	safe(function() part.Massless = true end)
+end
+
+-- v6.2 · orijinal hali bir kez sakla (birakinca aynen geri yuklenir)
+local function bringCapture(part)
+	if Bring.Original[part] then
+		return true
+	end
+	local info = {}
+	local ok = pcall(function()
+		info.CFrame = part.CFrame
+		info.Anchored = part.Anchored
+		info.CanCollide = part.CanCollide
+		info.CanTouch = part.CanTouch
+		info.Massless = part.Massless
+	end)
+	if not ok then
+		return false
+	end
+	Bring.Original[part] = info
+	if not Bring.Index[part] then
+		Bring.Count = Bring.Count + 1
+		Bring.Index[part] = Bring.Count
+	end
+	return true
+end
+
+-- v6.2 · istemcide dondur: sunucudan izin gerekmez, sadece bu istemciyi etkiler
+local function bringHold(part)
+	safe(function()
+		part.Anchored = true
+	end)
+	makePartHarmless(part)
+end
+
+local function bringCharacters()
+	local chars = {}
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local ch = plr.Character
+		if ch then chars[#chars + 1] = ch end
+	end
+	return chars
+end
+
+local function bringSkip(part, chars)
+	if part.Name == "NexusNDS_SafePlatform" or part.Name == "NexusBringWeld" then return true end
+	if part:FindFirstAncestorOfClass("Tool") then return true end
+	local size = part.Size
+	if size.Y > 200 or (size.X > 200 and size.Z > 200) then return true end   -- baseplate / harita zemini
+	for _, ch in ipairs(chars) do
+		if part:IsDescendantOf(ch) then return true end
+	end
+	return false
+end
+
+-- sinirli tarama: en fazla 3000 dugum / 3 kat, boylece harita buyuk olsa da
+-- saniyede bir yapilan bu tarama donmaya yol acmaz
+local function bringScan()
+	local list = {}
 	local _, _, root = charInfo()
-	if not root then return end
+	if not root then return Bring.List end
+	local reach = (S.BringRange or 200) * 1.25
 	local myPos = root.Position
-	local moved = 0
-	for _, child in ipairs(Workspace:GetChildren()) do
-		if moved >= 150 then break end
-		if child:IsA("BasePart") and not child.Anchored and child ~= root then
-			local delta = myPos - child.Position
-			if delta.Magnitude <= S.MagnetRange then
-				safe(function()
-					child.AssemblyLinearVelocity = delta.Unit * 55
+	local chars = bringCharacters()
+	local budget = 3000
+	local queue = { { node = Workspace, depth = 0 } }
+	local head = 1
+	while head <= #queue and budget > 0 and #list < 1200 do
+		local item = queue[head]
+		head = head + 1
+		local children = {}
+		pcall(function() children = item.node:GetChildren() end)
+		for _, obj in ipairs(children) do
+			budget = budget - 1
+			if budget > 0 then
+				local isPart, anchored = false, true
+				pcall(function()
+					isPart = obj:IsA("BasePart")
+					if isPart then anchored = obj.Anchored end
 				end)
-				moved = moved + 1
+				if isPart then
+					if (S.BringAnchored or not anchored) and not bringSkip(obj, chars) then
+						local dist = 0
+						pcall(function() dist = (obj.Position - myPos).Magnitude end)
+						if dist <= reach then
+							list[#list + 1] = obj
+						end
+					end
+				elseif item.depth < 3 then
+					queue[#queue + 1] = { node = obj, depth = item.depth + 1 }
+				end
 			end
 		end
+	end
+	return list
+end
+
+local function bringMove(part, targetPos)
+	-- rotasyonu koruyarak sadece konumu degistir (basarisizsa duz konum)
+	local newCF = nil
+	local ok = pcall(function() newCF = CFrame.new(targetPos) * (part.CFrame - part.Position) end)
+	if not ok or not newCF then newCF = CFrame.new(targetPos) end
+	pcall(function() part.CFrame = newCF end)
+end
+
+-- v6.2 · eski weld yolu KALDIRILDI. Yerine istemci tarafi tutma:
+--   bringCapture(part) ile orijinal hal, bringHold(part) ile dondurma.
+local function bringWeld(part, root)
+	if not bringCapture(part) then
+		return false
+	end
+	bringHold(part)
+	Bring.Held = Bring.Held + 1
+	return true
+end
+
+local function releaseAllParts()
+	local released = 0
+	for part, info in pairs(Bring.Original) do
+		if part and part.Parent then
+			safe(function()
+				if info.CFrame ~= nil then
+					part.CFrame = info.CFrame
+				end
+				if info.Anchored ~= nil then
+					part.Anchored = info.Anchored
+				end
+				if info.CanCollide ~= nil then
+					part.CanCollide = info.CanCollide
+				end
+				if info.CanTouch ~= nil then
+					part.CanTouch = info.CanTouch
+				end
+				if info.Massless ~= nil then
+					part.Massless = info.Massless
+				end
+			end)
+			released = released + 1
+		end
+	end
+	Bring.Original = {}
+	Bring.Index = {}
+	Bring.Welds = {}
+	Bring.Count = 0
+	Bring.Held = 0
+	return released
+end
+
+local function bringRingPos(root, index)
+	local angle = index * 2.39996          -- altin aci: parcalar ust uste binmez
+	local radius = 2.6 + (index % 4) * 1.1
+	local height = ((index % 5) - 2) * 0.85
+	return root.Position + Vector3.new(math.cos(angle) * radius, height, math.sin(angle) * radius)
+end
+
+local function bringPartsTick(dt)
+	if not S.BringParts then
+		return
+	end
+	local _, _, root = charInfo()
+	if not root then
+		return
+	end
+	local clock = now()
+	if clock - Bring.LastScan > 0.75 then
+		Bring.LastScan = clock
+		Bring.List = bringScan()
+		-- yok olan parcalari birak
+		for part in pairs(Bring.Original) do
+			if not part.Parent then
+				Bring.Original[part] = nil
+				Bring.Index[part] = nil
+			end
+		end
+	end
+
+	local reach = S.BringRange or 200
+	local limit = math.max(1, S.BringMax or 200)
+	local origin = root.Position
+	local moved = 0
+
+	-- 1) TUTULAN PARCALAR: menzil disina ciksan bile seninle gelir (istemci tarafi)
+	for part, info in pairs(Bring.Original) do
+		if part.Parent then
+			local idx = Bring.Index[part] or 1
+			local target
+			if S.BringOrbit then
+				local radius = math.max(3, S.BringOrbitRadius or 9)
+				local ring = 1 + (idx % 3)
+				local angle = os.clock() * math.rad(S.BringOrbitSpeed or 160) + (idx * 0.7)
+				target = origin + Vector3.new(
+					math.cos(angle) * (radius + ring * 0.6),
+					math.sin(angle * 1.7) * 1.6,
+					math.sin(angle) * (radius + ring * 0.6))
+			else
+				target = bringRingPos(root, idx % 60)
+			end
+			local pos = part.Position
+			if (target - pos).Magnitude > 30 then
+				bringMove(part, target)                      -- uzakta: aninda yakala
+			else
+				bringMove(part, pos + (target - pos) * math.clamp(dt * 25, 0, 1))
+			end
+			safe(function()
+				part.Anchored = true
+				part.AssemblyLinearVelocity = Vector3.zero
+				part.AssemblyAngularVelocity = Vector3.zero
+			end)
+		end
+	end
+
+	-- 2) YENI PARCALAR: menzildekileri topla
+	for _, part in ipairs(Bring.List) do
+		if moved >= limit then
+			break
+		end
+		if part.Parent and not Bring.Original[part] then
+			local pos = part.Position
+			local dist = (origin - pos).Magnitude
+			if dist > 0 and dist <= reach then
+				moved = moved + 1
+				if bringCapture(part) then
+					bringHold(part)
+					Bring.Held = Bring.Held + 1
+					local idx = Bring.Index[part] or moved
+					if S.BringOrbit then
+						local radius = math.max(3, S.BringOrbitRadius or 9)
+						local ring = 1 + (idx % 3)
+						local angle = os.clock() * math.rad(S.BringOrbitSpeed or 160) + (idx * 0.7)
+						bringMove(part, origin + Vector3.new(
+							math.cos(angle) * (radius + ring * 0.6),
+							math.sin(angle * 1.7) * 1.6,
+							math.sin(angle) * (radius + ring * 0.6)))
+					else
+						bringMove(part, bringRingPos(root, idx % 60))
+					end
+					safe(function()
+						part.AssemblyLinearVelocity = Vector3.zero
+						part.AssemblyAngularVelocity = Vector3.zero
+					end)
+				end
+			end
+		end
+	end
+end
+
+local function bringPartsOnce()
+	local _, _, root = charInfo()
+	if not root then return 0 end
+	Bring.List = bringScan()
+	local reach = S.BringRange or 200
+	local limit = math.max(1, S.BringMax or 200)
+	local count = 0
+	for _, part in ipairs(Bring.List) do
+		if count >= limit then break end
+		if part.Parent then
+			local dist = 0
+			pcall(function() dist = (root.Position - part.Position).Magnitude end)
+			if dist > 0 and dist <= reach then
+				count = count + 1
+				bringCapture(part)
+				bringHold(part)
+				bringMove(part, bringRingPos(root, count))
+				safe(function()
+					part.AssemblyLinearVelocity = Vector3.zero
+					part.AssemblyAngularVelocity = Vector3.zero
+				end)
+			end
+		end
+	end
+	notify(string.format("%d parts brought", count), P.accent)
+	return count
+end
+
+--===========================================================================
+-- 8c · PROTECTION  (v5.0 · carpma / dusme hasari)
+--===========================================================================
+local Shield = { Original = {}, Last = 0 }
+local NoDmg = { Conn = nil, Char = nil }
+local FullbrightState = { Saved = nil }
+
+local function charPartOfMe(part)
+	local char = LP.Character
+	if not char then return false end
+	local ok, res = pcall(function() return part:IsDescendantOf(char) end)
+	return ok and res
+end
+
+-- haritadaki kopan (anchored olmayan) parcalar sana carpmasin diye
+-- istemci tarafinda CanCollide kapatilir; kapaninca eski haline doner
+local function shieldScan()
+	local _, _, root = charInfo()
+	if not root then return end
+	local radius = S.ShieldRange or 70
+	local keep = {}
+	-- butceli tarama: en fazla 2500 dugum (butun haritayi gezmek donmaya yol acar)
+	local budget = 2500
+	local queue = { Workspace }
+	local head = 1
+	while head <= #queue and budget > 0 do
+		local node = queue[head]
+		head = head + 1
+		local children = {}
+		pcall(function() children = node:GetChildren() end)
+		for _, obj in ipairs(children) do
+			budget = budget - 1
+			local okPart, isPart = budget > 0 and pcall(function() return obj:IsA("BasePart") end) or false, false
+			if okPart then isPart = true end
+			if budget > 0 then
+			if isPart then
+			local anchored = true
+			pcall(function() anchored = obj.Anchored end)
+			if not anchored and not charPartOfMe(obj) then
+				local dist = 0
+				pcall(function() dist = (obj.Position - root.Position).Magnitude end)
+				if dist <= radius then
+					keep[obj] = true
+					if Shield.Original[obj] == nil then
+						local original = true
+						pcall(function() original = obj.CanCollide end)
+						Shield.Original[obj] = original
+					end
+					safe(function() obj.CanCollide = false end)
+				end
+			end
+			else
+				queue[#queue + 1] = obj
+			end
+			end
+		end
+	end
+	for part, original in pairs(Shield.Original) do
+		if not keep[part] then
+			if part.Parent then safe(function() part.CanCollide = original end) end
+			Shield.Original[part] = nil
+		end
+	end
+end
+
+local function shieldClear()
+	for part, original in pairs(Shield.Original) do
+		if part.Parent then safe(function() part.CanCollide = original end) end
+	end
+	Shield.Original = {}
+end
+
+-- firlatilma / dusme: hizi sinirla, asiri donuste sifirla
+local function antiLaunchStep()
+	if not S.AntiLaunch then return end
+	if S.Fly then return end          -- fly kendi hizini yonetir
+	local _, _, root = charInfo()
+	if not root then return end
+	local maxV = S.MaxVelocity or 220
+	local v
+	if not pcall(function() v = root.AssemblyLinearVelocity end) or not v then return end
+	local speed = v.Magnitude
+	if speed > maxV then
+		safe(function() root.AssemblyLinearVelocity = v.Unit * maxV end)
+	end
+	local av
+	if pcall(function() av = root.AssemblyAngularVelocity end) and av and av.Magnitude > 40 then
+		safe(function() root.AssemblyAngularVelocity = Vector3.zero end)
+	end
+end
+
+local function noDamageStep()
+	if not S.NoTouchDamage then return end
+	local _, hum = charInfo()
+	if not hum then return end
+	if hum.Health < hum.MaxHealth then safe(function() hum.Health = hum.MaxHealth end) end
+end
+
+local function bindNoDamage(char)
+	if not char or NoDmg.Char == char then return end
+	NoDmg.Char = char
+	if NoDmg.Conn then safe(function() NoDmg.Conn:Disconnect() end); NoDmg.Conn = nil end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+	NoDmg.Conn = connect(hum.HealthChanged, function(health)
+		if S.NoTouchDamage and health < hum.MaxHealth then
+			safe(function() hum.Health = hum.MaxHealth end)
+		end
+	end)
+end
+
+local function fullbrightSet(on)
+	local lighting = game:GetService("Lighting")
+	if on then
+		if not FullbrightState.Saved then
+			FullbrightState.Saved = { Brightness = 1, ClockTime = 14, FogEnd = 100000, Ambient = Color3.fromRGB(70, 70, 70) }
+			pcall(function()
+				FullbrightState.Saved.Brightness = lighting.Brightness
+				FullbrightState.Saved.ClockTime = lighting.ClockTime
+				FullbrightState.Saved.FogEnd = lighting.FogEnd
+				FullbrightState.Saved.Ambient = lighting.Ambient
+			end)
+		end
+		pcall(function()
+			lighting.Brightness = 2
+			lighting.ClockTime = 14
+			lighting.FogEnd = 100000
+			lighting.Ambient = Color3.fromRGB(180, 180, 180)
+		end)
+	else
+		local saved = FullbrightState.Saved
+		if saved then
+			pcall(function()
+				lighting.Brightness = saved.Brightness
+				lighting.ClockTime = saved.ClockTime
+				lighting.FogEnd = saved.FogEnd
+				lighting.Ambient = saved.Ambient
+			end)
+			FullbrightState.Saved = nil
+		end
+	end
+end
+
+local function antiAfkStep()
+	if not S.AntiAFK then return end
+	local vu = game:GetService("VirtualUser")
+	pcall(function() vu:CaptureController() end)
+	pcall(function() vu:ClickButton2(Vector2.new(0, 0)) end)
+end
+
+--===========================================================================
+-- 8d · FLING  (v5.0 · WELD YOK · 360 spin temas firlatmasi)
+--===========================================================================
+-- Mantik: hedefin ustune atla, karaktere cok yuksek Y ekseni donusu ver
+-- (klasik "touch fling"), donus 0 <-> cok buyuk deger arasinda degisir.
+-- Fizik istemci tarafinda hesaplandigi icin weld / arac gerekmez.
+local Troll = { Token = 0, BusyUntil = 0, Target = nil, Heli = nil, EgorThread = nil, Grav = nil }
+
+local function trollStop()
+	Troll.Token = Troll.Token + 1
+	Troll.BusyUntil = 0
+	local _, hum, root = charInfo()
+	if root then
+		safe(function()
+			root.AssemblyAngularVelocity = Vector3.zero
+			root.AssemblyLinearVelocity = Vector3.zero
+		end)
+	end
+	if hum then safe(function() hum.PlatformStand = false end) end
+	S.Helicopter = false
+	S.DanceFling = false
+end
+
+local function trollActive()
+	return S.Helicopter or S.DanceFling or (os.clock() < Troll.BusyUntil)
+end
+
+local function spinBurst(seconds, power, alsoBounce)
+	local _, hum, root = charInfo()
+	if not root or not hum then return false end
+	Troll.Token = Troll.Token + 1
+	local token = Troll.Token
+	Troll.BusyUntil = os.clock() + (seconds or 0.9)
+	local wasStand = false
+	pcall(function() wasStand = hum.PlatformStand end)
+	safe(function() hum.PlatformStand = true end)
+
+	local av
+	safe(function()
+		av = Instance.new("BodyAngularVelocity")
+		av.Name = "NexusSpin"
+		av.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+		av.P = 1e6
+		av.Parent = root
+	end)
+
+	task.spawn(function()
+		local t0 = os.clock()
+		local flip = false
+		while os.clock() - t0 < (seconds or 0.9) and Troll.Token == token and not Unloaded do
+			flip = not flip
+			safe(function()
+				if av then av.AngularVelocity = flip and Vector3.new(0, power or 4500, 0) or Vector3.zero end
+			end)
+			if alsoBounce then
+				safe(function()
+					root.AssemblyLinearVelocity = Vector3.new(
+						root.AssemblyLinearVelocity.X,
+						math.sin((os.clock() - t0) * 26) * 55,
+						root.AssemblyLinearVelocity.Z)
+				end)
+			end
+			task.wait(0.03)
+		end
+		safe(function() if av then av:Destroy() end end)
+		safe(function()
+			root.AssemblyAngularVelocity = Vector3.zero
+			if hum then hum.PlatformStand = wasStand or false end
+		end)
+	end)
+	return true
+end
+
+-- v6.2 · FLING (FE):
+--   Eski surum sadece USTUNE teleport edip kendi etrafinda donuyordu; hedefe
+--   temas etmedigi icin hicbir sey olmuyordu. Artik:
+--     1) hedefin ICINE girip her karede temas noktasinda kalir
+--     2) kendi karakterine surekli yuksek donus + itme uygular (kendi characterin
+--        SENIN ag sahipliginde -> sunucu bu fizigi kabul eder)
+--     3) executor izin veriyorsa hedefin parcalarinin ag sahipligini alir
+--        (SetNetworkOwner) -> o zaman gercek kuvvet uygulanir
+local function flingPlayer(target)
+	local char, hum, root = charInfo()
+	if not root or not hum or not target then
+		return false
+	end
+	if target == LP then
+		return false
+	end
+	local theirChar = target.Character
+	local theirRoot = theirChar and theirChar:FindFirstChild("HumanoidRootPart")
+	if not theirRoot then
+		notify("fling: target has no character", P.red)
+		return false
+	end
+	local dist = 0
+	pcall(function()
+		dist = (theirRoot.Position - root.Position).Magnitude
+	end)
+	if dist > (S.FlingRange or 400) then
+		notify(string.format("fling: target %.0f studs away", dist), P.red)
+		return false
+	end
+
+	Troll.Target = target
+	Troll.Token = Troll.Token + 1
+	local token = Troll.Token
+	local duration = tonumber(S.FlingDuration) or 1.3
+	Troll.BusyUntil = os.clock() + duration
+
+	-- (3) ag sahipligini almaya calis (bazi executorlarda calisir)
+	local owned = false
+	pcall(function()
+		for _, part in ipairs(theirChar:GetDescendants()) do
+			if part:IsA("BasePart") then
+				local ok = pcall(function()
+					part:SetNetworkOwner(LP)
+				end)
+				if ok then
+					owned = true
+				end
+			end
+		end
+	end)
+
+	local wasStand = false
+	pcall(function()
+		wasStand = hum.PlatformStand
+	end)
+	safe(function()
+		hum.PlatformStand = true
+	end)
+
+	local av
+	safe(function()
+		av = Instance.new("BodyAngularVelocity")
+		av.Name = "NexusFlingSpin"
+		av.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+		av.P = 1e6
+		av.Parent = root
+	end)
+
+	task.spawn(function()
+		local t0 = os.clock()
+		local flip = false
+		local power = tonumber(S.SpinPower) or 4500
+		while os.clock() - t0 < duration and Troll.Token == token and not Unloaded do
+			flip = not flip
+			-- (1) temas: her karede hedefin icinde kal
+			safe(function()
+				if theirRoot and theirRoot.Parent and root.Parent then
+					root.CFrame = CFrame.new(theirRoot.Position + Vector3.new(0, 0.6, 0))
+				end
+			end)
+			-- (2) kendi karakterime deli gibi donus + itme (sahipligim bende)
+			safe(function()
+				if av then
+					av.AngularVelocity = flip and Vector3.new(0, power * 2, 0) or Vector3.new(0, -power * 2, 0)
+				end
+			end)
+			safe(function()
+				root.AssemblyAngularVelocity = Vector3.new(power, power, power)
+				root.AssemblyLinearVelocity = Vector3.new(
+					math.random(-1, 1) * 220,
+					math.random(120, 320),
+					math.random(-1, 1) * 220)
+			end)
+			-- (3b) sahiplik alindiysa hedefi de savur
+			if owned then
+				safe(function()
+					if theirRoot and theirRoot.Parent then
+						theirRoot.AssemblyAngularVelocity = Vector3.new(power * 2, power * 2, power * 2)
+						theirRoot.AssemblyLinearVelocity = Vector3.new(
+							math.random(-1, 1) * 420,
+							math.random(250, 600),
+							math.random(-1, 1) * 420)
+					end
+				end)
+			end
+			task.wait(0.03)
+		end
+		safe(function()
+			if av then
+				av:Destroy()
+			end
+		end)
+		safe(function()
+			root.AssemblyAngularVelocity = Vector3.zero
+			if hum then
+				hum.PlatformStand = wasStand or false
+			end
+		end)
+	end)
+
+	if owned then
+		notify("FLING · " .. tostring(target.Name) .. " (ownership)", P.amber)
+	else
+		notify("FLING · " .. tostring(target.Name) .. " (touch spin)", P.amber)
+	end
+	return true
+end
+
+local function nearestPlayerToMe()
+	local _, _, root = charInfo()
+	if not root then return nil end
+	local best, bestDist = nil, math.huge
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LP and plr.Character then
+			local theirRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+			if theirRoot then
+				local d = 0
+				pcall(function() d = (theirRoot.Position - root.Position).Magnitude end)
+				if d < bestDist then bestDist, best = d, plr end
+			end
+		end
+	end
+	return best, bestDist
+end
+
+local function flingAll()
+	local count = 0
+	task.spawn(function()
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LP then
+				if flingPlayer(plr) then count = count + 1 end
+				task.wait(1.0)
+			end
+		end
+		notify(string.format("FLING ALL · %d players", count), P.green)
+	end)
+	return true
+end
+
+-- helicopter / dance fling · surekli donus (temas eden firlar)
+local function trollLoop(dt)
+	if not (S.Helicopter or S.DanceFling) then return end
+	local _, hum, root = charInfo()
+	if not root or not hum then return end
+	local power = S.SpinPower or 4500
+	local y = math.sin(os.clock() * 22) * 1600
+	safe(function()
+		root.AssemblyAngularVelocity = Vector3.new(0, S.DanceFling and (y + power) or power, 0)
+	end)
+	if S.DanceFling then
+		safe(function()
+			root.AssemblyLinearVelocity = Vector3.new(
+				root.AssemblyLinearVelocity.X,
+				math.sin(os.clock() * 12) * 45,
+				root.AssemblyLinearVelocity.Z)
+		end)
+	end
+end
+
+-- ── EGOR (yavas yuruyus + hizli animasyon + havada suzulen ziplama) ────────
+local function egorSet(on)
+	local _, hum = charInfo()
+	S.Egor = on == true
+	if on then
+		pcall(function()
+			if not Troll.Grav then Troll.Grav = workspace.Gravity end
+			workspace.Gravity = 80
+		end)
+		if hum then
+			safe(function()
+				hum.UseJumpPower = true
+				hum.WalkSpeed = 6
+				hum.JumpPower = 120
+			end)
+		end
+		if not Troll.EgorThread then
+			Troll.EgorThread = task.spawn(function()
+				while not Unloaded do
+					task.wait(0.25)
+					if S.Egor then
+						local _, h = charInfo()
+						if h then
+							safe(function()
+								local animator = h:FindFirstChildOfClass("Animator")
+								if animator then
+									for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+										pcall(function() track:AdjustSpeed(6) end)
+									end
+								end
+							end)
+						end
+					end
+				end
+				Troll.EgorThread = nil
+			end)
+		end
+		notify("EGOR MODE ON", P.amber)
+	else
+		pcall(function()
+			if Troll.Grav then workspace.Gravity = Troll.Grav end
+		end)
+		if hum then
+			safe(function()
+				hum.WalkSpeed = S.WalkSpeed or 16
+				hum.JumpPower = S.JumpPower or 50
+			end)
+		end
+		notify("EGOR MODE OFF", P.muted)
+	end
+end
+
+local function danceOnce()
+	local _, hum = charInfo()
+	if not hum then return end
+	local played = false
+	pcall(function()
+		hum:PlayEmote("dance")
+		played = true
+	end)
+	if not played then
+		pcall(function()
+			local animator = hum:FindFirstChildOfClass("Animator")
+			local anim = Instance.new("Animation")
+			anim.AnimationId = "rbxassetid://507771019"
+			if animator then
+				local track = animator:LoadAnimation(anim)
+				if track then track:Play() end
+			end
+		end)
 	end
 end
 
@@ -18526,6 +19399,633 @@ local function spinSelf(seconds)
 	task.delay(seconds or 1, function()
 		safe(function() root.AssemblyAngularVelocity = Vector3.zero end)
 	end)
+end
+
+--===========================================================================
+-- 8g · EMOTES (v6.0 · animation id ile unlu emoteler)
+--===========================================================================
+-- v6.1 · her emote: { isim, {PlayEmote anahtarlari}, {dogrulanmis Roblox id'leri} }
+--   PlayEmote anahtarlari: oyuncu bu emote'a sahipse RESMI API ile calisir (R6 + R15).
+--   id'ler: yalnizca Roblox'un kendi animasyonlari (Creator Id 1) - her oyunda yuklenir.
+--   Dogrulama: 507771019 = R15Dance1A, 507770239 = R15Wave, 507770677 = R15Cheer.
+local EMOTES = {
+	{ "Dance", { "dance" }, { "rbxassetid://507771019" } },
+	{ "Dance 2", { "dance2" }, {} },
+	{ "Dance 3", { "dance3" }, {} },
+	{ "Wave", { "wave" }, { "rbxassetid://507770239" } },
+	{ "Cheer", { "cheer" }, { "rbxassetid://507770677" } },
+	{ "Point", { "point" }, {} },
+	{ "Laugh", { "laugh" }, {} },
+	{ "Floss", { "Floss", "floss", "Floss Dance" }, {} },
+	{ "Take the L", { "Take the L", "TakeTheL", "Take The L" }, {} },
+	{ "Orange Justice", { "Orange Justice", "OrangeJustice" }, {} },
+	{ "Griddy", { "Griddy", "griddy" }, {} },
+	{ "Helicopter", { "Helicopter", "helicopter" }, {} },
+	{ "Electro Swing", { "Electro Swing", "ElectroSwing" }, {} },
+	{ "Shuffle", { "Shuffle", "shuffle" }, {} },
+	{ "Thriller", { "Thriller", "thriller" }, {} },
+	{ "Macarena", { "Macarena", "macarena" }, {} },
+	{ "Smooth Moves", { "Smooth Moves", "SmoothMoves" }, {} },
+	{ "The Robot", { "The Robot", "Robot", "the robot" }, {} },
+	{ "Stomp", { "stomp" }, {} },
+	{ "Tilt", { "tilt" }, {} },
+}
+
+local Emote = { Track = nil, Current = "", Broken = {}, Tried = {}, Working = {}, Capture = false }
+
+local function stopEmote()
+	if Emote.Track then safe(function() Emote.Track:Stop() end) end
+	Emote.Track = nil
+	Emote.Current = ""
+end
+
+local function emoteTable(name)
+	for _, e in ipairs(EMOTES) do
+		if e[1] == name then
+			return e
+		end
+	end
+	return nil
+end
+
+-- 1) RESMI YOL: Humanoid:PlayEmote(key) — sahip olunan her emotede calisir (R6 + R15)
+local function playEmoteOfficial(keys, loop)
+	if type(keys) ~= "table" then
+		return false
+	end
+	local _, hum = charInfo()
+	if not hum then
+		return false
+	end
+	for _, key in ipairs(keys) do
+		if type(key) == "string" and key ~= "" then
+			local ok, played = false, false
+			safe(function()
+				played = (hum:PlayEmote(key) == true)
+			end)
+			if played then
+				-- dongu icin track'i Animator.AnimationPlayed'dan yakala
+				if loop then
+					safe(function()
+						Emote.Capture = true
+					end)
+				end
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- 2) YEDEK YOL: yalnizca Roblox'un kendi (Creator Id 1) animasyonlari yuklenebilir.
+--    Yuklenemeyen animasyonu ANLARIZ (track.Length == 0) ve bir daha DENEMEYIZ.
+local function playEmoteID(animId, name, loop)
+	local id = tostring(animId or "")
+	local digits = string.match(id, "%d+")
+	if not digits then
+		return false
+	end
+	if Emote.Broken[digits] then
+		return false
+	end
+	local _, hum = charInfo()
+	if not hum then
+		return false
+	end
+	local animator = safe(function()
+		return hum:FindFirstChildOfClass("Animator")
+	end)
+	if not animator then
+		safe(function()
+			animator = Instance.new("Animator")
+			animator.Parent = hum
+		end)
+	end
+	if not animator then
+		return false
+	end
+	local anim = Instance.new("Animation")
+	anim.AnimationId = "rbxassetid://" .. digits
+	local track = nil
+	safe(function()
+		track = animator:LoadAnimation(anim)
+	end)
+	if not track then
+		Emote.Broken[digits] = true
+		return false
+	end
+	-- yuklenemeyen animasyonun suresi 0 olur: oynamayi denemeden anlariz
+	local length = nil
+	safe(function()
+		length = tonumber(track.Length)
+	end)
+	if length ~= nil and length <= 0 then
+		Emote.Broken[digits] = true
+		safe(function()
+			anim:Destroy()
+		end)
+		return false
+	end
+	stopEmote()
+	safe(function()
+		track.Looped = (loop == true)
+	end)
+	safe(function()
+		track:AdjustSpeed(S.EmoteSpeed or 1)
+	end)
+	safe(function()
+		track:Play()
+	end)
+	Emote.Track = track
+	Emote.Current = tostring(name or digits)
+	return true
+end
+
+-- 3) Ana giris noktasi: once resmi yol, sonra dogrulanmis id'ler
+local function playEmote(name, loop)
+	local entry = emoteTable(name)
+	local label = entry and entry[1] or tostring(name)
+	-- v6.1 · bu emote bir kez basarisiz olduysa tekrar denemeyiz (konsol spam'i yok)
+	if Emote.Tried[label] and not Emote.Working[label] then
+		return false
+	end
+	if entry then
+		if playEmoteOfficial(entry[2], loop) then
+			Emote.Current = label
+			Emote.Working[label] = true
+			notify("EMOTE · " .. label, P.green)
+			return true
+		end
+		for _, id in ipairs(entry[3] or {}) do
+			if playEmoteID(id, label, loop) then
+				Emote.Working[label] = true
+				notify("EMOTE · " .. label, P.green)
+				return true
+			end
+		end
+	end
+	-- taninmayan isim: dogrudan animasyon id'si verilmis olabilir
+	-- v6.2 · UGC / bilinmeyen isim: once RESMI PlayEmote ile dene
+	-- (sahip olunan UGC emote'lari bu yolla calisir; LoadAnimation ile CALISMAZ)
+	if not entry then
+		local _, hum = charInfo()
+		local ok, played = false, false
+		if hum then
+			safe(function()
+				played = (hum:PlayEmote(label) == true)
+			end)
+		end
+		if played then
+			Emote.Current = label
+			Emote.Working[label] = true
+			if loop then
+				safe(function()
+					Emote.Capture = true
+				end)
+			end
+			notify("UGC EMOTE · " .. label, P.green)
+			return true
+		end
+		if string.match(label, "%d") and playEmoteID(label, label, loop) then
+			notify("EMOTE · custom id", P.green)
+			return true
+		end
+	end
+	if not Emote.Tried[label] then
+		Emote.Tried[label] = true
+		notify(label .. " · not owned in this game, try Dance", P.amber)
+	end
+	return false
+end
+
+-- v6.1 · PlayEmote ile baslayan track'i yakala: "Loop emote" gercekten dongude kalsin
+safe(function()
+	local _, hum = charInfo()
+	local animator = hum and hum:FindFirstChildOfClass("Animator")
+	if animator then
+		animator.AnimationPlayed:Connect(function(track)
+			if not Emote.Capture then
+				return
+			end
+			Emote.Capture = false
+			Emote.Track = track
+			safe(function()
+				track.Looped = true
+			end)
+			safe(function()
+				track:AdjustSpeed(S.EmoteSpeed or 1)
+			end)
+			safe(function()
+				track.Stopped:Connect(function()
+					-- dongu kapaliysa track'i birak
+					if Emote.Track == track and not S.EmoteLoop then
+						Emote.Track = nil
+					end
+				end)
+			end)
+		end)
+	end
+end)
+
+-- v6.2 · SAHIP OLUNAN EMOTE'LAR (UGC dahil)
+-- HumanoidDescription:GetEmotes() -> { [isim] = {assetId, ...} }
+-- Humanoid:PlayEmote(isim) bu emote'lari R6/R15 fark etmeksizin oynatir.
+local function ownedEmotes()
+	local _, hum = charInfo()
+	if not hum then
+		return {}
+	end
+	local desc = nil
+	safe(function()
+		desc = hum:GetAppliedDescription()
+	end)
+	if not desc then
+		safe(function()
+			desc = hum:FindFirstChildOfClass("HumanoidDescription")
+		end)
+	end
+	local list = {}
+	if not desc then
+		return list
+	end
+	safe(function()
+		local emotes = desc:GetEmotes()
+		if type(emotes) ~= "table" then
+			return
+		end
+		for name, ids in pairs(emotes) do
+			if type(name) == "string" and name ~= "" then
+				list[#list + 1] = { Name = name, Ids = ids }
+			end
+		end
+	end)
+	table.sort(list, function(a, b)
+		return string.lower(a.Name) < string.lower(b.Name)
+	end)
+	return list
+end
+
+local function randomEmote()
+	-- v6.1 · once bu oturumda gercekten oynayanlar, yoksa id'si kirilmamis olanlar
+	local pool = {}
+	for _, e in ipairs(EMOTES) do
+		if Emote.Working[e[1]] then
+			table.insert(pool, e[1])
+		end
+	end
+	if #pool == 0 then
+		for _, e in ipairs(EMOTES) do
+			local ok = false
+			for _, id in ipairs(e[3] or {}) do
+				local digits = string.match(tostring(id), "%d+")
+				if digits and not Emote.Broken[digits] then
+					ok = true
+				end
+			end
+			if ok then
+				table.insert(pool, e[1])
+			end
+		end
+	end
+	if #pool == 0 then
+		return playEmote("Dance", S.EmoteLoop)
+	end
+	-- v6.1 · rastgele secim tutmazsa digerlerini dene (sessizce)
+	for _ = 1, math.min(#pool, 5) do
+		local index = math.random(1, #pool)
+		local pick = table.remove(pool, index)
+		if playEmote(pick, S.EmoteLoop) then
+			return true
+		end
+	end
+	return playEmote("Dance", S.EmoteLoop)
+end
+
+--===========================================================================
+-- 8h · VISUAL (v6.0 · fullbright / fog / saat / FOV / low graphics)
+--===========================================================================
+local Visual = { FogSaved = nil, FxSaved = {}, AccSaved = {} }
+
+local function visualLighting()
+	return safe(function() return game:GetService("Lighting") end)
+end
+
+local function fogSet(on)
+	S.Fog = on == true
+	local lighting = visualLighting()
+	if not lighting then return end
+	if on then
+		if not Visual.FogSaved then
+			Visual.FogSaved = { FogEnd = 1000, FogStart = 0 }
+			safe(function()
+				Visual.FogSaved.FogEnd = lighting.FogEnd
+				Visual.FogSaved.FogStart = lighting.FogStart
+			end)
+		end
+		safe(function()
+			lighting.FogEnd = 1000000
+			lighting.FogStart = 1000000
+		end)
+	else
+		local saved = Visual.FogSaved
+		if saved then
+			safe(function()
+				lighting.FogEnd = saved.FogEnd
+				lighting.FogStart = saved.FogStart
+			end)
+			Visual.FogSaved = nil
+		end
+	end
+end
+
+local function clockSet(hour)
+	S.ClockTime = hour
+	local lighting = visualLighting()
+	if lighting then safe(function() lighting.ClockTime = hour end) end
+end
+
+local function fovSet(value)
+	S.FOV = value
+	local cam = safe(function() return Workspace.CurrentCamera end)
+	if cam then safe(function() cam.FieldOfView = value end) end
+end
+
+local function lowGfxSet(on)
+	S.LowGfx = on == true
+	if on then
+		local budget = 3000
+		local queue = { Workspace }
+		local head = 1
+		while head <= #queue and budget > 0 do
+			local node = queue[head]
+			head = head + 1
+			local children = safe(function() return node:GetChildren() end) or {}
+			for _, obj in ipairs(children) do
+				budget = budget - 1
+				local class = tostring(obj.ClassName)
+				if class == "ParticleEmitter" or class == "Smoke" or class == "Fire"
+					or class == "Sparkles" or class == "Trail" or class == "Beam" then
+					if Visual.FxSaved[obj] == nil then
+						local was = true
+						safe(function() was = obj.Enabled end)
+						Visual.FxSaved[obj] = was
+					end
+					safe(function() obj.Enabled = false end)
+				elseif budget > 0 then
+					queue[#queue + 1] = obj
+				end
+				if budget <= 0 then break end
+			end
+		end
+	else
+		for obj, was in pairs(Visual.FxSaved) do
+			safe(function() obj.Enabled = was end)
+		end
+		Visual.FxSaved = {}
+	end
+end
+
+local function hideAccessoriesSet(on)
+	S.HideAcc = on == true
+	local char = LP.Character
+	if not char then return end
+	local children = safe(function() return char:GetChildren() end) or {}
+	for _, obj in ipairs(children) do
+		local class = tostring(obj.ClassName)
+		local handle = nil
+		if string.find(class, "Accessory") then
+			handle = obj:FindFirstChild("Handle")
+		end
+		if handle and handle:IsA("BasePart") then
+			if on then
+				if Visual.AccSaved[handle] == nil then
+					local was = 0
+					safe(function() was = handle.Transparency end)
+					Visual.AccSaved[handle] = was
+				end
+				safe(function() handle.Transparency = 1 end)
+			end
+		end
+	end
+	if not on then
+		for part, was in pairs(Visual.AccSaved) do
+			safe(function() part.Transparency = was end)
+		end
+		Visual.AccSaved = {}
+	end
+end
+
+--===========================================================================
+-- 8i · SURVIVE (v6.0 · platform / respawn at safe / anti void)
+--===========================================================================
+local Surv = { Platform = nil, LastRespawn = 0 }
+
+local function platformRemove()
+	if Surv.Platform then
+		safe(function() Surv.Platform:Destroy() end)
+		Surv.Platform = nil
+	end
+	S.SafePlatform = false
+end
+
+local function platformStep()
+	if not S.SafePlatform then
+		if Surv.Platform then platformRemove() end
+		return
+	end
+	local _, hum, root = charInfo()
+	if not root then return end
+	local part = Surv.Platform
+	if not part then
+		part = Instance.new("Part")
+		part.Name = "NexusSafePlatform"
+		safe(function() part.Anchored = true end)
+		safe(function() part.CanCollide = true end)
+		safe(function() part.Size = Vector3.new(14, 1, 14) end)
+		safe(function() part.Transparency = 0.4 end)
+		safe(function() part.Color = P.accent end)
+		safe(function() part.Material = Enum.Material.SmoothPlastic end)
+		part.Parent = Workspace
+		Surv.Platform = part
+	end
+	safe(function() part.CFrame = CFrame.new(root.Position - Vector3.new(0, 3.4, 0)) end)
+end
+
+local function respawnAtSafe()
+	if not S.RespawnSafe then return end
+	if now() - Surv.LastRespawn < 3 then return end
+	Surv.LastRespawn = now()
+	task.delay(1.2, function()
+		if Unloaded or not S.RespawnSafe then return end
+		local _, hum, root = charInfo()
+		if not root or not hum or hum.Health <= 0 then return end
+		local target = LastSafeCF
+		if not target then return end
+		safe(function()
+			root.CFrame = target + Vector3.new(0, 4, 0)
+			root.AssemblyLinearVelocity = Vector3.zero
+		end)
+		notify("Respawned at your last safe spot", P.green)
+	end)
+end
+
+local function antiVoidStep()
+	if not S.AntiVoid then return end
+	local _, hum, root = charInfo()
+	if not root then return end
+	if root.Position.Y < (VOID_Y - 500) then
+		goToSafeFallback()
+		notify("Anti void · pulled back up", P.amber)
+	end
+end
+
+--===========================================================================
+-- 8j · TROLL extras (part tornado / part rain / auto fling)
+--===========================================================================
+local Extra = { TornadoUntil = 0, TornadoParts = {}, NextAutoFling = 0, RainParts = {} }
+
+local function partTornado(seconds)
+	local _, hum, root = charInfo()
+	if not root then return end
+	local radius = 60
+	local list = {}
+	local budget = 1200
+	local queue = { Workspace }
+	local head = 1
+	while head <= #queue and budget > 0 and #list < 40 do
+		local node = queue[head]
+		head = head + 1
+		local children = safe(function() return node:GetChildren() end) or {}
+		for _, obj in ipairs(children) do
+			budget = budget - 1
+			local isPart = safe(function() return obj:IsA("BasePart") end)
+			if isPart then
+				local anchored = safe(function() return obj.Anchored end)
+				local dist = 0
+				safe(function() dist = (root.Position - obj.Position).Magnitude end)
+				if not anchored and not charPartOfMe(obj) and dist > 0 and dist <= radius then
+					list[#list + 1] = obj
+				end
+			elseif budget > 0 then
+				queue[#queue + 1] = obj
+			end
+			if budget <= 0 or #list >= 40 then break end
+		end
+	end
+	Extra.TornadoParts = list
+	Extra.TornadoUntil = now() + (seconds or 8)
+	if #list == 0 then
+		notify("No loose parts around", P.red)
+		return 0
+	end
+	notify(string.format("TORNADO · %d parts", #list), P.amber)
+	return #list
+end
+
+local function tornadoStep()
+	if now() > Extra.TornadoUntil or #Extra.TornadoParts == 0 then return end
+	local _, hum, root = charInfo()
+	if not root then return end
+	local angle = os.clock() * 9
+	local i = 0
+	for _, part in ipairs(Extra.TornadoParts) do
+		if part.Parent then
+			i = i + 1
+			local ring = 8 + (i % 4) * 3
+			local a = angle + (i * 0.7)
+			safe(function()
+				part.CFrame = CFrame.new(root.Position + Vector3.new(
+					math.cos(a) * ring,
+					2 + math.sin(a * 1.6) * 6 + (i % 3) * 2,
+					math.sin(a) * ring))
+			end)
+		end
+	end
+end
+
+local function partRain(count)
+	local _, hum, root = charInfo()
+	if not root then return end
+	local n = math.clamp(count or 40, 5, 120)
+	local made = 0
+	for i = 1, n do
+		local part = Instance.new("Part")
+		part.Name = "NexusRain"
+		safe(function() part.Size = Vector3.new(math.random(2, 6), math.random(2, 6), math.random(2, 6)) end)
+		safe(function() part.Color = P.accent end)
+		safe(function() part.Transparency = 0.15 end)
+		safe(function() part.CanCollide = false end)
+		safe(function() part.Anchored = false end)
+		local offset = Vector3.new(math.random(-25, 25), 70 + math.random(0, 30), math.random(-25, 25))
+		safe(function() part.CFrame = CFrame.new(root.Position + offset) end)
+		part.Parent = Workspace
+		table.insert(Extra.RainParts, part)
+		made = made + 1
+	end
+	task.delay(9, function()
+		for _, p in ipairs(Extra.RainParts) do
+			safe(function() p:Destroy() end)
+		end
+		Extra.RainParts = {}
+	end)
+	notify(string.format("PART RAIN · %d parts", made), P.amber)
+	return made
+end
+
+local function autoFlingStep()
+	if not S.AutoFling then return end
+	if now() < (Extra.NextAutoFling or 0) then return end
+	Extra.NextAutoFling = now() + (S.AutoFlingDelay or 6)
+	local plr = nearestPlayerToMe()
+	if plr then flingPlayer(plr) end
+end
+
+--===========================================================================
+-- 8k · SPECTATE + BRING TO ME (v6.0)
+--===========================================================================
+local Spectate = { Target = nil }
+
+local function spectatePlayer(plr)
+	if not plr then
+		Spectate.Target = nil
+		notify("Spectate OFF", P.muted)
+		return false
+	end
+	Spectate.Target = plr
+	notify("Spectating " .. tostring(plr.DisplayName or plr.Name), P.accent)
+	return true
+end
+
+local function spectateStep()
+	local plr = Spectate.Target
+	if not plr then return end
+	local char = plr.Character
+	local head = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
+	local cam = safe(function() return Workspace.CurrentCamera end)
+	if not head or not cam then
+		Spectate.Target = nil
+		return
+	end
+	safe(function()
+		cam.CFrame = CFrame.new(head.Position + Vector3.new(0, 4, 10), head.Position)
+	end)
+end
+
+local function bringPlayerToMe(plr)
+	if not plr or plr == LP then return false end
+	local _, hum, root = charInfo()
+	if not root then return false end
+	local theirChar = plr.Character
+	local theirRoot = theirChar and theirChar:FindFirstChild("HumanoidRootPart")
+	local theirHum = theirChar and theirChar:FindFirstChildOfClass("Humanoid")
+	if not theirRoot then return false end
+	safe(function()
+		theirRoot.CFrame = CFrame.new(root.Position + Vector3.new(3, 0, 3))
+		theirRoot.AssemblyLinearVelocity = Vector3.zero
+		if theirHum then theirHum.PlatformStand = false end
+	end)
+	notify("Brought " .. tostring(plr.DisplayName or plr.Name), P.green)
+	return true
 end
 
 local function teleportTo(position)
@@ -18575,7 +20075,7 @@ local function refreshPlayerList()
 			mk("TextLabel", {
 				BackgroundTransparency = 1,
 				Position = UDim2.new(0, 8, 0, 0),
-				Size = UDim2.new(1, -70, 1, 0),
+				Size = UDim2.new(1, -218, 1, 0),
 				Font = Enum.Font.GothamMedium,
 				Text = tostring(plr.DisplayName or plr.Name),
 				TextColor3 = P.text,
@@ -18583,11 +20083,57 @@ local function refreshPlayerList()
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextTruncate = Enum.TextTruncate.AtEnd,
 			}, row)
+			local flingBtn = mk("TextButton", {
+				Position = UDim2.new(1, -210, 0, 2),
+				Size = UDim2.new(0, 52, 0, 20),
+				BackgroundColor3 = P.cardHi,
+				BorderSizePixel = 0,
+				Font = Enum.Font.GothamBold,
+				Text = "FLING",
+				TextColor3 = P.red,
+				TextSize = 9,
+				AutoButtonColor = true,
+			}, row)
+			addCorner(flingBtn, 4)
+			connect(flingBtn.MouseButton1Click, function()
+				flingPlayer(plr)
+			end)
+
+			local bringBtn = mk("TextButton", {
+				BackgroundColor3 = P.cardHi,
+				BorderSizePixel = 0,
+				Position = UDim2.new(1, -154, 0, 3),
+				Size = UDim2.new(0, 48, 0, 18),
+				Font = Enum.Font.GothamBold,
+				Text = "BRING",
+				TextColor3 = P.green,
+				TextSize = 9,
+				AutoButtonColor = true,
+			}, row)
+			addCorner(bringBtn, 3)
+			connect(bringBtn.MouseButton1Click, function() bringPlayerToMe(plr) end)
+
+			local camBtn = mk("TextButton", {
+				BackgroundColor3 = P.cardHi,
+				BorderSizePixel = 0,
+				Position = UDim2.new(1, -102, 0, 3),
+				Size = UDim2.new(0, 44, 0, 18),
+				Font = Enum.Font.GothamBold,
+				Text = "CAM",
+				TextColor3 = P.amber,
+				TextSize = 9,
+				AutoButtonColor = true,
+			}, row)
+			addCorner(camBtn, 3)
+			connect(camBtn.MouseButton1Click, function()
+				if Spectate.Target == plr then spectatePlayer(nil) else spectatePlayer(plr) end
+			end)
+
 			local tpBtn = mk("TextButton", {
 				BackgroundColor3 = P.cardHi,
 				BorderSizePixel = 0,
-				Position = UDim2.new(1, -56, 0, 3),
-				Size = UDim2.new(0, 50, 0, 18),
+				Position = UDim2.new(1, -54, 0, 3),
+				Size = UDim2.new(0, 48, 0, 18),
 				Font = Enum.Font.GothamBold,
 				Text = "TP",
 				TextColor3 = P.accent,
@@ -18661,6 +20207,21 @@ local function buildTabs()
 		notify("God mode re-applied", P.green)
 	end, 13)
 
+	section(tabGod, "PROTECTION", 20)
+	toggle(tabGod, "No damage  (touch · fall)", true, function(value) S.NoTouchDamage = value end, 21)
+	toggle(tabGod, "Part shield  (debris can't hit you)", true, function(value)
+		S.PartShield = value
+		if not value then shieldClear() end
+	end, 22)
+	slider(tabGod, "Shield range", 20, 160, S.ShieldRange, function(value) S.ShieldRange = value end, 23)
+	toggle(tabGod, "Anti launch  (speed clamp)", true, function(value) S.AntiLaunch = value end, 24)
+	slider(tabGod, "Max speed", 80, 800, S.MaxVelocity, function(value) S.MaxVelocity = value end, 25)
+	toggle(tabGod, "Anti AFK", false, function(value) S.AntiAFK = value end, 26)
+	toggle(tabGod, "Fullbright", false, function(value)
+		S.Fullbright = value
+		fullbrightSet(value)
+	end, 27)
+
 	local tabMove = tabContainer("MOVE", 2, "🚀")
 	section(tabMove, "FLY", 1)
 	toggle(tabMove, "Fly (W A S D · Space · Ctrl)", false, function(value)
@@ -18687,7 +20248,7 @@ local function buildTabs()
 	button(tabMove, "Teleport to spawn", function() tpSpawn() end, 13)
 	button(tabMove, "Teleport above the map", function() tpTop() end, 14)
 
-	local tabEsp = tabContainer("ESP", 3, "👁")
+	local tabEsp = tabContainer("ESP", 4, "👁")
 	section(tabEsp, "PLAYER ESP", 1)
 	toggle(tabEsp, "ESP master switch", false, function(value)
 		S.ESP = value
@@ -18702,7 +20263,102 @@ local function buildTabs()
 	slider(tabEsp, "Max distance", 200, 6000, S.ESPMaxDistance, function(value) S.ESPMaxDistance = value end, 8)
 	label(tabEsp, "drawing API · falls back to BillboardGui automatically", 9)
 
-	local tabDis = tabContainer("DISASTER", 4, "🌪")
+	local tabEmo = tabContainer("EMOTES", 3, "💃")
+	section(tabEmo, "FAMOUS EMOTES", 1)
+	label(tabEmo, "owned emotes play exactly · others fall back to dance", 2)
+	toggle(tabEmo, "Loop emote", false, function(value)
+		S.EmoteLoop = value
+		if Emote.Track and not value then
+			safe(function() Emote.Track.Looped = false end)
+		end
+	end, 3)
+	slider(tabEmo, "Emote speed", 0.3, 3, 1, function(value)
+		S.EmoteSpeed = value
+		if Emote.Track then safe(function() Emote.Track:AdjustSpeed(value) end) end
+	end, 4)
+	local emoOrder = 5
+	for _, e in ipairs(EMOTES) do
+		button(tabEmo, e[1], function() playEmote(e[1], S.EmoteLoop) end, emoOrder)
+		emoOrder = emoOrder + 1
+	end
+	button(tabEmo, "Random emote", function() randomEmote() end, emoOrder)
+	button(tabEmo, "Stop emote", function() stopEmote() end, emoOrder + 1)
+
+	-- v6.2 · sahip olunan emote'lar (UGC dahil) -- dinamik butonlar
+	local ugcSection = section(tabEmo, "YOUR EMOTES (UGC)", emoOrder + 2)
+	local ugcHolder = mk("Frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = emoOrder + 3,
+	}, tabEmo)
+	mk("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, ugcHolder)
+	local ugcButtons = {}
+	local ugcLabel = label(tabEmo, "loading your emotes...", emoOrder + 4)
+	local function rebuildUgc()
+		for _, btn in ipairs(ugcButtons) do
+			safe(function() btn:Destroy() end)
+		end
+		ugcButtons = {}
+		local owned = ownedEmotes()
+		if #owned == 0 then
+			if ugcLabel then
+				safe(function() ugcLabel:SetText("no emotes found on this avatar") end)
+			end
+			if ugcSection then
+				safe(function() ugcSection.Text = "YOUR EMOTES (UGC) · 0" end)
+			end
+			return
+		end
+		if ugcSection then
+			safe(function() ugcSection.Text = "YOUR EMOTES (UGC) · " .. tostring(#owned) end)
+		end
+		if ugcLabel then
+			safe(function() ugcLabel:SetText("tap to play · " .. tostring(#owned) .. " emotes") end)
+		end
+		for index, entry in ipairs(owned) do
+			local name = entry.Name
+			local btn = button(ugcHolder, name, function()
+				local ok = playEmote(name, S.EmoteLoop)
+				if not ok then
+					-- son sans: dogrudan PlayEmote
+					local _, hum = charInfo()
+					if hum then
+						safe(function() ok = (hum:PlayEmote(name) == true) end)
+					end
+				end
+				if ok then
+					notify("UGC EMOTE · " .. name, P.green)
+				else
+					notify(name .. " · not available here", P.amber)
+				end
+			end, index)
+			table.insert(ugcButtons, btn)
+		end
+	end
+	rebuildUgc()
+	button(tabEmo, "Refresh my emotes", function()
+		rebuildUgc()
+		notify("emote list refreshed", P.accent)
+	end, emoOrder + 5)
+	section(tabEmo, "COMBOS", emoOrder + 6)
+	button(tabEmo, "Take the L + fling nearest", function()
+		local plr = nearestPlayerToMe()
+		playEmote("Take the L", S.EmoteLoop)
+		if plr then flingPlayer(plr) end
+	end, emoOrder + 3)
+	button(tabEmo, "Helicopter dance (emote + spin)", function()
+		local played = playEmote("Helicopter", true)
+		S.Helicopter = true
+		if played then
+			notify("Helicopter dance ON", P.amber)
+		else
+			notify("Spin on · emote not owned, spinning only", P.amber)
+		end
+	end, emoOrder + 4)
+
+	local tabDis = tabContainer("DISASTER", 5, "🌪")
 	section(tabDis, "LIVE INFO", 1)
 	mapLabel = label(tabDis, "map: —", 2)
 	disasterLabel = label(tabDis, "disaster: —", 3)
@@ -18719,12 +20375,80 @@ local function buildTabs()
 	slider(tabDis, "Safe height above the map", 30, 400, S.SafeHeight, function(value) S.SafeHeight = value end, 6)
 	toggle(tabDis, "Disaster alerts", true, function(value) S.Alerts = value end, 7)
 	button(tabDis, "Go to the safe spot now", function() goToSafeSpot(); notify("Safe platform ready", P.green) end, 8)
-	section(tabDis, "FUN", 9)
-	toggle(tabDis, "Part magnet (pulls parts to you)", false, function(value) S.PartMagnet = value end, 10)
-	slider(tabDis, "Magnet range", 20, 400, S.MagnetRange, function(value) S.MagnetRange = value end, 11)
-	button(tabDis, "Spin me", function() spinSelf(1) end, 12)
+	section(tabDis, "BRING PARTS", 9)
+	toggle(tabDis, "Bring parts", false, function(value)
+		S.BringParts = value
+		if value then
+			Bring.LastScan = 0
+		else
+			releaseAllParts()
+		end
+	end, 10)
+	slider(tabDis, "Range", 30, 600, S.BringRange, function(value) S.BringRange = value; Bring.LastScan = 0 end, 11)
+	slider(tabDis, "Speed", 20, 300, S.BringSpeed, function(value) S.BringSpeed = value end, 12)
+	slider(tabDis, "Max parts", 20, 500, S.BringMax, function(value) S.BringMax = value end, 13)
+	toggle(tabDis, "Stick to body", true, function(value) S.BringStick = value end, 14)
+	toggle(tabDis, "Anchored parts", false, function(value) S.BringAnchored = value; Bring.LastScan = 0 end, 15)
+	toggle(tabDis, "Orbit around me", false, function(value) S.BringOrbit = value end, 15.1)
+	slider(tabDis, "Orbit radius", 4, 30, S.BringOrbitRadius, function(value) S.BringOrbitRadius = value end, 15.2)
+	slider(tabDis, "Orbit speed", 20, 400, S.BringOrbitSpeed, function(value) S.BringOrbitSpeed = value end, 15.3)
+	toggle(tabDis, "Parts can't hurt me", true, function(value) S.BringNoDamage = value end, 15.4)
+	button(tabDis, "Bring now", function() bringPartsOnce() end, 16)
+	button(tabDis, "Release", function()
+		local n = releaseAllParts()
+		notify(string.format("%d parts released", n), P.green)
+	end, 17)
+	section(tabDis, "FUN", 18)
+	button(tabDis, "Spin me", function() spinSelf(1) end, 19)
+	section(tabDis, "SURVIVE", 20)
+	toggle(tabDis, "Safe platform under me", false, function(value) S.SafePlatform = value end, 21)
+	toggle(tabDis, "Respawn at my safe spot", false, function(value) S.RespawnSafe = value end, 22)
+	toggle(tabDis, "Anti void  (pull back up)", false, function(value) S.AntiVoid = value end, 23)
+	label(tabDis, "platform follows you and holds you above the water", 24)
 
-	local tabPlr = tabContainer("PLAYERS", 5, "👥")
+	local tabVis = tabContainer("VISUAL", 6, "🎨")
+	section(tabVis, "LIGHT", 1)
+	toggle(tabVis, "Fullbright", false, function(value)
+		S.Fullbright = value
+		fullbrightSet(value)
+	end, 2)
+	toggle(tabVis, "Fog off", false, function(value) fogSet(value) end, 3)
+	slider(tabVis, "Clock time", 0, 24, 14, function(value) clockSet(value) end, 4)
+	section(tabVis, "CAMERA", 5)
+	slider(tabVis, "Field of view", 70, 120, 70, function(value) fovSet(value) end, 6)
+	section(tabVis, "PERFORMANCE", 7)
+	toggle(tabVis, "Low graphics  (particles off)", false, function(value) lowGfxSet(value) end, 8)
+	toggle(tabVis, "Hide accessories", false, function(value) hideAccessoriesSet(value) end, 9)
+	label(tabVis, "turning low graphics off puts every effect back", 10)
+
+	local tabTroll = tabContainer("TROLL", 7, "🎯")
+	section(tabTroll, "FLING  (no weld)", 1)
+	label(tabTroll, "PLAYERS tab > FLING · or the buttons below", 2)
+	button(tabTroll, "Fling nearest player", function()
+		local plr, dist = nearestPlayerToMe()
+		if plr then
+			flingPlayer(plr)
+		else
+			notify("no player nearby", P.red)
+		end
+	end, 3)
+	button(tabTroll, "Fling all", function() flingAll() end, 4)
+	toggle(tabTroll, "Helicopter  (spin · touch fling)", false, function(value) S.Helicopter = value; if not value then trollStop() end end, 5)
+	toggle(tabTroll, "Dance fling  (bounce + spin)", false, function(value) S.DanceFling = value; if not value then trollStop() end end, 6)
+	slider(tabTroll, "Spin power", 800, 9000, S.SpinPower, function(value) S.SpinPower = value end, 7)
+	slider(tabTroll, "Fling range", 50, 2000, S.FlingRange, function(value) S.FlingRange = value end, 8)
+	button(tabTroll, "STOP fling", function() trollStop() end, 9)
+	section(tabTroll, "MEME", 10)
+	toggle(tabTroll, "Egor mode", false, function(value) egorSet(value) end, 11)
+	button(tabTroll, "Dance", function() danceOnce() end, 12)
+	button(tabTroll, "Spin me", function() spinSelf(1) end, 13)
+	section(tabTroll, "CHAOS", 14)
+	button(tabTroll, "Part tornado", function() partTornado(8) end, 15)
+	button(tabTroll, "Part rain", function() partRain(40) end, 16)
+	toggle(tabTroll, "Auto fling nearest", false, function(value) S.AutoFling = value end, 17)
+	slider(tabTroll, "Auto fling every (sec)", 2, 30, 6, function(value) S.AutoFlingDelay = value end, 18)
+
+	local tabPlr = tabContainer("PLAYERS", 8, "👥")
 	section(tabPlr, "PLAYERS IN THIS SERVER", 1)
 	button(tabPlr, "Refresh list", function() refreshPlayerList() end, 2)
 	PlayerListFrame = mk("Frame", {
@@ -18734,6 +20458,8 @@ local function buildTabs()
 	}, tabPlr)
 	mk("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, PlayerListFrame)
 
+	-- ilk dolum: sekmeler kurulur kurulmaz oyuncu satirlari hazir olsun
+	refreshPlayerList()
 	-- open the GOD tab by default
 	selectTab("GOD")
 end
@@ -18754,6 +20480,8 @@ end
 
 local function bindCharacter(char)
 	applyCharacterSettings()
+	if S.RespawnSafe then respawnAtSafe() end
+	if S.HideAcc then task.delay(0.6, function() hideAccessoriesSet(true) end) end
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	if hum then
 		connect(hum.HealthChanged, function(health)
@@ -18775,6 +20503,48 @@ local function startRuntime()
 		if Unloaded then return end
 		if S.God then godLoop() end
 		rememberSafe()
+	end)
+
+	-- v5.0 · korumalar + troll dongusu
+	connect(RunService.Heartbeat, function(dt)
+		if Unloaded then return end
+		bindNoDamage(LP.Character)
+		noDamageStep()
+		if S.PartShield then
+			local clock = now()
+			if clock - Shield.Last > 0.3 then
+				Shield.Last = clock
+				shieldScan()
+			end
+		elseif next(Shield.Original) ~= nil then
+			shieldClear()
+		end
+		if not trollActive() then antiLaunchStep() end
+		trollLoop(dt)
+	end)
+
+	-- v6.0 · ekstra dongu (visual / platform / tornado / auto fling / spectate)
+	connect(RunService.Heartbeat, function(dt)
+		if Unloaded then return end
+		platformStep()
+		tornadoStep()
+		autoFlingStep()
+		antiVoidStep()
+		if Spectate.Target then spectateStep() end
+		-- oyuncu listesi gorunurken kendini tazeler (BRING / CAM / FLING hazir)
+		if PlayerListFrame and PlayerListFrame.Parent and PlayerListFrame.Parent.Visible then
+			if now() - (Extra.LastPlayerRefresh or 0) > 6 then
+				Extra.LastPlayerRefresh = now()
+				refreshPlayerList()
+			end
+		end
+	end)
+
+	-- v4.1 · BRING PARTS: her karede yumusak cekim (weld'ler govdeyle birlikte gider)
+	connect(RunService.Heartbeat, function(dt)
+		if Unloaded then return end
+		if S.BringOrbit and next(Bring.Welds) ~= nil then releaseAllParts() end
+		if S.BringParts then bringPartsTick(dt or (1 / 60)) end
 	end)
 
 	-- fly safety net is inside flyStart, this is only the esp + noclip pass
@@ -18802,10 +20572,10 @@ local function startRuntime()
 
 	-- slowed down background loop: disaster scan, magnet, status
 	task.spawn(function()
-		local magnetClock = 0
 		local statusClock = 0
 		while not Unloaded do
 			task.wait(0.25)
+			if Unloaded then break end
 			local clock = now()
 
 			local disaster = detectDisaster()
@@ -18826,14 +20596,13 @@ local function startRuntime()
 				if mapLabel then mapLabel:SetText("map: " .. (S.CurrentMap == "" and "unknown" or S.CurrentMap)) end
 			end
 
-			if S.PartMagnet and clock - magnetClock >= 0.2 then
-				magnetClock = clock
-				partMagnetTick()
-			end
-
 			if clock - statusClock >= 0.5 then
 				statusClock = clock
 				updateStatusBar()
+			end
+			if clock - (S._afkClock or 0) >= 45 then
+				S._afkClock = clock
+				antiAfkStep()
 			end
 		end
 	end)
@@ -18889,6 +20658,16 @@ local function Unload()
 
 	flyStop(true)
 	espClear()
+	S.BringParts = false
+	S.PartShield = false
+	S.Helicopter = false
+	S.DanceFling = false
+	trollStop()
+	shieldClear()
+	if S.Egor then egorSet(false) end
+	if S.Fullbright then fullbrightSet(false) end
+	if NoDmg.Conn then safe(function() NoDmg.Conn:Disconnect() end); NoDmg.Conn = nil end
+	releaseAllParts()
 
 	for _, conn in ipairs(Conns) do
 		safe(function() conn:Disconnect() end)
@@ -18926,6 +20705,17 @@ local function Unload()
 		end)
 	end
 
+	stopEmote()
+	platformRemove()
+	fogSet(false)
+	lowGfxSet(false)
+	Spectate.Target = nil
+	Extra.TornadoParts = {}
+	for _, p in ipairs(Extra.RainParts) do
+		safe(function() p:Destroy() end)
+	end
+	Extra.RainParts = {}
+
 	if GUI.Screen then
 		safe(function() GUI.Screen:Destroy() end)
 		GUI.Screen = nil
@@ -18937,7 +20727,6 @@ local function Unload()
 	if getgenv().NexusUnload == Unload then
 		getgenv().NexusUnload = nil
 	end
-	updateStatusBar = nil
 end
 
 --===========================================================================
@@ -18950,13 +20739,103 @@ if built then
 	Started = true
 
 	getgenv().NexusNDS = {
-		Version = "4.0",
+		Version = "6.2",
 		Place = NDS_PLACE,
 		State = S,
 		Unload = Unload,
 		God = function(on) godSet(on == true) end,
 		Fly = function(on) if on then flyStart() else flyStop() end end,
 		ESP = function(on) S.ESP = on == true; if not on then espClear() end end,
+		-- v4.1 · BRING PARTS
+		BringParts = function(on)
+			S.BringParts = on == true
+			if on then Bring.LastScan = 0 else releaseAllParts() end
+			return S.BringParts
+		end,
+		BringNow = function() return bringPartsOnce() end,
+		-- v5.0 · protection
+		NoDamage = function(on) S.NoTouchDamage = on ~= false; return S.NoTouchDamage end,
+		PartShield = function(on)
+			S.PartShield = on ~= false
+			if not S.PartShield then shieldClear() end
+			return S.PartShield
+		end,
+		ShieldedCount = function()
+			local n = 0
+			for _ in pairs(Shield.Original) do n = n + 1 end
+			return n
+		end,
+		-- v5.0 · troll
+		Fling = function(target) return flingPlayer(target) end,
+		FlingNearest = function() local p = nearestPlayerToMe(); if p then return flingPlayer(p) end return false end,
+		FlingAll = function() return flingAll() end,
+		Helicopter = function(on) S.Helicopter = on ~= false; if not S.Helicopter then trollStop() end; return S.Helicopter end,
+		DanceFling = function(on) S.DanceFling = on ~= false; if not S.DanceFling then trollStop() end; return S.DanceFling end,
+		StopTroll = function() trollStop() end,
+		Egor = function(on) egorSet(on ~= false); return S.Egor end,
+		Dance = function() danceOnce() end,
+		Spin = function(sec) return spinBurst(sec or 1.0, S.SpinPower or 4500, false) end,
+		Fullbright = function(on) S.Fullbright = on ~= false; fullbrightSet(S.Fullbright); return S.Fullbright end,
+		-- v6.0 · emotes
+		Emotes = function()
+			local out = {}
+			for _, e in ipairs(EMOTES) do
+				table.insert(out, {Name = e[1], Keys = e[2], Ids = e[3], Broken = e[3][1] ~= nil and Emote.Broken[string.match(tostring(e[3][1]), "%d+") or ""] == true})
+			end
+			return out
+		end,
+		Emote = function(name, loop) return playEmote(name, loop) end,
+		RandomEmote = function() return randomEmote() end,
+		StopEmote = function() stopEmote() end,
+		BrokenIds = function()
+			local list = {}
+			for id in pairs(Emote.Broken) do
+				table.insert(list, id)
+			end
+			return list
+		end,
+		EmoteState = function() return {Current = Emote.Current, Playing = Emote.Track ~= nil} end,
+		OwnedEmotes = function()
+			local out = {}
+			for _, entry in ipairs(ownedEmotes()) do
+				out[#out + 1] = entry.Name
+			end
+			return out
+		end,
+		PlayOwned = function(name) 
+			local _, hum = charInfo()
+			if not hum then return false end
+			local ok = false
+			safe(function() ok = (hum:PlayEmote(tostring(name)) == true) end)
+			return ok
+		end,
+		-- v6.2 · bring parts (client-side) API
+		Release = function() return releaseAllParts() end,
+		HeldParts = function() 
+			local n = 0
+			for part in pairs(Bring.Original) do
+				if part.Parent then n = n + 1 end
+			end
+			return n
+		end,
+		-- v6.0 · visual
+		Fog = function(on) fogSet(on ~= false); return S.Fog end,
+		Clock = function(hour) clockSet(hour or 14); return S.ClockTime end,
+		FOV = function(value) if value then fovSet(value) end; return S.FOV end,
+		LowGraphics = function(on) lowGfxSet(on ~= false); return S.LowGfx end,
+		HideAccessories = function(on) hideAccessoriesSet(on ~= false); return S.HideAcc end,
+		-- v6.0 · survive
+		Platform = function(on) S.SafePlatform = on ~= false; if not S.SafePlatform then platformRemove() end; return S.SafePlatform end,
+		AntiVoid = function(on) S.AntiVoid = on ~= false; return S.AntiVoid end,
+		RespawnSafe = function(on) S.RespawnSafe = on ~= false; return S.RespawnSafe end,
+		-- v6.0 · chaos
+		Tornado = function(sec) return partTornado(sec) end,
+		PartRain = function(n) return partRain(n) end,
+		-- v6.0 · players
+		Bring = function(plr) return bringPlayerToMe(plr) end,
+		Spectate = function(plr) return spectatePlayer(plr) end,
+		ReleaseParts = function() return releaseAllParts() end,
+		Brought = function() return Bring.Held end,
 		Stats = function()
 			local count = 0
 			for _ in pairs(ESPStore.items) do count = count + 1 end
@@ -18969,15 +20848,29 @@ if built then
 				disaster = S.CurrentDisaster,
 				safePlatform = Disaster.SafePart ~= nil,
 				hooked = God.Hooked,
+				bringParts = S.BringParts,
+				brought = Bring.Held,
+				orbit = S.BringOrbit,
+				shield = S.PartShield,
+				shielded = (function() local n = 0 for _ in pairs(Shield.Original) do n = n + 1 end return n end)(),
+				noDamage = S.NoTouchDamage,
+				helicopter = S.Helicopter,
+				egor = S.Egor,
+				emote = Emote.Current,
+				fog = S.Fog,
+				lowGfx = S.LowGfx,
+				platform = Surv.Platform ~= nil,
+				antiVoid = S.AntiVoid,
+				spectating = Spectate.Target ~= nil,
 			}
 		end,
 	}
 	getgenv().NexusUnload = Unload
 
-	print("[Nexus] NDS v4.0 GOD ready (layers armed on demand)")
-	notify("NDS v4.0 GOD loaded · press H for god mode", P.accent)
+	print("[Nexus] NDS v6.2 MEGA ready · UGC emotes + client-side parts + real fling")
+	notify("NDS v5.0 loaded · H = god mode", P.accent)
 else
-	warn("[Nexus] NDS v4.0 could not build the GUI")
+	warn("[Nexus] NDS v5.0 could not build the GUI")
 end
 ]=],
 [4] = [==[
@@ -26934,7 +28827,7 @@ ef = table.insert
 ch = table.concat
 local j = getgenv().__NexusSkinLib
 aq = j:CreateWindow({
-	["Title"] = "NEXUS ULTRA RAGE · v3.9",
+	["Title"] = "NEXUS ULTRA RAGE · v4.0",
 	["Center"] = true,
 	["AutoShow"] = true,
 	["Footer"] = "RAGE BOT  •  BURST FIRE  •  SKIN ENGINE  •  RIVALS",
@@ -29030,6 +30923,8 @@ Workspace = game:GetService("Workspace")
 UserInputService = game:GetService("UserInputService")
 RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+-- v4.0 · Fly (tanim asagida, buradan once cagriliyor)
+local FlyStart, FlyStop, FlyStep
 local GuiService = game:GetService("GuiService")
 Stats = game:GetService("Stats")
 Camera = Workspace.CurrentCamera
@@ -29048,6 +30943,7 @@ k.CharacterAdded:Connect(function(char)
 	Character = char
 	Humanoid = char:WaitForChild("Humanoid")
 	RootPart = char:WaitForChild("HumanoidRootPart")
+	pcall(function() FlyStop(true) end)
 end)
 
 -- "It's Raining Tacos" music was removed from Ultra Rage: no Sound object is created any more.
@@ -30569,8 +32465,190 @@ k.CharacterAdded:Connect(function(character)
 	reapplyRageAfterSpawn(character)
 end)
 
+--===========================================================================
+-- v4.0 · FLY  (WASD · Space = up · LeftCtrl = down · FlySpeed slider)
+--===========================================================================
+local FlyState = {Active = false, Velocity = nil, Align = nil, Attachment = nil, Smooth = Vector3.new(0, 0, 0)}
+local FlyRayParams = RaycastParams.new()
+pcall(function() FlyRayParams.FilterType = Enum.RaycastFilterType.Exclude end)
+
+local function FlyKeyDown(key)
+	local ok, value = pcall(function() return UserInputService:IsKeyDown(key) end)
+	return ok and value == true
+end
+
+local function FlyCleanup()
+	if FlyState.Velocity then pcall(function() FlyState.Velocity:Destroy() end) end
+	if FlyState.Align then pcall(function() FlyState.Align:Destroy() end) end
+	if FlyState.Attachment then pcall(function() FlyState.Attachment:Destroy() end) end
+	FlyState.Velocity, FlyState.Align, FlyState.Attachment = nil, nil, nil
+	FlyState.Smooth = Vector3.new(0, 0, 0)
+	local hum = (k.Character and k.Character:FindFirstChildOfClass("Humanoid")) or Humanoid
+	if hum then
+		pcall(function()
+			hum.PlatformStand = false
+			hum.AutoRotate = true
+		end)
+	end
+end
+
+local FlyStopping = false
+
+function FlyStop(silent)
+	FlyState.Active = false
+	FlyCleanup()
+	-- rekorsiyon korumasi: SetValue(false) callback'i tekrar FlyStop cagirir
+	if FlyStopping or not _G.NexusUltraFlyToggle then
+		return
+	end
+	if _G.NexusUltraFlyToggle.Value == false then
+		return
+	end
+	FlyStopping = true
+	pcall(function() _G.NexusUltraFlyToggle:SetValue(false) end)
+	FlyStopping = false
+end
+
+function FlyStart()
+	local char = k.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not (hum and root and hum.Health > 0) then
+		return false
+	end
+	FlyCleanup()
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "NexusUltraFlyAttachment"
+	attachment.Parent = root
+	FlyState.Attachment = attachment
+	local modernOk = pcall(function()
+		local velocity = Instance.new("LinearVelocity")
+		velocity.Name = "NexusUltraFlyVelocity"
+		velocity.Attachment0 = attachment
+		velocity.RelativeTo = Enum.ActuatorRelativeTo.World
+		velocity.MaxForce = 1e6
+		velocity.VectorVelocity = Vector3.new(0, 0, 0)
+		velocity.Parent = root
+		FlyState.Velocity = velocity
+		local align = Instance.new("AlignOrientation")
+		align.Name = "NexusUltraFlyAlign"
+		align.Attachment0 = attachment
+		align.Mode = Enum.OrientationAlignmentMode.OneAttachment
+		align.MaxTorque = 1e6
+		align.Responsiveness = 25
+		align.CFrame = root.CFrame
+		align.Parent = root
+		FlyState.Align = align
+	end)
+	if not modernOk or not (FlyState.Velocity and FlyState.Velocity.Parent) then
+		if FlyState.Velocity then pcall(function() FlyState.Velocity:Destroy() end) FlyState.Velocity = nil end
+		if FlyState.Align then pcall(function() FlyState.Align:Destroy() end) FlyState.Align = nil end
+		local bodyVelocity = Instance.new("BodyVelocity")
+		bodyVelocity.Name = "NexusUltraFlyVelocity"
+		bodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+		bodyVelocity.P = 2000
+		bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+		bodyVelocity.Parent = root
+		FlyState.Velocity = bodyVelocity
+		local bodyGyro = Instance.new("BodyGyro")
+		bodyGyro.Name = "NexusUltraFlyGyro"
+		bodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+		bodyGyro.P = 8000
+		bodyGyro.D = 600
+		bodyGyro.CFrame = root.CFrame
+		bodyGyro.Parent = root
+		FlyState.Align = bodyGyro
+	end
+	pcall(function()
+		hum.PlatformStand = true
+		hum.AutoRotate = false
+		hum:ChangeState(Enum.HumanoidStateType.Physics)
+	end)
+	FlyState.Active = true
+	return true
+end
+
+function FlyStep(dt)
+	if not FlyState.Active then
+		return
+	end
+	local char = k.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not (hum and root and hum.Health > 0) then
+		FlyStop(true)
+		return
+	end
+	if not (FlyState.Velocity and FlyState.Velocity.Parent) then
+		FlyState.Active = false
+		FlyStart()
+		return
+	end
+	local cam = Workspace.CurrentCamera or Camera
+	local look = cam and cam.CFrame.LookVector or Vector3.new(0, 0, -1)
+	local flatLook = Vector3.new(look.X, 0, look.Z)
+	if flatLook.Magnitude < 0.01 then
+		flatLook = Vector3.new(0, 0, -1)
+	else
+		flatLook = flatLook.Unit
+	end
+	local flatRight = Vector3.new(-flatLook.Z, 0, flatLook.X)
+	local wish = Vector3.new(0, 0, 0)
+	if FlyKeyDown(Enum.KeyCode.W) then wish = wish + flatLook end
+	if FlyKeyDown(Enum.KeyCode.S) then wish = wish - flatLook end
+	if FlyKeyDown(Enum.KeyCode.D) then wish = wish + flatRight end
+	if FlyKeyDown(Enum.KeyCode.A) then wish = wish - flatRight end
+	if wish.Magnitude > 0.01 then
+		wish = wish.Unit
+	end
+	local vertical = 0
+	if FlyKeyDown(Enum.KeyCode.Space) then vertical = vertical + 1 end
+	if FlyKeyDown(Enum.KeyCode.LeftControl) then vertical = vertical - 1 end
+	local speed = tonumber(_G.NexusUltraFlySpeed) or 100
+	local target = wish * speed + Vector3.new(0, vertical * speed * 0.85, 0)
+	local alpha = math.clamp(dt * 14, 0.08, 1)
+	FlyState.Smooth = FlyState.Smooth:Lerp(target, alpha)
+	if FlyState.Smooth.Magnitude < 0.3 and target.Magnitude < 0.3 then
+		FlyState.Smooth = Vector3.new(0, 0, 0)
+	end
+	if FlyState.Smooth.Y < 0 then
+		local ok, hit = pcall(function()
+			FlyRayParams.FilterDescendantsInstances = {char}
+			return Workspace:Raycast(root.Position, Vector3.new(0, -7, 0), FlyRayParams)
+		end)
+		if ok and hit then
+			FlyState.Smooth = Vector3.new(FlyState.Smooth.X, 0, FlyState.Smooth.Z)
+		end
+	end
+	pcall(function()
+		if FlyState.Velocity:IsA("LinearVelocity") then
+			FlyState.Velocity.VectorVelocity = FlyState.Smooth
+		else
+			FlyState.Velocity.Velocity = FlyState.Smooth
+		end
+		if FlyState.Align then
+			FlyState.Align.CFrame = (cam and cam.CFrame) or root.CFrame
+		end
+	end)
+end
+
+-- v4.0 · dis API (test / hub / kullanim)
+getgenv().NexusUltraFly = {
+	Start = function() return FlyStart() end,
+	Stop = function() FlyStop(true) end,
+	Active = function() return FlyState.Active end,
+	Speed = function(value)
+		if value ~= nil then _G.NexusUltraFlySpeed = value end
+		return _G.NexusUltraFlySpeed
+	end,
+	Objects = function() return FlyState.Velocity, FlyState.Align end,
+}
+
 local lastFpsTick = 0
 RunService.RenderStepped:Connect(function(dt)
+	if FlyState.Active then
+		FlyStep(dt)
+	end
 	-- v3.4: Rage Bot always "aims" — the scope key is not needed any more
 	if rageModeEnabled then
 		isAimingKeyHeld = true
@@ -30784,6 +32862,7 @@ end)
 
 local function unexecuteScript()
 	pcall(function()
+		FlyStop(true)
 		if overlayGui then overlayGui:Destroy() end
 		if musicSound then musicSound:Stop(); musicSound:Destroy() end
 		ESP_CONFIG.Enabled = false
@@ -31078,6 +33157,29 @@ trollRight:AddButton({ Text = "Stop Dance", Func = function() playDance("OFF") e
 local cosmeticLeft = cosmeticTab:AddLeftGroupbox("Movement & Character")
 cosmeticLeft:AddToggle("SpeedBoost", { Text = "WalkSpeed Boost", Default = false, Callback = function(v) _G.EnableSpeed = v end })
 cosmeticLeft:AddSlider("SpeedPower", { Text = "Speed Power", Default = 6, Min = 1, Max = 25, Rounding = 0, Callback = function(v) _G.SpeedPower = v end })
+_G.NexusUltraFlySpeed = 100
+_G.NexusUltraFlyToggle = cosmeticLeft:AddToggle("Fly", {
+	Text = "Fly (WASD · Space/Ctrl)",
+	Default = false,
+	Callback = function(v)
+		if v then
+			if not FlyStart() then
+				FlyStop(true)
+				pcall(function() nexusNotify("Fly: character not ready") end)
+			end
+		else
+			FlyStop(true)
+		end
+	end,
+})
+cosmeticLeft:AddSlider("FlySpeed", {
+	Text = "Fly speed",
+	Default = 100,
+	Min = 20,
+	Max = 400,
+	Rounding = 0,
+	Callback = function(v) _G.NexusUltraFlySpeed = v end,
+})
 cosmeticLeft:AddToggle("Noclip", { Text = "Noclip", Default = false, Callback = function(v) noclipEnabled = v; setNoclip(v) end })
 cosmeticLeft:AddButton({ Text = "Creepy / Scary Avatar Apply", Func = function() applyCreepyAvatar() end })
 
@@ -33122,13 +35224,19 @@ do
 		end)
 	end
 end
-print("[Nexus Ultra] v3.9 ready")
+print("[Nexus Ultra] v4.0 ready · fly added")
 
 ]==],
 [5] = [=[
 
 
 
+
+-- Nexus MM2 v2.6
+--   * default UI theme: BBot
+--   * SKIN CHANGER fix: MeshType = FileMesh (writing MeshId alone changed nothing
+--     visually), "Everyone" mode (paints other players' weapons too), chroma
+--   * YENI: knife/gun drop ESP, otomatik toplama, ucan bicak uyarisi, Round HUD
 
 if getgenv().NexusMM2Unload then
 	pcall(getgenv().NexusMM2Unload)
@@ -33212,6 +35320,36 @@ local State = {
 	AnimLoop = true,
 	AntiAFK = false,
 	FPSBoost = false,
+	-- v2.4 · skin changer
+	SkinTarget = "Everyone (visual)",
+	SkinAllTools = true,
+	SkinChromaSpeed = 3,
+	SkinCopyTarget = "",
+	-- v2.4 · drops / hud
+	ItemDropESP = false,
+	AutoPickupDrops = false,
+	PickupRange = 120,
+	KnifeWarn = false,
+	KnifeWarnRange = 90,
+	RoundHUD = false,
+	-- v2.5 · movement
+	Fly = false,
+	FlySpeed = 120,
+	FlyVertical = 1,
+	-- v2.5 · utility
+	Fullbright = false,
+	AntiFling = false,
+	KnifeDodge = false,
+	KnifeDodgeRange = 30,
+	MurdererAlarm = false,
+	MurdererAlarmRange = 40,
+	RoleList = false,
+	AutoGrabGun = false,
+	AutoGrabRange = 140,
+	-- v2.5 · humanoid originals (toggle OFF -> geri yukle)
+	OrigWalkSpeed = nil,
+	OrigJumpPower = nil,
+	OrigUseJumpPower = nil,
 }
 local Connections = {}
 local function Connect(signal)
@@ -33231,6 +35369,11 @@ local function RefreshCharacter(char)
 end
 RefreshCharacter()
 local PlaySelectedAnimation, StopCurrentAnimation, SetFPSBoost, CleanupAll, UnloadAll
+-- v2.6 · Luau "200 local" siniri: v2.5 sistemlerinin disariya acilan yuzeyi
+-- TEK tablo. Boylece ana chunk'a 16 yerine 1 local eklenir.
+local V25 = {
+	Fly = {Active = false, Velocity = nil, Align = nil, Attachment = nil, Smooth = Vector3.zero},
+}
 local function NexusBootLibrary()
 	local librarySource = [=====[
 local cloneref = (cloneref or clonereference or function(instance: any)
@@ -41704,7 +43847,20 @@ local ThemeManager = {} do
 	end
 
 	function ThemeManager:LoadDefault()
-		local theme = 'Default'
+		-- Nexus v2.4 · requested default theme: BBot
+		local theme = 'BBot'
+		local marker = self.Folder .. '/themes/.nexus_bbot_v1'
+		local firstRun = not (type(isfile) == 'function' and isfile(marker))
+		if firstRun and type(writefile) == 'function' then
+			pcall(function()
+				local path = self.Folder .. '/themes/default.txt'
+				local current = (type(isfile) == 'function' and isfile(path)) and readfile(path) or nil
+				if current == nil or current == 'Default' then
+					writefile(path, 'BBot')
+				end
+				writefile(marker, '1')
+			end)
+		end
 		local content = isfile(self.Folder .. '/themes/default.txt') and readfile(self.Folder .. '/themes/default.txt')
 
 		local isDefault = true
@@ -41717,6 +43873,9 @@ local ThemeManager = {} do
 			end
 		elseif self.BuiltInThemes[self.DefaultTheme] then
 			theme = self.DefaultTheme
+		end
+		if theme == 'Default' and self.BuiltInThemes['BBot'] then
+			theme = 'BBot'
 		end
 
 		if isDefault then
@@ -42769,8 +44928,20 @@ MainLeft:AddToggle("WalkSpeedEnabled", {
 	Default = false,
 	Callback = function(value)
 		State.WalkEnabled = value
-		if value and Humanoid then
+		if not Humanoid then
+			return
+		end
+		if value then
+			-- v2.5 · ilk acilista gercek degeri sakla, kapatinca geri yaz
+			if State.OrigWalkSpeed == nil then
+				State.OrigWalkSpeed = Humanoid.WalkSpeed
+			end
 			Humanoid.WalkSpeed = State.WalkSpeed
+		else
+			pcall(function()
+				Humanoid.WalkSpeed = State.OrigWalkSpeed or 16
+			end)
+			State.OrigWalkSpeed = nil
 		end
 	end,
 })
@@ -42792,9 +44963,29 @@ MainLeft:AddToggle("JumpPowerEnabled", {
 	Default = false,
 	Callback = function(value)
 		State.JumpEnabled = value
-		if value and Humanoid then
+		if not Humanoid then
+			return
+		end
+		if value then
+			if State.OrigJumpPower == nil then
+				State.OrigJumpPower = Humanoid.JumpPower
+				State.OrigUseJumpPower = Humanoid.UseJumpPower
+			end
 			Humanoid.UseJumpPower = true
 			Humanoid.JumpPower = State.JumpPower
+		else
+			pcall(function()
+				Humanoid.JumpPower = State.OrigJumpPower or 50
+				if State.OrigUseJumpPower ~= nil then
+					Humanoid.UseJumpPower = State.OrigUseJumpPower
+				end
+				-- Roblox bazi yerlerde JumpHeight kullanir: ikisini de birak
+				if Humanoid.JumpHeight == 0 then
+					Humanoid.JumpHeight = 7.2
+				end
+			end)
+			State.OrigJumpPower = nil
+			State.OrigUseJumpPower = nil
 		end
 	end,
 })
@@ -42810,6 +45001,33 @@ MainLeft:AddSlider("JumpPower", {
 			Humanoid.UseJumpPower = true
 			Humanoid.JumpPower = value
 		end
+	end,
+})
+MainLeft:AddToggle("Fly", {
+	Text = "Fly (WASD · Space/Ctrl)",
+	Default = false,
+	Callback = function(value)
+		State.Fly = value
+		if value then
+			if not V25.FlyStart() then
+				State.Fly = false
+				if Toggles.Fly then
+					pcall(function() Toggles.Fly:SetValue(false) end)
+				end
+			end
+		else
+			V25.FlyStop(true)
+		end
+	end,
+})
+MainLeft:AddSlider("FlySpeed", {
+	Text = "Fly speed",
+	Min = 20,
+	Max = 400,
+	Default = 120,
+	Rounding = 0,
+	Callback = function(value)
+		State.FlySpeed = value
 	end,
 })
 MainLeft:AddToggle("InfiniteJump", {
@@ -44049,6 +46267,10 @@ local function BackupSkinHandle(handle)
 		return
 	end
 	local info = {Color = handle.Color}
+	local existingMesh = handle:FindFirstChildOfClass("SpecialMesh")
+	if existingMesh then
+		pcall(function() info.MeshType = existingMesh.MeshType end)
+	end
 	pcall(function()
 		if handle:IsA("MeshPart") then
 			info.MeshId = handle.MeshId
@@ -44069,6 +46291,30 @@ local function ApplySkinToHandle(handle, meshId, textureId, chroma)
 	end
 	BackupSkinHandle(handle)
 	local info = SkinBackups[handle]
+	-- v2.4 · root cause: some handles keep MeshType 'Brick', so writing MeshId
+	-- renders nothing. Without FileMesh the skin can never show.
+	-- Also: if the handle had no SpecialMesh at all, nothing happened before;
+	-- now we create the mesh ourselves.
+	local ensured = handle:FindFirstChildOfClass("SpecialMesh")
+	local ensureContent = SkinContentId(meshId)
+	if not ensured and ensureContent and not handle:IsA("MeshPart") then
+		pcall(function()
+			ensured = Instance.new("SpecialMesh")
+			ensured.Name = "NexusSkinMesh"
+			ensured.MeshType = Enum.MeshType.FileMesh
+			ensured.Parent = handle
+			if info then
+				info.CreatedMesh = ensured
+			end
+		end)
+	end
+	if ensured and ensureContent then
+		pcall(function()
+			if ensured.MeshType ~= Enum.MeshType.FileMesh then
+				ensured.MeshType = Enum.MeshType.FileMesh
+			end
+		end)
+	end
 	local meshContent = SkinContentId(meshId)
 	local textureContent = SkinContentId(textureId)
 	pcall(function()
@@ -44126,6 +46372,13 @@ local function RestoreSkinHandle(handle)
 		if info.SpecialMesh then
 			info.SpecialMesh.MeshId = info.SpecialMeshId
 			info.SpecialMesh.TextureId = info.SpecialTextureId
+			if info.MeshType ~= nil then
+				pcall(function() info.SpecialMesh.MeshType = info.MeshType end)
+			end
+		end
+		-- v2.4 · remove the mesh we created
+		if info.CreatedMesh then
+			pcall(function() info.CreatedMesh:Destroy() end)
 		end
 		if info.SurfaceAppearance then
 			info.SurfaceAppearance.Parent = handle
@@ -44178,6 +46431,18 @@ local function CollectToolVisualParts(tool)
 	end
 	return parts
 end
+-- v2.5 · restore every part of a single tool
+-- (v2.4 bug: this was declared BEFORE CollectToolVisualParts, so inside this
+--  body the name resolved to a global -> nil -> "attempt to call a nil value")
+local function RestoreToolSkin(tool)
+	if not tool then
+		return
+	end
+	for _, part in ipairs(CollectToolVisualParts(tool)) do
+		RestoreSkinHandle(part)
+	end
+end
+
 local function ReadToolSkin(tool)
 	for _, part in ipairs(CollectToolVisualParts(tool)) do
 		local meshId, textureId = ReadHandleSkin(part)
@@ -44228,26 +46493,126 @@ local function ApplySkinToTool(tool, meshId, textureId, chroma)
 		ApplySkinToHandle(part, meshId, textureId, chroma)
 	end
 end
-local function UpdateSkinChanger()
-	if State.KnifeSkinEnabled then
-		local tool = FindToolByRole(LocalPlayer, "Murderer", false)
-		if tool then
-			local meshId, textureId, chroma = ResolveKnifeSkin()
-			if meshId or textureId then
-				ApplySkinToTool(tool, meshId, textureId, chroma)
-			else
-				RestoreWeaponSkin("Murderer")
+-- v2.4 · skin targets -------------------------------------------------------
+-- Before this, skins were only applied when YOU were the murderer/sheriff;
+-- with no knife in hand the changer looked broken. Now in "Everyone" mode
+-- every player's (and every dropped) knife/gun gets painted - fully client
+-- side, harmless to others.
+local SkinApplied = setmetatable({}, {__mode = "k"})
+
+local function CollectSkinTargets()
+	local list, seen = {}, {}
+	local function addContainer(container, owner)
+		if not container then
+			return
+		end
+		for _, item in ipairs(container:GetChildren()) do
+			if item:IsA("Tool") and not seen[item] then
+				local role = ToolRole(item)
+				if role then
+					seen[item] = true
+					list[#list + 1] = {Tool = item, Role = role, Owner = owner}
+				end
 			end
 		end
 	end
+	addContainer(LocalPlayer.Character, LocalPlayer)
+	addContainer(LocalPlayer:FindFirstChildOfClass("Backpack"), LocalPlayer)
+	if State.SkinTarget ~= "Only my weapons" then
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer then
+				addContainer(plr.Character, plr)
+				addContainer(plr:FindFirstChildOfClass("Backpack"), plr)
+			end
+		end
+		local items = workspace:FindFirstChild("Items")
+		if items then
+			addContainer(items, nil)
+		end
+		addContainer(workspace, nil)
+	end
+	return list
+end
+
+local SkinTick = {At = 0, Hue = 0}
+
+
+local function SkinStatusText(painted, knives, guns)
+	return string.format("detected: %d knife · %d gun   |   painted: %d", knives, guns, painted)
+end
+
+local function UpdateSkinChanger()
+	if not (State.KnifeSkinEnabled or State.GunSkinEnabled) then
+		return
+	end
+	local now = os.clock()
+	if now - SkinTick.At < 0.25 then
+		return
+	end
+	SkinTick.At = now
+	local knMesh, knTex, knChroma = nil, nil, false
+	if State.KnifeSkinEnabled then
+		knMesh, knTex, knChroma = ResolveKnifeSkin()
+	end
+	local gnMesh, gnTex, gnChroma = nil, nil, false
 	if State.GunSkinEnabled then
-		local tool = FindToolByRole(LocalPlayer, "Sheriff", false)
-		if tool then
-			local meshId, textureId, chroma = ResolveGunSkin()
-			if meshId or textureId then
-				ApplySkinToTool(tool, meshId, textureId, chroma)
+		gnMesh, gnTex, gnChroma = ResolveGunSkin()
+	end
+	local knifeReady = State.KnifeSkinEnabled and (knMesh ~= nil or knTex ~= nil)
+	local gunReady = State.GunSkinEnabled and (gnMesh ~= nil or gnTex ~= nil)
+	local targets = CollectSkinTargets()
+	local knives, guns, paintedCount = 0, 0, 0
+	for _, entry in ipairs(targets) do
+		if entry.Role == "Murderer" then
+			knives = knives + 1
+		elseif entry.Role == "Sheriff" then
+			guns = guns + 1
+		end
+	end
+	for _, entry in ipairs(targets) do
+		if entry.Role == "Murderer" and State.KnifeSkinEnabled then
+			if knifeReady then
+				ApplySkinToTool(entry.Tool, knMesh, knTex, knChroma)
+				SkinApplied[entry.Tool] = true
 			else
-				RestoreWeaponSkin("Sheriff")
+				RestoreToolSkin(entry.Tool)
+			end
+		elseif entry.Role == "Sheriff" and State.GunSkinEnabled then
+			if gunReady then
+				ApplySkinToTool(entry.Tool, gnMesh, gnTex, gnChroma)
+				SkinApplied[entry.Tool] = true
+			else
+				RestoreToolSkin(entry.Tool)
+			end
+		end
+	end
+	pcall(function()
+		paintedCount = 0
+		for tool in pairs(SkinApplied) do
+			if tool and tool.Parent then
+				paintedCount = paintedCount + 1
+			end
+		end
+	end)
+	if V25.SkinStatusLabel then
+		local status = SkinStatusText(paintedCount, knives, guns)
+		if status ~= V25.LastSkinStatus then
+			V25.LastSkinStatus = status
+			pcall(function() V25.SkinStatusLabel:SetText(status) end)
+		end
+	end
+	-- chroma animasyonu (renk atan skinler)
+	if (knChroma or gnChroma) and next(SkinApplied) ~= nil then
+		local speed = tonumber(State.SkinChromaSpeed) or 3
+		SkinTick.Hue = (SkinTick.Hue + 0.02 * speed) % 1
+		local color = Color3.fromHSV(SkinTick.Hue, 1, 1)
+		for tool in pairs(SkinApplied) do
+			if tool.Parent then
+				for _, part in ipairs(CollectToolVisualParts(tool)) do
+					pcall(function() part.Color = color end)
+				end
+			else
+				SkinApplied[tool] = nil
 			end
 		end
 	end
@@ -44278,8 +46643,25 @@ SkinBox:AddToggle("KnifeSkinEnabled", {
 	Default = false,
 	Callback = function(value)
 		State.KnifeSkinEnabled = value
-		if not value then
+		if value then
+			if State.KnifeSkinPreset == nil or State.KnifeSkinPreset == "Default (restore)" then
+				-- listedeki ilk GERCEK skin (ilk eleman "Default (restore)" tutucusu)
+				local first
+				for _, preset in ipairs(KnifeSkinPresets) do
+					if preset.Name and preset.Name ~= "Default (restore)" then
+						first = preset
+						break
+					end
+				end
+				if first and Options.KnifeSkinPreset then
+					State.KnifeSkinPreset = first.Name
+					pcall(function() Options.KnifeSkinPreset:SetValue(first.Name) end)
+					pcall(function() Notify("Knife skin: " .. tostring(first.Name), 3) end)
+				end
+			end
+		else
 			RestoreWeaponSkin("Murderer")
+			RestoreAllSkins()
 		end
 	end,
 })
@@ -44290,6 +46672,49 @@ SkinBox:AddDropdown("KnifeSkinPreset", {
 	Searchable = true,
 	Callback = function(value)
 		State.KnifeSkinPreset = value
+	end,
+})
+V25.SkinStatusLabel = SkinBox:AddLabel("detected: 0 knife · 0 gun   |   painted: 0", true)
+SkinBox:AddLabel("pick skin -> toggle on", true)
+SkinBox:AddDropdown("SkinTarget", {
+	Values = { "Everyone (visual)", "Only my weapons" },
+	Default = "Everyone (visual)",
+	Text = "Apply to",
+	Callback = function(value)
+		State.SkinTarget = value
+		-- v2.4 · hedef kuculunce onceki boyamalari geri al
+		RestoreAllSkins()
+	end,
+})
+SkinBox:AddToggle("SkinChroma", {
+	Text = "Chroma (rainbow)",
+	Default = false,
+	Callback = function(value)
+		State.SkinChroma = value
+	end,
+})
+SkinBox:AddSlider("SkinChromaSpeed", {
+	Text = "Chroma speed",
+	Min = 1,
+	Max = 12,
+	Default = 3,
+	Rounding = 0,
+	Callback = function(value)
+		State.SkinChromaSpeed = value
+	end,
+})
+SkinBox:AddButton({
+	Text = "Refresh skin presets",
+	Func = function()
+		local found = ScanSkinDatabase()
+		Notify("Skin presets refreshed (+" .. tostring(found) .. ")", 3)
+	end,
+})
+SkinBox:AddButton({
+	Text = "Restore all skins",
+	Func = function()
+		RestoreAllSkins()
+		Notify("Skins restored", 2.5)
 	end,
 })
 SkinBox:AddDropdown("KnifeSkinMesh", {
@@ -44351,8 +46776,24 @@ GunSkinBox:AddToggle("GunSkinEnabled", {
 	Default = false,
 	Callback = function(value)
 		State.GunSkinEnabled = value
-		if not value then
+		if value then
+			if State.GunSkinPreset == nil or State.GunSkinPreset == "Default (restore)" then
+				local first
+				for _, preset in ipairs(GunSkinPresets) do
+					if preset.Name and preset.Name ~= "Default (restore)" then
+						first = preset
+						break
+					end
+				end
+				if first and Options.GunSkinPreset then
+					State.GunSkinPreset = first.Name
+					pcall(function() Options.GunSkinPreset:SetValue(first.Name) end)
+					pcall(function() Notify("Gun skin: " .. tostring(first.Name), 3) end)
+				end
+			end
+		else
 			RestoreWeaponSkin("Sheriff")
+			RestoreAllSkins()
 		end
 	end,
 })
@@ -44363,6 +46804,69 @@ GunSkinBox:AddDropdown("GunSkinPreset", {
 	Searchable = true,
 	Callback = function(value)
 		State.GunSkinPreset = value
+	end,
+})
+GunSkinBox:AddDropdown("SkinCopyTarget", {
+	Values = (function()
+		local names = {}
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer then
+				names[#names + 1] = plr.Name
+			end
+		end
+		table.sort(names)
+		if #names == 0 then
+			names = { "(no other players)" }
+		end
+		return names
+	end)(),
+	Default = "",
+	Text = "Copy skin from player",
+	Searchable = true,
+	Callback = function(value)
+		State.SkinCopyTarget = value
+	end,
+})
+GunSkinBox:AddButton({
+	Text = "Copy that player's knife + gun",
+	Func = function()
+		local target
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr.Name == State.SkinCopyTarget then
+				target = plr
+			end
+		end
+		if not target then
+			Notify("Pick a player in the dropdown first", 3)
+			return
+		end
+		local knifeMesh, knifeTex = ReadToolSkin(FindToolByRole(target, "Murderer", false))
+		if knifeMesh then
+			CopiedKnifePreset.Mesh = knifeMesh
+			CopiedKnifePreset.Texture = knifeTex
+			if Options.KnifeSkinPreset then
+				Options.KnifeSkinPreset:SetValue("Copied from player")
+			end
+		end
+		local gunMesh, gunTex = ReadToolSkin(FindToolByRole(target, "Sheriff", false))
+		if gunMesh then
+			CopiedGunPreset.Mesh = gunMesh
+			CopiedGunPreset.Texture = gunTex
+			if Options.GunSkinPreset then
+				Options.GunSkinPreset:SetValue("Copied from player")
+			end
+		end
+		if knifeMesh or gunMesh then
+			if Toggles.KnifeSkinEnabled and not State.KnifeSkinEnabled and knifeMesh then
+				Toggles.KnifeSkinEnabled:SetValue(true)
+			end
+			if Toggles.GunSkinEnabled and not State.GunSkinEnabled and gunMesh then
+				Toggles.GunSkinEnabled:SetValue(true)
+			end
+			Notify("Copied skin from " .. target.Name, 3)
+		else
+			Notify(target.Name .. " is not holding a weapon", 3)
+		end
 	end,
 })
 GunSkinBox:AddInput("GunSkinCustomMesh", {
@@ -44675,6 +47179,809 @@ local function UpdateCoinESP()
 		CoinTagLabel.Text = "COIN" .. distanceText
 	end
 end
+--===========================================================================
+-- v2.4 · DROPS, AUTO PICKUP, THROWN KNIFE WARNING, ROUND HUD
+--===========================================================================
+local DropTags = {}
+local LastPickupAt = 0
+local LastKnifeWarnAt = 0
+local KnifeWarnCount = 0
+local HUDGui, HUDLabel
+
+local function FindDroppedItems()
+	local out, seen = {}, {}
+	local function scan(container)
+		if not container then
+			return
+		end
+		for _, obj in ipairs(container:GetChildren()) do
+			if obj:IsA("Tool") and not seen[obj] then
+				local role = ToolRole(obj)
+				if role then
+					seen[obj] = true
+					out[#out + 1] = {Tool = obj, Role = role}
+				end
+			end
+		end
+	end
+	scan(workspace)
+	scan(workspace:FindFirstChild("Items"))
+	return out
+end
+
+local function DropHandle(tool)
+	return tool and (tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart", true))
+end
+
+local function ClearDropTags()
+	for tool, gui in pairs(DropTags) do
+		pcall(function() gui:Destroy() end)
+		DropTags[tool] = nil
+	end
+end
+
+local function UpdateDropESP()
+	if not State.ItemDropESP then
+		if next(DropTags) ~= nil then
+			ClearDropTags()
+		end
+		return
+	end
+	local seen = {}
+	for _, entry in ipairs(FindDroppedItems()) do
+		local handle = DropHandle(entry.Tool)
+		if handle then
+			seen[entry.Tool] = true
+			local gui = DropTags[entry.Tool]
+			if not gui or not gui.Parent then
+				gui = Instance.new("BillboardGui")
+				gui.Name = "NexusDropTag"
+				gui.AlwaysOnTop = true
+				gui.Size = UDim2.fromOffset(170, 34)
+				gui.StudsOffset = Vector3.new(0, 2.4, 0)
+				local label = Instance.new("TextLabel", gui)
+				label.Name = "Label"
+				label.Size = UDim2.fromScale(1, 1)
+				label.BackgroundTransparency = 1
+				label.Font = Enum.Font.GothamBold
+				label.TextSize = 13
+				label.TextStrokeTransparency = 0.3
+				gui.Adornee = handle
+				gui.Parent = handle
+				DropTags[entry.Tool] = gui
+			end
+			local label = gui:FindFirstChild("Label")
+			if label then
+				local isKnife = entry.Role == "Murderer"
+				label.TextColor3 = isKnife and Color3.fromRGB(255, 90, 110) or Color3.fromRGB(90, 190, 255)
+				local dist = ""
+				if RootPart then
+					dist = "  \u{2022}  " .. tostring(math.floor((handle.Position - RootPart.Position).Magnitude)) .. "m"
+				end
+				label.Text = (isKnife and "KNIFE DROP" or "GUN DROP") .. dist
+			end
+		end
+	end
+	for tool, gui in pairs(DropTags) do
+		if not seen[tool] or not tool.Parent then
+			pcall(function() gui:Destroy() end)
+			DropTags[tool] = nil
+		end
+	end
+end
+
+local function UpdateAutoPickup()
+	if not State.AutoPickupDrops then
+		return
+	end
+	if not RootPart or not Humanoid or Humanoid.Health <= 0 then
+		return
+	end
+	if os.clock() - LastPickupAt < 0.4 then
+		return
+	end
+	local bestHandle, bestDist = nil, math.huge
+	for _, entry in ipairs(FindDroppedItems()) do
+		local handle = DropHandle(entry.Tool)
+		if handle then
+			local d = (handle.Position - RootPart.Position).Magnitude
+			if d < bestDist then
+				bestDist, bestHandle = d, handle
+			end
+		end
+	end
+	if not bestHandle then
+		return
+	end
+	if bestDist <= (tonumber(State.PickupRange) or 120) then
+		LastPickupAt = os.clock()
+		pcall(function() Humanoid:MoveTo(bestHandle.Position) end)
+	end
+end
+
+local function UpdateKnifeWarning()
+	if not State.KnifeWarn then
+		return
+	end
+	local now = os.clock()
+	if now - LastKnifeWarnAt < 1.5 then
+		return
+	end
+	if not RootPart then
+		return
+	end
+	for _, obj in ipairs(workspace:GetChildren()) do
+		local name = string.lower(tostring(obj.Name))
+		if string.find(name, "knife", 1, true) or string.find(name, "dagger", 1, true) then
+			local isTool = obj:IsA("Tool")
+			local part = obj:IsA("BasePart") and obj or (isTool and DropHandle(obj)) or nil
+			if part and part.Position then
+				local speed = 0
+				pcall(function() speed = part.AssemblyLinearVelocity.Magnitude end)
+				local dist = (part.Position - RootPart.Position).Magnitude
+				if speed > 25 and dist <= (tonumber(State.KnifeWarnRange) or 90) then
+					LastKnifeWarnAt = now
+					KnifeWarnCount = KnifeWarnCount + 1
+					Notify("KNIFE INCOMING · " .. tostring(math.floor(dist)) .. "m", 2)
+					return
+				end
+			end
+		end
+	end
+end
+
+local function CountAliveRoles()
+	local counts = {Murderer = 0, Sheriff = 0, Innocent = 0, Dead = 0}
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local char = plr.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum and hum.Health > 0 then
+			local role = GetRole(plr)
+			counts[role] = (counts[role] or 0) + 1
+		else
+			counts.Dead = counts.Dead + 1
+		end
+	end
+	return counts
+end
+
+local function UpdateRoundHUD()
+	if not State.RoundHUD then
+		if HUDGui then
+			HUDGui.Enabled = false
+		end
+		return
+	end
+	if not HUDGui or not HUDGui.Parent then
+		HUDGui = Instance.new("ScreenGui")
+		HUDGui.Name = "NexusMM2HUD"
+		HUDGui.ResetOnSpawn = false
+		HUDGui.IgnoreGuiInset = true
+		HUDGui.DisplayOrder = 880
+		HUDLabel = Instance.new("TextLabel", HUDGui)
+		HUDLabel.Size = UDim2.fromOffset(330, 46)
+		HUDLabel.Position = UDim2.fromOffset(14, 14)
+		HUDLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+		HUDLabel.BackgroundTransparency = 0.25
+		HUDLabel.BorderSizePixel = 0
+		HUDLabel.Font = Enum.Font.GothamBold
+		HUDLabel.TextSize = 13
+		HUDLabel.TextColor3 = Color3.fromRGB(235, 235, 235)
+		HUDLabel.TextXAlignment = Enum.TextXAlignment.Left
+		HUDLabel.TextYAlignment = Enum.TextYAlignment.Center
+		local pad = Instance.new("UIPadding", HUDLabel)
+		pad.PaddingLeft = UDim.new(0, 10)
+		pcall(function()
+			local corner = Instance.new("UICorner", HUDLabel)
+			corner.CornerRadius = UDim.new(0, 6)
+		end)
+		HUDGui.Parent = PlayerGui
+	end
+	HUDGui.Enabled = true
+	local counts = CountAliveRoles()
+	local role = GetRole(LocalPlayer)
+	if HUDLabel then
+		HUDLabel.Text = string.format(
+			"You: %s   |   Alive: %d murderer · %d sheriff · %d innocent   |   dead: %d",
+			tostring(role), counts.Murderer or 0, counts.Sheriff or 0, counts.Innocent or 0, counts.Dead or 0)
+	end
+end
+
+-- UI (built AFTER the functions above) --------------------------------------
+local UtilityBox = Tabs.Visual:AddLeftGroupbox("Utility")
+UtilityBox:AddToggle("Fullbright", {
+	Text = "Fullbright + no fog",
+	Default = false,
+	Callback = function(value)
+		State.Fullbright = value
+		V25.Fullbright(value)
+	end,
+})
+UtilityBox:AddToggle("AntiFling", {
+	Text = "Anti-fling",
+	Default = false,
+	Callback = function(value)
+		State.AntiFling = value
+	end,
+})
+UtilityBox:AddToggle("KnifeDodge", {
+	Text = "Auto-jump incoming knife",
+	Default = false,
+	Callback = function(value)
+		State.KnifeDodge = value
+	end,
+})
+UtilityBox:AddSlider("KnifeDodgeRange", {
+	Text = "Dodge range (studs)",
+	Min = 10,
+	Max = 80,
+	Default = 30,
+	Rounding = 0,
+	Callback = function(value)
+		State.KnifeDodgeRange = value
+	end,
+})
+UtilityBox:AddToggle("MurdererAlarm", {
+	Text = "Murderer proximity alarm",
+	Default = false,
+	Callback = function(value)
+		State.MurdererAlarm = value
+		if not value and V25.AlarmGui then
+			V25.AlarmGui.Enabled = false
+		end
+	end,
+})
+UtilityBox:AddSlider("MurdererAlarmRange", {
+	Text = "Alarm range (studs)",
+	Min = 10,
+	Max = 150,
+	Default = 40,
+	Rounding = 0,
+	Callback = function(value)
+		State.MurdererAlarmRange = value
+	end,
+})
+UtilityBox:AddToggle("RoleList", {
+	Text = "Player role list",
+	Default = false,
+	Callback = function(value)
+		State.RoleList = value
+		if not value and V25.ListGui then
+			V25.ListGui.Enabled = false
+		end
+	end,
+})
+UtilityBox:AddToggle("AutoGrabGun", {
+	Text = "Auto grab dropped gun",
+	Default = false,
+	Callback = function(value)
+		State.AutoGrabGun = value
+	end,
+})
+UtilityBox:AddSlider("AutoGrabRange", {
+	Text = "Grab range (studs)",
+	Min = 20,
+	Max = 400,
+	Default = 140,
+	Rounding = 0,
+	Callback = function(value)
+		State.AutoGrabRange = value
+	end,
+})
+
+local DropBox = Tabs.Visual:AddRightGroupbox("Drops & HUD")
+DropBox:AddToggle("ItemDropESP", {
+	Text = "Knife / gun drop ESP",
+	Default = false,
+	Callback = function(value)
+		State.ItemDropESP = value
+		if not value then
+			ClearDropTags()
+		end
+	end,
+})
+DropBox:AddToggle("AutoPickupDrops", {
+	Text = "Auto pickup dropped weapons",
+	Default = false,
+	Callback = function(value)
+		State.AutoPickupDrops = value
+	end,
+})
+DropBox:AddSlider("PickupRange", {
+	Text = "Pickup range (studs)",
+	Min = 20,
+	Max = 300,
+	Default = 120,
+	Rounding = 0,
+	Callback = function(value)
+		State.PickupRange = value
+	end,
+})
+DropBox:AddToggle("KnifeWarn", {
+	Text = "Thrown knife warning",
+	Default = false,
+	Callback = function(value)
+		State.KnifeWarn = value
+	end,
+})
+DropBox:AddSlider("KnifeWarnRange", {
+	Text = "Warning range (studs)",
+	Min = 20,
+	Max = 200,
+	Default = 90,
+	Rounding = 0,
+	Callback = function(value)
+		State.KnifeWarnRange = value
+	end,
+})
+DropBox:AddToggle("RoundHUD", {
+	Text = "Round HUD (roles + alive)",
+	Default = false,
+	Callback = function(value)
+		State.RoundHUD = value
+		if not value and HUDGui then
+			HUDGui.Enabled = false
+		end
+	end,
+})
+
+--===========================================================================
+-- v2.5/v2.6 · FLY + UTILITY  (hepsi tek bir do-block icinde: 200 local siniri)
+--===========================================================================
+do
+local Fly = V25.Fly
+local FlyRayParams = RaycastParams.new()
+pcall(function()
+	FlyRayParams.FilterType = Enum.RaycastFilterType.Exclude
+end)
+
+local function FlyKeyDown(key)
+	local ok, value = pcall(function()
+		return UserInputService:IsKeyDown(key)
+	end)
+	return ok and value == true
+end
+
+local function FlyCleanup()
+	if Fly.Velocity then
+		pcall(function() Fly.Velocity:Destroy() end)
+	end
+	if Fly.Align then
+		pcall(function() Fly.Align:Destroy() end)
+	end
+	if Fly.Attachment then
+		pcall(function() Fly.Attachment:Destroy() end)
+	end
+	Fly.Velocity, Fly.Align, Fly.Attachment = nil, nil, nil
+	Fly.Smooth = Vector3.zero
+	if Humanoid then
+		pcall(function()
+			Humanoid.PlatformStand = false
+			Humanoid.AutoRotate = true
+		end)
+	end
+end
+
+function FlyStop(silent)
+	Fly.Active = false
+	local was = Fly.Velocity ~= nil or Fly.Align ~= nil
+	FlyCleanup()
+	if not silent and was then
+		pcall(function() Notify("Fly off", 1.5) end)
+	end
+end
+
+function FlyStart()
+	if not (RootPart and RootPart.Parent and Humanoid and Humanoid.Health > 0) then
+		pcall(function() Notify("Fly: character not ready", 2.5) end)
+		return false
+	end
+	FlyCleanup()
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "NexusFlyAttachment"
+	attachment.Parent = RootPart
+	Fly.Attachment = attachment
+	local modernOk = pcall(function()
+		local velocity = Instance.new("LinearVelocity")
+		velocity.Name = "NexusFlyVelocity"
+		velocity.Attachment0 = attachment
+		velocity.RelativeTo = Enum.ActuatorRelativeTo.World
+		velocity.MaxForce = 1e6
+		velocity.VectorVelocity = Vector3.zero
+		velocity.Parent = RootPart
+		Fly.Velocity = velocity
+		local align = Instance.new("AlignOrientation")
+		align.Name = "NexusFlyAlign"
+		align.Attachment0 = attachment
+		align.Mode = Enum.OrientationAlignmentMode.OneAttachment
+		align.MaxTorque = 1e6
+		align.Responsiveness = 25
+		align.CFrame = RootPart.CFrame
+		align.Parent = RootPart
+		Fly.Align = align
+	end)
+	if not modernOk or not (Fly.Velocity and Fly.Velocity.Parent) then
+		if Fly.Velocity then
+			pcall(function() Fly.Velocity:Destroy() end)
+			Fly.Velocity = nil
+		end
+		if Fly.Align then
+			pcall(function() Fly.Align:Destroy() end)
+			Fly.Align = nil
+		end
+		local bodyVelocity = Instance.new("BodyVelocity")
+		bodyVelocity.Name = "NexusFlyVelocity"
+		bodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+		bodyVelocity.P = 2000
+		bodyVelocity.Velocity = Vector3.zero
+		bodyVelocity.Parent = RootPart
+		Fly.Velocity = bodyVelocity
+		local bodyGyro = Instance.new("BodyGyro")
+		bodyGyro.Name = "NexusFlyGyro"
+		bodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+		bodyGyro.P = 8000
+		bodyGyro.D = 600
+		bodyGyro.CFrame = RootPart.CFrame
+		bodyGyro.Parent = RootPart
+		Fly.Align = bodyGyro
+	end
+	pcall(function()
+		Humanoid.PlatformStand = true
+		Humanoid.AutoRotate = false
+		Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	end)
+	Fly.Active = true
+	return true
+end
+
+function FlyStep(dt)
+	if not Fly.Active then
+		return
+	end
+	if not (RootPart and RootPart.Parent and Humanoid) or Humanoid.Health <= 0 then
+		Fly.Active = false
+		FlyCleanup()
+		if Toggles.Fly and Toggles.Fly.Value then
+			pcall(function() Toggles.Fly:SetValue(false) end)
+		end
+		return
+	end
+	if not (Fly.Velocity and Fly.Velocity.Parent) then
+		Fly.Active = false
+		FlyStart()
+		return
+	end
+	local camera = workspace.CurrentCamera
+	local look = camera and camera.CFrame.LookVector or Vector3.new(0, 0, -1)
+	local flatLook = Vector3.new(look.X, 0, look.Z)
+	if flatLook.Magnitude < 0.01 then
+		flatLook = Vector3.new(0, 0, -1)
+	else
+		flatLook = flatLook.Unit
+	end
+	local flatRight = Vector3.new(-flatLook.Z, 0, flatLook.X)
+	local wish = Vector3.zero
+	if FlyKeyDown(Enum.KeyCode.W) then
+		wish += flatLook
+	end
+	if FlyKeyDown(Enum.KeyCode.S) then
+		wish -= flatLook
+	end
+	if FlyKeyDown(Enum.KeyCode.D) then
+		wish += flatRight
+	end
+	if FlyKeyDown(Enum.KeyCode.A) then
+		wish -= flatRight
+	end
+	if wish.Magnitude > 0.01 then
+		wish = wish.Unit
+	end
+	local vertical = 0
+	if FlyKeyDown(Enum.KeyCode.Space) then
+		vertical += 1
+	end
+	if FlyKeyDown(Enum.KeyCode.LeftControl) then
+		vertical -= 1
+	end
+	local speed = tonumber(State.FlySpeed) or 120
+	local verticalFactor = tonumber(State.FlyVertical) or 1
+	local target = wish * speed + Vector3.new(0, vertical * speed * 0.85 * verticalFactor, 0)
+	local alpha = math.clamp(dt * 14, 0.08, 1)
+	Fly.Smooth = Fly.Smooth:Lerp(target, alpha)
+	if Fly.Smooth.Magnitude < 0.3 and target.Magnitude < 0.3 then
+		Fly.Smooth = Vector3.zero
+	end
+	-- zemine dogru itmeyi azalt (yere yapisip kalmasin)
+	if Fly.Smooth.Y < 0 and RootPart then
+		local ok, hit = pcall(function()
+			return workspace:Raycast(RootPart.Position, Vector3.new(0, -7, 0), FlyRayParams)
+		end)
+		if ok and hit then
+			Fly.Smooth = Vector3.new(Fly.Smooth.X, 0, Fly.Smooth.Z)
+		end
+	end
+	pcall(function()
+		if Fly.Velocity:IsA("LinearVelocity") then
+			Fly.Velocity.VectorVelocity = Fly.Smooth
+		else
+			Fly.Velocity.Velocity = Fly.Smooth
+		end
+		if Fly.Align then
+			Fly.Align.CFrame = camera and camera.CFrame or RootPart.CFrame
+		end
+	end)
+end
+
+--===========================================================================
+-- v2.5 · FULLBRIGHT
+--===========================================================================
+local Lighting = game:GetService("Lighting")
+local BrightBackup = nil
+
+function ApplyFullbright(on)
+	if on then
+		if not BrightBackup then
+			BrightBackup = {}
+			pcall(function()
+				BrightBackup.Brightness = Lighting.Brightness
+				BrightBackup.ClockTime = Lighting.ClockTime
+				BrightBackup.FogEnd = Lighting.FogEnd
+				BrightBackup.FogStart = Lighting.FogStart
+				BrightBackup.Ambient = Lighting.Ambient
+				BrightBackup.OutdoorAmbient = Lighting.OutdoorAmbient
+				BrightBackup.GlobalShadows = Lighting.GlobalShadows
+			end)
+		end
+		pcall(function()
+			Lighting.Brightness = 3
+			Lighting.ClockTime = 14
+			Lighting.FogEnd = 100000
+			Lighting.FogStart = 100000
+			Lighting.Ambient = Color3.fromRGB(190, 190, 190)
+			Lighting.OutdoorAmbient = Color3.fromRGB(190, 190, 190)
+			Lighting.GlobalShadows = false
+		end)
+	elseif BrightBackup then
+		pcall(function()
+			for key, value in pairs(BrightBackup) do
+				Lighting[key] = value
+			end
+		end)
+		BrightBackup = nil
+	end
+end
+
+--===========================================================================
+-- v2.5 · ANTI-FLING / KNIFE DODGE / MURDERER ALARM / ROLE LIST / AUTO GRAB
+--===========================================================================
+local LastDodgeAt = 0
+local LastGrabAt = 0
+local AlarmGui, AlarmLabel
+local ListGui, ListLabel
+
+local function UpdateAntiFling()
+	if not (State.AntiFling and RootPart and not Fly.Active) then
+		return
+	end
+	pcall(function()
+		local velocity = RootPart.AssemblyLinearVelocity
+		if velocity and velocity.Magnitude > 260 then
+			RootPart.AssemblyLinearVelocity = Vector3.zero
+			RootPart.AssemblyAngularVelocity = Vector3.zero
+		end
+	end)
+end
+
+local function FindIncomingKnife()
+	if not RootPart then
+		return nil
+	end
+	for _, obj in ipairs(workspace:GetChildren()) do
+		if obj:IsA("BasePart") then
+			local name = string.lower(tostring(obj.Name))
+			if string.find(name, "knife", 1, true) or string.find(name, "dagger", 1, true) then
+				local ok, velocity = pcall(function() return obj.AssemblyLinearVelocity end)
+				if ok and velocity and velocity.Magnitude > 25 then
+					local offset = RootPart.Position - obj.Position
+					local distance = offset.Magnitude
+					if distance <= (tonumber(State.KnifeDodgeRange) or 30) and distance > 0.5 then
+						-- v2.5 · Vector3:Dot bazi executorlarda yok: elle hesapla
+						local vUnit = velocity.Unit
+						local oUnit = offset.Unit
+						local dot = vUnit.X * oUnit.X + vUnit.Y * oUnit.Y + vUnit.Z * oUnit.Z
+						if dot > 0.7 then
+							return obj, distance, velocity
+						end
+					end
+				end
+			end
+		end
+	end
+	return nil
+end
+
+local function UpdateKnifeDodge()
+	if not (State.KnifeDodge and Humanoid and RootPart) then
+		return
+	end
+	if os.clock() - LastDodgeAt < 1.0 then
+		return
+	end
+	local knife = FindIncomingKnife()
+	if not knife then
+		return
+	end
+	LastDodgeAt = os.clock()
+	pcall(function()
+		Humanoid.Jump = true
+		Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+	end)
+	pcall(function() Notify("Dodged knife", 1.2) end)
+end
+
+local function UpdateMurdererAlarm()
+	if not State.MurdererAlarm then
+		if AlarmGui then
+			AlarmGui.Enabled = false
+		end
+		return
+	end
+	local murderer = RoleSummary and RoleSummary.Murderer
+	local root = murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart")
+	local hum = murderer and murderer.Character and murderer.Character:FindFirstChildOfClass("Humanoid")
+	if not AlarmGui or not AlarmGui.Parent then
+		AlarmGui = Instance.new("ScreenGui")
+		AlarmGui.Name = "NexusMM2Alarm"
+		AlarmGui.ResetOnSpawn = false
+		AlarmGui.IgnoreGuiInset = true
+		AlarmGui.DisplayOrder = 890
+		AlarmLabel = Instance.new("TextLabel", AlarmGui)
+		AlarmLabel.Size = UDim2.fromOffset(420, 54)
+		AlarmLabel.Position = UDim2.new(0.5, -210, 0, 90)
+		AlarmLabel.BackgroundTransparency = 1
+		AlarmLabel.Font = Enum.Font.GothamBlack
+		AlarmLabel.TextSize = 26
+		AlarmLabel.TextColor3 = Color3.fromRGB(255, 60, 70)
+		AlarmLabel.TextStrokeTransparency = 0.2
+		AlarmGui.Parent = PlayerGui
+	end
+	if not (root and hum and hum.Health > 0 and RootPart) then
+		AlarmGui.Enabled = false
+		return
+	end
+	local distance = (root.Position - RootPart.Position).Magnitude
+	local range = tonumber(State.MurdererAlarmRange) or 40
+	if distance > range then
+		AlarmGui.Enabled = false
+		return
+	end
+	AlarmGui.Enabled = true
+	local blink = (os.clock() % 0.6) < 0.3
+	if AlarmLabel then
+		AlarmLabel.Text = string.format("MURDERER %dm", math.floor(distance))
+		AlarmLabel.TextTransparency = blink and 0 or 0.45
+	end
+end
+
+local function UpdateRoleList()
+	if not State.RoleList then
+		if ListGui then
+			ListGui.Enabled = false
+		end
+		return
+	end
+	if not ListGui or not ListGui.Parent then
+		ListGui = Instance.new("ScreenGui")
+		ListGui.Name = "NexusMM2Roles"
+		ListGui.ResetOnSpawn = false
+		ListGui.IgnoreGuiInset = true
+		ListGui.DisplayOrder = 880
+		ListLabel = Instance.new("TextLabel", ListGui)
+		ListLabel.Size = UDim2.fromOffset(230, 240)
+		ListLabel.Position = UDim2.new(1, -244, 0, 14)
+		ListLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+		ListLabel.BackgroundTransparency = 0.3
+		ListLabel.BorderSizePixel = 0
+		ListLabel.Font = Enum.Font.Code
+		ListLabel.TextSize = 13
+		ListLabel.TextXAlignment = Enum.TextXAlignment.Left
+		ListLabel.TextYAlignment = Enum.TextYAlignment.Top
+		ListLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+		local pad = Instance.new("UIPadding", ListLabel)
+		pad.PaddingLeft = UDim.new(0, 8)
+		pad.PaddingTop = UDim.new(0, 6)
+		ListGui.Parent = PlayerGui
+	end
+	ListGui.Enabled = true
+	local lines = {"ROLES"}
+	local order = {Murderer = 1, Sheriff = 2, Innocent = 3}
+	local rows = {}
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local char = plr.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum and hum.Health > 0 then
+			local role = GetRole(plr)
+			local root = char:FindFirstChild("HumanoidRootPart")
+			local distance = 0
+			if root and RootPart then
+				distance = math.floor((root.Position - RootPart.Position).Magnitude)
+			end
+			rows[#rows + 1] = {
+				Text = string.format("%-3s %-10s %3dm", string.sub(role, 1, 3), plr.Name, distance),
+				Order = order[role] or 4,
+				Role = role,
+			}
+		end
+	end
+	table.sort(rows, function(a, b)
+		if a.Order == b.Order then
+			return a.Text < b.Text
+		end
+		return a.Order < b.Order
+	end)
+	for _, row in ipairs(rows) do
+		lines[#lines + 1] = row.Text
+	end
+	if ListLabel then
+		ListLabel.Text = table.concat(lines, "\n")
+	end
+end
+
+local function UpdateAutoGrabGun()
+	if not (State.AutoGrabGun and Humanoid and RootPart and Humanoid.Health > 0) then
+		return
+	end
+	if os.clock() - LastGrabAt < 0.5 then
+		return
+	end
+	local role = GetRole(LocalPlayer)
+	if role ~= "Sheriff" and role ~= "Hero" then
+		return
+	end
+	local part = GetObjectPart(FindGunDrop(true))
+	if not part then
+		-- v2.5 · yerde duran tabanca (Tool) da hedef: sadece "GunDrop" modelini degil
+		local best, bestDistance = nil, math.huge
+		for _, entry in ipairs(FindDroppedItems()) do
+			if entry.Role == "Sheriff" then
+				local handle = DropHandle(entry.Tool)
+				if handle and handle.Position then
+					local distance = (handle.Position - RootPart.Position).Magnitude
+					if distance < bestDistance then
+						bestDistance, best = distance, handle
+					end
+				end
+			end
+		end
+		part = best
+	end
+	if not part then
+		return
+	end
+	local distance = (part.Position - RootPart.Position).Magnitude
+	if distance > (tonumber(State.AutoGrabRange) or 140) then
+		return
+	end
+	LastGrabAt = os.clock()
+	if distance > 6 then
+		pcall(function() Humanoid:MoveTo(part.Position) end)
+	else
+		pcall(function() TryEquipGun() end)
+	end
+end
+
+-- v2.6 · bloktan disariya acilan yuzey
+V25.FlyStart = FlyStart
+V25.FlyStop = FlyStop
+V25.FlyStep = FlyStep
+V25.Fullbright = ApplyFullbright
+V25.AntiFling = UpdateAntiFling
+V25.KnifeDodge = UpdateKnifeDodge
+V25.AutoGrabGun = UpdateAutoGrabGun
+V25.MurdererAlarm = UpdateMurdererAlarm
+V25.RoleList = UpdateRoleList
+end -- v2.5/v2.6 sistem blogu
+
 local function SendChatMessage(message)
 	local sent = pcall(function()
 		local textChat = game:GetService("TextChatService")
@@ -44758,6 +48065,14 @@ local function UpdateMM2Pro()
 	end
 	UpdateCoinESP()
 	UpdateSkinChanger()
+	if State.ItemDropESP or State.AutoPickupDrops then
+		UpdateDropESP()
+		UpdateAutoPickup()
+	end
+	UpdateKnifeWarning()
+	UpdateRoundHUD()
+	V25.MurdererAlarm()
+	V25.RoleList()
 end
 local CoinPathService = game:GetService("PathfindingService")
 local CoinWalkActive = false
@@ -44901,6 +48216,20 @@ function CleanupAll()
 	table.clear(Connections)
 	SilentShared.Enabled = false
 	SilentShared.TargetPart = nil
+	V25.FlyStop(true)
+	if State.OrigWalkSpeed and Humanoid then
+		pcall(function() Humanoid.WalkSpeed = State.OrigWalkSpeed end)
+	end
+	if State.OrigJumpPower and Humanoid then
+		pcall(function() Humanoid.JumpPower = State.OrigJumpPower end)
+	end
+	V25.Fullbright(false)
+	if V25.AlarmGui then
+		pcall(function() V25.AlarmGui:Destroy() end)
+	end
+	if V25.ListGui then
+		pcall(function() V25.ListGui:Destroy() end)
+	end
 	RestoreAllSkins()
 	StopCurrentAnimation()
 	ClearAllESP()
@@ -45015,6 +48344,21 @@ SettingsLeft:AddDropdown("DPIScale", {
 		end
 	end,
 })
+SettingsRight:AddButton({
+	Text = "BBot theme",
+	Func = function()
+		pcall(function()
+			if ThemeManager and ThemeManager.BuiltInThemes and ThemeManager.BuiltInThemes['BBot'] then
+				ThemeManager:ApplyTheme('BBot')
+				if Options.ThemeManager_ThemeList then
+					Options.ThemeManager_ThemeList:SetValue('BBot')
+				end
+				pcall(function() ThemeManager:SaveDefault('BBot') end)
+				Notify("Theme: BBot", 3)
+			end
+		end)
+	end,
+})
 SettingsRight:AddLabel("The Nexus GUI library is embedded inside this script.", true)
 SettingsRight:AddLabel("Executor: " .. executorName, true)
 SettingsRight:AddButton({
@@ -45048,7 +48392,8 @@ pcall(function()
 	end
 end)
 
-do
+-- v2.6 · bu blok kendi fonksiyonunda: 11 local ana chunk'i mesgul etmesin
+;(function()
 	local ApexCfgName = "autosave"
 	local ApexCfgLib = Library
 	local ApexCfgSM = SaveManager
@@ -45187,14 +48532,21 @@ do
 			end
 		end)
 	end
-end
+end)()
 
 Connect(LocalPlayer.CharacterAdded:Connect(function(char)
 	task.spawn(function()
 		CurrentAnimTrack = nil
 		CurrentAnimInstance = nil
 		CurrentAnimData = nil
+		V25.FlyStop(true)
+		if Toggles.Fly and Toggles.Fly.Value then
+			pcall(function() Toggles.Fly:SetValue(false) end)
+		end
 		RefreshCharacter(char)
+		State.OrigWalkSpeed = nil
+		State.OrigJumpPower = nil
+		State.OrigUseJumpPower = nil
 		if Humanoid then
 			if State.WalkEnabled then
 				Humanoid.WalkSpeed = State.WalkSpeed
@@ -45291,8 +48643,9 @@ Connect(RunService.Heartbeat:Connect(function(dt)
 	if State.Unloaded then
 		return
 	end
+	V25.FlyStep(dt)
 	if Humanoid and Humanoid.Parent then
-		if State.WalkEnabled and Humanoid.WalkSpeed ~= State.WalkSpeed then
+		if State.WalkEnabled and not V25.Fly.Active and Humanoid.WalkSpeed ~= State.WalkSpeed then
 			Humanoid.WalkSpeed = State.WalkSpeed
 		end
 		if State.JumpEnabled then
@@ -45301,12 +48654,15 @@ Connect(RunService.Heartbeat:Connect(function(dt)
 				Humanoid.JumpPower = State.JumpPower
 			end
 		end
-		if State.AutoSprint and Humanoid.MoveDirection.Magnitude > 0 and not State.WalkEnabled then
+		if State.AutoSprint and not V25.Fly.Active and Humanoid.MoveDirection.Magnitude > 0 and not State.WalkEnabled then
 			if Humanoid.WalkSpeed < State.AutoSprintSpeed then
 				Humanoid.WalkSpeed = State.AutoSprintSpeed
 			end
 		end
 	end
+	V25.AntiFling()
+	V25.KnifeDodge()
+	V25.AutoGrabGun()
 	HeartbeatAccumulator += dt
 	if HeartbeatAccumulator >= 0.2 then
 		HeartbeatAccumulator = 0
@@ -45412,11 +48768,80 @@ task.spawn(function()
 		task.wait(didWork and 0.08 or 0.2)
 	end
 end)
+-- v2.4 · public API (tests + usage)
+getgenv().NexusMM2 = {
+	Version = "2.6",
+	State = State,
+	Skins = {
+		Restore = function() RestoreAllSkins() end,
+		Targets = function() return CollectSkinTargets() end,
+		Apply = function(meshId, textureId) 
+			local applied = 0
+			for _, entry in ipairs(CollectSkinTargets()) do
+				ApplySkinToTool(entry.Tool, meshId, textureId, false)
+				applied = applied + 1
+			end
+			return applied
+		end,
+		Read = function(tool) return ReadToolSkin(tool) end,
+	},
+	Drops = {
+		List = function() return FindDroppedItems() end,
+		Count = function() return #FindDroppedItems() end,
+		Tags = function() local n = 0 for _ in pairs(DropTags) do n = n + 1 end return n end,
+	},
+	Warnings = function() return KnifeWarnCount end,
+	RoleCounts = function() return CountAliveRoles() end,
+	Fly = function(enabled)
+		if enabled == nil then
+			return V25.Fly.Active
+		end
+		if enabled then
+			local ok = V25.FlyStart()
+			State.Fly = ok
+			return ok
+		end
+		V25.FlyStop(true)
+		State.Fly = false
+		return true
+	end,
+	Fullbright = function(enabled)
+		State.Fullbright = enabled == true
+		V25.Fullbright(State.Fullbright)
+	end,
+	RoleList = function()
+		local out = {}
+		for _, plr in ipairs(Players:GetPlayers()) do
+			local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+			if hum and hum.Health > 0 then
+				out[#out + 1] = {Player = plr, Role = GetRole(plr)}
+			end
+		end
+		return out
+	end,
+	SkinStatus = function()
+		local painted = 0
+		for tool in pairs(SkinApplied) do
+			if tool and tool.Parent then
+				painted = painted + 1
+			end
+		end
+		return {Painted = painted, Text = V25.LastSkinStatus}
+	end,
+	Theme = function(name)
+		pcall(function()
+			if ThemeManager and ThemeManager.BuiltInThemes and ThemeManager.BuiltInThemes[name or 'BBot'] then
+				ThemeManager:ApplyTheme(name or 'BBot')
+			end
+		end)
+	end,
+}
+
 if State.AnimName == nil and Animations[1] then
 	State.AnimName = Animations[1].Name
 end
-Notify("Nexus MM2 loaded. Menu: RightShift", 4)
-print("[Nexus] MM2 ready")
+Notify("Nexus MM2 v2.6 loaded. Menu: RightShift", 4)
+print("[Nexus] MM2 v2.6 ready · skins fixed · fly · utility · 200-local safe")
 
 -- skin reapply helper
 pcall(function()
@@ -53989,7 +57414,20 @@ local ThemeManager = {} do
 	end
 
 	function ThemeManager:LoadDefault()
-		local theme = 'Default'
+		-- Nexus · requested default theme: BBot
+		local theme = 'BBot'
+		local marker = self.Folder .. '/themes/.nexus_bbot_v1'
+		local firstRun = not (type(isfile) == 'function' and isfile(marker))
+		if firstRun and type(writefile) == 'function' then
+			pcall(function()
+				local path = self.Folder .. '/themes/default.txt'
+				local current = (type(isfile) == 'function' and isfile(path)) and readfile(path) or nil
+				if current == nil or current == 'Default' then
+					writefile(path, 'BBot')
+				end
+				writefile(marker, '1')
+			end)
+		end
 		local content = isfile(self.Folder .. '/themes/default.txt') and readfile(self.Folder .. '/themes/default.txt')
 
 		local isDefault = true
@@ -54002,6 +57440,9 @@ local ThemeManager = {} do
 			end
 		elseif self.BuiltInThemes[self.DefaultTheme] then
 			theme = self.DefaultTheme
+		end
+		if theme == 'Default' and self.BuiltInThemes['BBot'] then
+			theme = 'BBot'
 		end
 
 		if isDefault then
@@ -69246,8 +72687,33 @@ local function safeWait(parent, name, t)
 	return ok and obj or nil
 end
 
--- Nexus Blox Fruits v1.3  (SEA 3 FIX)
+-- Nexus Blox Fruits v1.6  (TRAVEL FIX + EMOTES + SPEED/ENERGY + VENDORS)
 -- Standalone script. Menu key: RightShift. Fully self-contained (no external libraries).
+-- v1.6 fix:
+--   * Walk Speed calismiyordu: Blox Fruits kendi script'inde Humanoid.WalkSpeed'i
+--     her karede geri yaziyor. Artik GetPropertyChangedSignal("WalkSpeed") kilidi
+--     var: oyun ne yazarsa yazsin deger aninda geri konur.
+--   * Infinite Energy calismiyordu: 0.5 sn'de bir yazmak yetmiyordu. Artik
+--     Character.Energy.Changed hook'u + her turda tepeleme (RaceEnergy dahil).
+--   * Saticilar (NPC) meyve sanildi: "Blox Fruit Dealer" ismi "Fruit" icerdigi
+--     icin meyve ESP/sniper listesine giriyordu. NPC'ler filtrelendi ve ayri
+--     VENDORS bolumu eklendi (dropdown + tek tusla isinlanma).
+--
+-- v1.5 fix:
+--   * "fly to location calisiyor ama beni ilk geldigim yere isinliyor" hatasi.
+--     Iki sebep vardi: (1) hedef bolge henuz stream edilmedigi icin karakter
+--     havada kalip dusuyordu, (2) Anti-Void watchdog bunu "void" sanip seni
+--     son bastigin yere (ya da spawn'a) geri cekiyordu. Artik varista karakter
+--     1 saniye hedefte sabit tutulur, kayarsa CFrame tekrar uygulanir ve
+--     yolculuk boyunca anti-void ateslenmez.
+--   * EMOTES: unlu emoteler animation id ile (Take the L, Floss, Griddy,
+--     Helicopter, Thriller, Shuffle ...). Misc > Emotes.
+--
+-- v1.4 fix:
+--   * "no position" yuzunden hicbir yere isinlanmiyordu. Roblox'ta Vector3 bir
+--     userdata'dir; type(v) == "userdata" doner, bu yuzden eski type(pos) ~= "table"
+--     kontrolu HER hedefi reddediyordu. Artik typeof() + guvenli .X kontrolu var.
+--
 -- v1.2 changes, nothing else was touched:
 --   * Third Sea quest table corrected (wrong / outdated quest ids made the auto quest
 --     fail above level 1500 and the farm then travelled to old coordinates)
@@ -69321,10 +72787,17 @@ local S = {
 	TPLocation = "",
 	TPNpc = "",
 	TPBoss = "",
+	VendorName = "",
+	EnergyValue = 1000000,
+	EmoteSpeed = 1,
 	-- v1.2 · Sea 3 / void safety
 	AntiVoid = true,
 	VoidY = -45,
-	MaxTPDistance = 20000,
+	MaxTPDistance = 40000,
+	-- v1.5 · travel (isinlanma) guvenligi
+	TPMethod = "Instant",
+	NoSnapBack = true,
+	ArriveHold = 1.1,
 }
 
 local State = {
@@ -69358,6 +72831,18 @@ local State = {
 	LastRescueAt = 0,
 	VoidRescues = 0,
 	LastBlockedAt = 0,
+	-- v1.5 · travel guvenligi
+	TravelActive = false,
+	TravelTarget = nil,
+	HoldCF = nil,
+	HoldUntil = 0,
+	SnapTries = 0,
+	HoldRecovered = 0,
+	LowestGroundY = nil,
+	TravelFloorY = nil,
+	TravelFloorUntil = 0,
+	LastPos = nil,
+	LastTravelReason = "",
 }
 
 local function Connect(signal, fn)
@@ -69448,6 +72933,15 @@ local function VoidFloor()
 	local floor = S.VoidY or -45
 	local last = State.LastGoodY
 	if last and (last - 150) < floor then floor = last - 150 end
+	-- v1.5 · gercekten bastigimiz en alcak zemin (sualti bolgeler) siniri asagi ceker
+	local low = State.LowestGroundY
+	if low and (low - 120) < floor then floor = low - 120 end
+	-- v1.5 · yolculuk hedefi tabanin altinda olabilir: hedefin altina inme
+	local tt = State.TravelTarget
+	if tt and (tt.Y - 250) < floor then floor = tt.Y - 250 end
+	-- v1.5 · varistan sonra da hedef civari "guvenli zemin" sayilir (2 dakika)
+	local tf = State.TravelFloorY
+	if tf and os.clock() < (State.TravelFloorUntil or 0) and (tf - 250) < floor then floor = tf - 250 end
 	return floor
 end
 
@@ -69459,21 +72953,31 @@ local function AntiVoidActive()
 end
 
 local function RecordSafeSpot()
+	if State.HoldCF then return end          -- v1.5 · varis tutusunda kaydetme
 	local root = GetRoot()
 	local hum = GetHumanoid()
 	if not root or not hum then return end
 	if hum.Health <= 0 then return end
 	local pos = root.Position
-	if pos.Y < (S.VoidY or -45) then return end
+	State.LastPos = pos
+	if pos.Y < VoidFloor() then return end
 	local grounded = false
 	pcall(function() grounded = hum.FloorMaterial ~= Enum.Material.Air end)
 	if not grounded then return end
 	State.LastGoodCF = root.CFrame
 	State.LastGoodY = pos.Y
+	-- v1.5 · bu haritada bastigimiz en alcak nokta (sualti / cok alt bolgeler)
+	if not State.LowestGroundY or pos.Y < State.LowestGroundY then
+		State.LowestGroundY = pos.Y
+	end
 end
 
 local function RescuePoint()
 	if State.LastGoodCF then return State.LastGoodCF end
+	-- v1.5 · hic zemin kaydi yoksa son durdugumuz yer (spawn'a degil)
+	if State.LastPos and State.LastPos.Y > (S.VoidY or -45) then
+		return CFrame.new(State.LastPos + Vector3.new(0, 6, 0))
+	end
 	local spawn = Workspace:FindFirstChildOfClass("SpawnLocation")
 	if spawn then return CFrame.new(spawn.Position + Vector3.new(0, 8, 0)) end
 	local origin = Workspace:FindFirstChild("_WorldOrigin")
@@ -69488,6 +72992,8 @@ local function RescueFromVoid(reason)
 	if not root or not target then return false end
 	State.LastRescueAt = os.clock()
 	State.VoidRescues = (State.VoidRescues or 0) + 1
+	State.HoldCF = nil
+	State.TravelActive = false
 	-- cancel any running travel first (same effect as CancelTween, which is defined later)
 	State.TweenId = State.TweenId + 1
 	State.TweenBusy = false
@@ -69502,9 +73008,22 @@ local function RescueFromVoid(reason)
 	return true
 end
 
+-- v1.4 · Vector3 dogrulamasi.
+-- Roblox'ta Vector3 bir USERDATA'dir: type(v) == "userdata" doner (typeof(v) == "Vector3").
+-- Bu yuzden type(v) == "table" kontrolu gercek oyunda her zaman basarisiz oluyordu ve
+-- "no position" hatasi butun isinlanmalari (Floating Turtle, boss, quest, TP listesi)
+-- engelliyordu. Burada hem typeof hem de .X okunabilirligi kontrol edilir.
+local function IsVector3(value)
+	if value == nil then return false end
+	local okType, kind = pcall(function() return typeof(value) end)
+	if okType and kind == "Vector3" then return true end
+	local okX, x = pcall(function() return value.X end)
+	return okX and type(x) == "number"
+end
+
 -- nil doner -> hareket iptal; amac: haritanin disina cikaran hicbir isinlanma olmasin
 local function SanitizeDestination(pos, maxDist)
-	if type(pos) ~= "table" or not pos.X then return nil, "no position" end
+	if not IsVector3(pos) then return nil, "hedef yok (no position)" end
 	if AntiVoidActive() then
 		local floor = VoidFloor()
 		if pos.Y < floor then
@@ -69955,6 +73474,44 @@ local function TweenActive() return State.TweenBusy == true end
 local function CancelTween()
 	State.TweenId += 1
 	State.TweenBusy = false
+	-- v1.5 · iptal edilen yolculuk anti-void'i kalici olarak kapatmasin
+	State.TravelActive = false
+end
+
+-- v1.5 · guvenli varis.
+-- Blox Fruits'ta isinlandigin bolge henuz yuklenmemis olabiliyor: karakter bir
+-- an havada kalip dusuyor, Anti-Void watchdog da onu "void" sanip geri cekiyor.
+-- Bu yuzden varista karakter kisa sure hedefte SABIT tutulur, kayarsa CFrame
+-- yeniden uygulanir (snap back korumasi).
+local function ArriveAt(pos, holdSeconds)
+	local root = GetRoot()
+	if not root then return false end
+	local hum = GetHumanoid()
+	if hum then
+		pcall(function() hum.Sit = false end)
+		pcall(function() hum.PlatformStand = false end)
+	end
+	State.TravelTarget = pos
+	State.TravelFloorY = pos.Y
+	State.TravelFloorUntil = os.clock() + 120
+	State.HoldCF = CFrame.new(pos)
+	State.HoldUntil = os.clock() + (holdSeconds or S.ArriveHold or 1.1)
+	State.SnapTries = 0
+	-- 3 kez ust uste yaz: sunucu konumu geri ittirse bile son yazan biz olalim
+	root.CFrame = CFrame.new(pos)
+	root.AssemblyLinearVelocity = Vector3.zero
+	pcall(function() root.AssemblyAngularVelocity = Vector3.zero end)
+	task.spawn(function()
+		for i = 1, 2 do
+			task.wait(0.06)
+			if State.Unloaded then return end
+			local r = GetRoot()
+			if not r then return end
+			r.CFrame = CFrame.new(pos)
+			r.AssemblyLinearVelocity = Vector3.zero
+		end
+	end)
+	return true
 end
 
 -- Instant jump: cancels any running flight and snaps the character. Used when
@@ -69964,6 +73521,7 @@ local function InstantTeleport(pos)
 	local safePos, why = SanitizeDestination(pos)
 	if not root then return end
 	if not safePos then
+		State.LastTravelReason = tostring(why)
 		if os.clock() - (State.LastBlockedAt or 0) > 2 then
 			State.LastBlockedAt = os.clock()
 			Notify("Nexus BF", "Unsafe teleport blocked: " .. tostring(why))
@@ -69971,14 +73529,14 @@ local function InstantTeleport(pos)
 		return
 	end
 	CancelTween()
-	root.CFrame = CFrame.new(safePos)
-	root.AssemblyLinearVelocity = Vector3.zero
+	ArriveAt(safePos)
 end
 
 local function TweenTo(targetPos, speed)
 	-- v1.2 · hicbir yolculuk haritanin altina gitmez
 	local safeTarget, why = SanitizeDestination(targetPos)
 	if not safeTarget then
+		State.LastTravelReason = tostring(why)
 		if os.clock() - (State.LastBlockedAt or 0) > 2 then
 			State.LastBlockedAt = os.clock()
 			Notify("Nexus BF", "Travel cancelled: " .. tostring(why))
@@ -69986,10 +73544,13 @@ local function TweenTo(targetPos, speed)
 		return false
 	end
 	targetPos = safeTarget
-	if S.InstantTP then
+	-- v1.5 · "Instant" modu: uzun ucus sirasinda dusme/void riski yok
+	if S.InstantTP or S.TPMethod == "Instant" then
 		InstantTeleport(targetPos)
 		return true
 	end
+	State.TravelActive = true
+	State.TravelTarget = targetPos
 	local root = GetRoot()
 	if not root or not targetPos then return false end
 	local hum = GetHumanoid()
@@ -70023,6 +73584,9 @@ local function TweenTo(targetPos, speed)
 		root.AssemblyLinearVelocity = Vector3.zero
 	end
 	if State.TweenId == myId then State.TweenBusy = false end
+	State.TravelActive = false
+	-- v1.5 · varista hedefte sabit tut: yuklenmemis bolgede dusup geri cekilme biter
+	if State.TweenId == myId then ArriveAt(targetPos) end
 	return State.TweenId == myId
 end
 
@@ -70137,7 +73701,7 @@ New("TextLabel", {
 }, TopBar)
 New("TextLabel", {
 	Size = UDim2.fromOffset(300, 16), Position = UDim2.fromOffset(64, 24),
-	BackgroundTransparency = 1, Text = "v1.3  —  RightShift", TextColor3 = COLORS.Dim,
+	BackgroundTransparency = 1, Text = "v1.4  —  RightShift", TextColor3 = COLORS.Dim,
 	Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
 }, TopBar)
 
@@ -70442,6 +74006,63 @@ local function AddDropdown(parent, label, key, optionsOrFn, callback)
 	return api
 end
 
+-- Emotes (v1.5) ---------------------------------------------------------------
+-- Unlu emoteler; hepsi animation id ile oynatilir (R6/R15 fark etmez).
+local EMOTES = {
+	{ "Take the L", "rbxassetid://4776588732" },
+	{ "Floss", "rbxassetid://4841015627" },
+	{ "Orange Justice", "rbxassetid://4746273203" },
+	{ "Griddy", "rbxassetid://110724954889034" },
+	{ "Helicopter", "rbxassetid://4846000379" },
+	{ "Default Dance", "rbxassetid://507771019" },
+	{ "Thriller", "rbxassetid://4724894341" },
+	{ "Shuffle", "rbxassetid://4827299133" },
+	{ "Electro Swing", "rbxassetid://4812941481" },
+	{ "Rat", "rbxassetid://3261753939" },
+	{ "Billy Bounce", "rbxassetid://3262592866" },
+	{ "Howard", "rbxassetid://4809145259" },
+	{ "Side Hustle", "rbxassetid://4300218011" },
+	{ "Dream Feet", "rbxassetid://4300228160" },
+	{ "Minecraft Parrot", "rbxassetid://4300223810" },
+	{ "Clean Groove", "rbxassetid://4776560183" },
+	{ "Aerostep", "rbxassetid://4776734129" },
+	{ "BrodyQuest", "rbxassetid://4525385199" },
+}
+
+local EmoteState = { Track = nil, Anim = nil, Current = "" }
+
+function StopEmote()
+	if EmoteState.Track then pcall(function() EmoteState.Track:Stop() end) end
+	EmoteState.Track = nil
+	EmoteState.Anim = nil
+	EmoteState.Current = ""
+end
+
+function PlayEmoteID(animId, name, loop)
+	StopEmote()
+	local hum = GetHumanoid()
+	if not hum then return false end
+	local animator = hum:FindFirstChildOfClass("Animator")
+	if not animator then
+		pcall(function()
+			animator = Instance.new("Animator")
+			animator.Parent = hum
+		end)
+	end
+	if not animator then return false end
+	local anim = Instance.new("Animation")
+	anim.AnimationId = animId
+	local ok, track = pcall(function() return animator:LoadAnimation(anim) end)
+	if not ok or not track then return false end
+	pcall(function() track.Looped = (loop == true) end)
+	pcall(function() track:AdjustSpeed(S.EmoteSpeed or 1) end)
+	pcall(function() track:Play() end)
+	EmoteState.Track = track
+	EmoteState.Anim = anim
+	EmoteState.Current = tostring(name or animId)
+	return true
+end
+
 -- Tabs ------------------------------------------------------------------------
 
 local FarmTab = CreateTab("Farm")
@@ -70453,6 +74074,8 @@ local PlayerTab = CreateTab("Player")
 local MiscTab = CreateTab("Misc")
 
 local Refs = {}
+local energyLabel
+local travelReasonLabel
 local farmStatusLabel
 local chestStatusLabel
 local SeaLabel
@@ -70578,6 +74201,34 @@ do
 		StoreEquippedFruit()
 	end)
 
+	local venSec = Section(FruitTab, "Vendors (NPC shops)")
+	AddDropdown(venSec, "Vendor", "VendorName", function()
+		local names = {}
+		for _, v in ipairs(GetVendors()) do names[#names + 1] = v.Name end
+		table.sort(names)
+		if #names == 0 then names = { "(no vendor loaded)" } end
+		return names
+	end)
+	AddButton(venSec, "Fly To Vendor (stops farm)", function()
+		GoToVendor(FindVendorByName(S.VendorName))
+	end)
+	AddButton(venSec, "Nearest vendor", function()
+		GoToVendor(NearestVendor(GetRoot()))
+	end)
+	AddButton(venSec, "Blox Fruit Dealer", function()
+		GoToVendor(FindVendorByName("blox fruit dealer"))
+	end)
+	AddButton(venSec, "Sword Dealer", function()
+		GoToVendor(FindVendorByName("sword dealer"))
+	end)
+	AddButton(venSec, "Weapon / Gun Dealer", function()
+		GoToVendor(FindVendorByName("weapon dealer"))
+	end)
+	AddButton(venSec, "Boat Dealer", function()
+		GoToVendor(FindVendorByName("boat dealer"))
+	end)
+	AddLabel(venSec, "vendors are no longer counted as spawned fruits.")
+
 	local sec2 = Section(FruitTab, "Gacha")
 	AddToggle(sec2, "Auto Random Fruit (Blox Fruit Cousin)", "AutoRandomFruit")
 	AddSlider(sec2, "Buy Interval (seconds)", "RandomFruitDelay", 10, 300, 5)
@@ -70594,6 +74245,20 @@ do
 	AddButton(sec, "Travel: Third Sea (Zou)", function() InvokeCommF("TravelZou"); Notify("Nexus BF", "TravelZou requested.") end)
 	AddToggle(sec, "Instant teleport (skip the flight)", "InstantTP", function(on)
 		if on then CancelTween() end
+	end)
+
+	local safeSec = Section(TeleportTab, "Travel safety")
+	AddDropdown(safeSec, "Method", "TPMethod", { "Instant", "Flight" })
+	AddToggle(safeSec, "No snap back (stay at destination)", "NoSnapBack")
+	AddSlider(safeSec, "Arrival hold (seconds)", "ArriveHold", 0.2, 2.5, 0.1)
+	AddSlider(safeSec, "Void floor Y", "VoidY", -500, 50, 5)
+	AddSlider(safeSec, "Max travel distance", "MaxTPDistance", 1000, 80000, 1000)
+	travelReasonLabel = AddLabel(safeSec, "last block reason: none")
+	AddButton(safeSec, "Cancel travel", function()
+		CancelTween()
+		State.HoldCF = nil
+		State.TravelActive = false
+		Notify("Nexus BF", "Travel cancelled.")
 	end)
 
 	local sec2 = Section(TeleportTab, "Locations (runtime list)")
@@ -70692,15 +74357,27 @@ do
 	AddToggle(sec, "Anti-Void", "AntiVoid")
 	AddSlider(sec, "Max TP distance", "MaxTPDistance", 4000, 60000, 2000)
 	AddToggle(sec, "Player Mods (speed / jump)", "PlayerMods", function(on)
-		local hum = GetHumanoid()
-		if hum and not on then
-			hum.WalkSpeed = State.OrigWalkSpeed
-			pcall(function() hum.JumpPower = State.OrigJumpPower end)
+		if on then
+			ApplySpeedLock()
+		else
+			ReleaseSpeedLock()
 		end
 	end)
-	AddSlider(sec, "Walk Speed", "WalkSpeed", 20, 250, 2)
-	AddSlider(sec, "Jump Power", "JumpPower", 55, 250, 5)
-	AddToggle(sec, "Infinite Energy (experimental)", "InfiniteEnergy")
+	AddSlider(sec, "Walk Speed", "WalkSpeed", 20, 250, 2, function(value)
+		S.WalkSpeed = value
+		if S.PlayerMods then ApplySpeedLock() end
+	end)
+	AddSlider(sec, "Jump Power", "JumpPower", 55, 250, 5, function(value)
+		S.JumpPower = value
+		if S.PlayerMods then ApplySpeedLock() end
+	end)
+	AddToggle(sec, "Infinite Energy", "InfiniteEnergy", function(on)
+		if on then
+			local n = BindEnergyLock()
+			Notify("Nexus BF", n > 0 and ("Infinite energy ON · " .. n .. " source(s)") or "Infinite energy: energy value not found yet")
+		end
+	end)
+	energyLabel = AddLabel(sec, "energy: -")
 
 	local sec2 = Section(PlayerTab, "ESP")
 	AddToggle(sec2, "Player ESP", "PlayerESP", function(on)
@@ -70749,10 +74426,26 @@ do
 		if hum then hum.Health = 0 end
 	end)
 
+	local emSec = Section(MiscTab, "Emotes")
+	AddSlider(emSec, "Emote speed", "EmoteSpeed", 0.3, 3, 0.1, function(v)
+		if EmoteState.Track then pcall(function() EmoteState.Track:AdjustSpeed(v) end) end
+	end)
+	for _, e in ipairs(EMOTES) do
+		AddButton(emSec, e[1], function()
+			if PlayEmoteID(e[2], e[1], S.EmoteLoop) then
+				Notify("Nexus BF", "Emote: " .. e[1])
+			else
+				Notify("Nexus BF", "Could not play " .. e[1])
+			end
+		end)
+	end
+	AddToggle(emSec, "Loop emote", "EmoteLoop")
+	AddButton(emSec, "Stop emote", function() StopEmote() end)
+
 	local sec3 = Section(MiscTab, "Script")
 	AddButton(sec3, "Save Config Now", function() if SaveConfig then SaveConfig(true) end end)
 	AddButton(sec3, "Unload Nexus BF", function() if Unload then Unload() end end)
-	AddLabel(sec3, "Nexus Blox Fruits v1.3")
+	AddLabel(sec3, "Nexus Blox Fruits v1.6")
 end
 
 Tabs["Farm"].Button.BackgroundColor3 = COLORS.Accent
@@ -70840,6 +74533,212 @@ function StoreEquippedFruit()
 	Notify("Nexus BF", "No fruit tool found in hand/backpack.")
 end
 
+-- v1.6 · satici / NPC yardimcilari -------------------------------------------
+local VENDOR_WORDS = { "dealer", "seller", "vendor", "gacha", "shop", "blacksmith", "teacher", "editor", "captain" }
+
+local function IsVendorName(name)
+	local low = string.lower(tostring(name or ""))
+	for _, word in ipairs(VENDOR_WORDS) do
+		if string.find(low, word, 1, true) then return true end
+	end
+	return false
+end
+
+local function HasHumanoidInside(model)
+	local ok, hum = pcall(function() return model:FindFirstChildWhichIsA("Humanoid", true) end)
+	return ok and hum ~= nil
+end
+
+local VendorCache = { At = -10, List = {} }
+
+local function GetVendors()
+	if os.clock() - VendorCache.At < 5 and #VendorCache.List > 0 then
+		return VendorCache.List
+	end
+	local list, seen = {}, {}
+	local function consider(model)
+		if not model or seen[model] then return end
+		local name = tostring(model.Name)
+		if not IsVendorName(name) then return end
+		if not HasHumanoidInside(model) then return end
+		local part = model:FindFirstChild("HumanoidRootPart")
+			or model:FindFirstChild("Head")
+			or model:FindFirstChildWhichIsA("BasePart", true)
+		if not part then return end
+		seen[model] = true
+		list[#list + 1] = { Name = name, Model = model, Part = part }
+	end
+	local npcs = Workspace:FindFirstChild("NPCs")
+	if npcs then
+		for _, m in ipairs(npcs:GetChildren()) do consider(m) end
+	end
+	if #list == 0 then
+		-- NPCs klasoru yoksa: sinirli tarama
+		local budget = 1500
+		local queue = { Workspace }
+		local head = 1
+		while head <= #queue and budget > 0 do
+			local node = queue[head]
+			head = head + 1
+			for _, obj in ipairs(node:GetChildren()) do
+				budget = budget - 1
+				if obj:IsA("Model") then consider(obj) end
+				if budget > 0 then queue[#queue + 1] = obj end
+				if budget <= 0 then break end
+			end
+		end
+	end
+	VendorCache.At = os.clock()
+	VendorCache.List = list
+	return list
+end
+
+local function FindVendorByName(text)
+	local want = string.lower(tostring(text or ""))
+	if want == "" then return nil end
+	local exact, partial = nil, nil
+	for _, v in ipairs(GetVendors()) do
+		local low = string.lower(v.Name)
+		if low == want then exact = exact or v end
+		if not partial and string.find(low, want, 1, true) then partial = v end
+	end
+	return exact or partial
+end
+
+local function NearestVendor(root)
+	local best, bestDist = nil, math.huge
+	for _, v in ipairs(GetVendors()) do
+		local d = root and (v.Part.Position - root.Position).Magnitude or 0
+		if d < bestDist then bestDist, best = d, v end
+	end
+	return best
+end
+
+local function GoToVendor(vendor)
+	if not vendor then
+		Notify("Nexus BF", "Vendor not found. Open the dropdown to refresh.")
+		return false
+	end
+	StopMovementModes()
+	task.spawn(TweenTo, vendor.Part.Position + Vector3.new(0, 4, 4))
+	return true
+end
+
+-- v1.6 · WALK SPEED kilidi ------------------------------------------------
+-- Blox Fruits kendi script'inde WalkSpeed'i surekli geri yaziyor; sadece
+-- deger atamak ise yaramiyor. PropertyChanged kilidi aninda geri koyar.
+local SpeedLock = { Conn = nil, Char = nil, JumpConn = nil }
+
+function ApplySpeedLock()
+	local char = GetChar()
+	local hum = GetHumanoid()
+	if not hum then return end
+	if SpeedLock.Char ~= char then
+		if SpeedLock.Conn then pcall(function() SpeedLock.Conn:Disconnect() end) end
+		if SpeedLock.JumpConn then pcall(function() SpeedLock.JumpConn:Disconnect() end) end
+		SpeedLock.Char = char
+		SpeedLock.Conn = hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+			if not S.PlayerMods then return end
+			if hum.WalkSpeed ~= S.WalkSpeed then
+				pcall(function() hum.WalkSpeed = S.WalkSpeed end)
+			end
+		end)
+		SpeedLock.JumpConn = hum:GetPropertyChangedSignal("JumpPower"):Connect(function()
+			if not S.PlayerMods then return end
+			if hum.JumpPower ~= S.JumpPower then
+				pcall(function() hum.JumpPower = S.JumpPower end)
+			end
+		end)
+	end
+	pcall(function()
+		hum.UseJumpPower = true
+		hum.WalkSpeed = S.WalkSpeed
+		hum.JumpPower = S.JumpPower
+	end)
+end
+
+function ReleaseSpeedLock()
+	if SpeedLock.Conn then pcall(function() SpeedLock.Conn:Disconnect() end) end
+	if SpeedLock.JumpConn then pcall(function() SpeedLock.JumpConn:Disconnect() end) end
+	SpeedLock.Conn, SpeedLock.JumpConn, SpeedLock.Char = nil, nil, nil
+	local hum = GetHumanoid()
+	if hum then
+		pcall(function()
+			hum.WalkSpeed = State.OrigWalkSpeed
+			hum.JumpPower = State.OrigJumpPower
+		end)
+	end
+end
+
+-- v1.6 · INFINITE ENERGY ----------------------------------------------------
+local EnergyLock = { Obj = nil, Conn = nil, Race = nil, RaceConn = nil }
+
+local function EnergySources()
+	local out = {}
+	local char = GetChar()
+	if char then
+		local e = char:FindFirstChild("Energy")
+		if e and (e:IsA("NumberValue") or e:IsA("IntValue") or e:IsA("StringValue")) then
+			out[#out + 1] = e
+		end
+		local race = char:FindFirstChild("RaceEnergy")
+		if race and (race:IsA("IntValue") or race:IsA("NumberValue")) then
+			out[#out + 1] = race
+		end
+	end
+	local plrEnergy = LP:FindFirstChild("Energy")
+	if plrEnergy and (plrEnergy:IsA("NumberValue") or plrEnergy:IsA("IntValue")) then
+		out[#out + 1] = plrEnergy
+	end
+	return out
+end
+
+local function pinEnergyValue(obj)
+	if not obj then return end
+	if obj:IsA("StringValue") then
+		if obj.Value ~= "100" then pcall(function() obj.Value = "100" end) end
+		return
+	end
+	local target = S.EnergyValue or 1000000
+	if obj.Value ~= target then
+		pcall(function() obj.Value = target end)
+	end
+end
+
+function BindEnergyLock()
+	local sources = EnergySources()
+	local main = sources[1]
+	if main and main ~= EnergyLock.Obj then
+		if EnergyLock.Conn then pcall(function() EnergyLock.Conn:Disconnect() end) end
+		EnergyLock.Obj = main
+		EnergyLock.Conn = main.Changed:Connect(function()
+			if S.InfiniteEnergy then pinEnergyValue(main) end
+		end)
+	end
+	for i = 2, #sources do
+		local extra = sources[i]
+		if extra ~= EnergyLock.Race then
+			EnergyLock.Race = extra
+			if EnergyLock.RaceConn then pcall(function() EnergyLock.RaceConn:Disconnect() end) end
+			EnergyLock.RaceConn = extra.Changed:Connect(function()
+				if S.InfiniteEnergy then pinEnergyValue(extra) end
+			end)
+		end
+	end
+	for _, obj in ipairs(sources) do pinEnergyValue(obj) end
+	return #sources
+end
+
+function EnergyInfo()
+	local src = EnergySources()
+	if #src == 0 then return "energy source: not found" end
+	local parts = {}
+	for _, obj in ipairs(src) do
+		parts[#parts + 1] = string.format("%s = %s", obj.Name, tostring(obj.Value))
+	end
+	return "energy: " .. table.concat(parts, " · ")
+end
+
 local function GetSpawnedFruits()
 	local fruits = {}
 	for _, obj in ipairs(Workspace:GetDescendants()) do
@@ -70850,6 +74749,9 @@ local function GetSpawnedFruits()
 				if node ~= obj and node:FindFirstChildOfClass("Humanoid") then inCharacter = true break end
 				node = node.Parent
 			end
+			-- v1.6 · saticilar / NPC'ler meyve degil ("Blox Fruit Dealer", "Remove Blox Fruit" ...)
+			if IsVendorName(obj.Name) then inCharacter = true end
+			if HasHumanoidInside(obj) then inCharacter = true end
 			if not inCharacter then
 				local part = obj:FindFirstChild("Handle", true) or obj:FindFirstChildWhichIsA("BasePart", true)
 				if part then table.insert(fruits, { Object = obj, Part = part }) end
@@ -71404,22 +75306,24 @@ task.spawn(function()
 				lastFruit = now
 				InvokeCommF("Cousin", "Buy")
 			end
-			if S.InfiniteEnergy and now - lastEnergy > 0.5 then
+			if S.InfiniteEnergy and now - lastEnergy > 0.2 then
 				lastEnergy = now
-				local c = GetChar()
-				local energy = c and c:FindFirstChild("Energy")
-				if energy and (energy:IsA("NumberValue") or energy:IsA("IntValue")) then
-					energy.Value = 10000
-				end
+				BindEnergyLock()
+			end
+			if energyLabel and now - (State.LastEnergyLabel or 0) > 2 then
+				State.LastEnergyLabel = now
+				energyLabel.Text = EnergyInfo()
 			end
 			if S.PlayerMods then
-				local hum = GetHumanoid()
-				if hum then
-					if hum.WalkSpeed ~= S.WalkSpeed then hum.WalkSpeed = S.WalkSpeed end
-					pcall(function()
-						hum.UseJumpPower = true
-						if hum.JumpPower ~= S.JumpPower then hum.JumpPower = S.JumpPower end
-					end)
+				-- v1.6 · kilit yoksa kur, varsa degeri tazele
+				if not SpeedLock.Conn or SpeedLock.Char ~= GetChar() then
+					ApplySpeedLock()
+				else
+					local hum = GetHumanoid()
+					if hum then
+						if hum.WalkSpeed ~= S.WalkSpeed then pcall(function() hum.WalkSpeed = S.WalkSpeed end) end
+						if hum.JumpPower ~= S.JumpPower then pcall(function() hum.JumpPower = S.JumpPower end) end
+					end
 				end
 			end
 		end)
@@ -71488,12 +75392,41 @@ Connect(RunService.Stepped, function()
 end)
 
 -- v1.2 · Anti-Void watchdog: farm kapaliyken de calisir
+-- v1.5 · varis tutusu ve snap back korumasi eklendi
 Connect(RunService.Heartbeat, function()
 	if State.Unloaded then return end
+	local root = GetRoot()
+
+	-- v1.5 · varis tutusu: hedefte sabit tut (bolge yuklenene kadar)
+	if State.HoldCF then
+		if root then
+			local drift = (root.Position - State.HoldCF.Position).Magnitude
+			if drift > 25 and State.SnapTries < 8 and S.NoSnapBack then
+				State.SnapTries = State.SnapTries + 1
+				State.HoldRecovered = State.SnapTries
+				root.CFrame = State.HoldCF
+				root.AssemblyLinearVelocity = Vector3.zero
+			end
+		end
+		if os.clock() > State.HoldUntil then
+			State.HoldCF = nil
+			State.TravelTarget = nil
+		end
+		return
+	end
+
+	if travelReasonLabel and State.LastTravelReason ~= State.ShownTravelReason then
+		State.ShownTravelReason = State.LastTravelReason
+		travelReasonLabel.Text = "last block reason: " .. ((State.LastTravelReason == "" or State.LastTravelReason == nil) and "none" or tostring(State.LastTravelReason))
+	end
+
 	RecordSafeSpot()
 	if not AntiVoidActive() then return end
-	local root = GetRoot()
 	if not root then return end
+	if State.TravelActive then
+		-- bayat bayrak (iptal edilmis / olu thread) anti-void'i kapatmasin
+		if not State.TweenBusy then State.TravelActive = false else return end
+	end
 	if root.Position.Y < VoidFloor() then
 		RescueFromVoid(string.format("Y %.0f < %.0f", root.Position.Y, VoidFloor()))
 	end
@@ -71574,6 +75507,9 @@ Connect(LP.CharacterAdded, function(char)
 			pcall(function() State.OrigJumpPower = hum.JumpPower end)
 		end
 		if S.Fly then SetFly(true) end
+		SpeedLock.Char = nil
+		if S.PlayerMods then task.delay(0.4, ApplySpeedLock) end
+		if S.InfiniteEnergy then task.delay(0.4, BindEnergyLock) end
 		task.wait(2)
 		if State.Unloaded then return end
 		if S.AutoHaki then SendKey(S.HakiKey) end
@@ -71616,16 +75552,36 @@ Unload = function()
 		hum.AutoRotate = true
 		pcall(function() hum.JumpPower = State.OrigJumpPower end)
 	end
+	StopEmote()
 	SetCharacterCollisions(true)
 	pcall(function() Screen:Destroy() end)
 	env.NexusBF = nil
 	Notify("Nexus BF", "Script unloaded.")
 end
 
-env.NexusBF = { Unload = Unload, Settings = S, Version = "1.3", Sea = GetSeaName, VoidFloor = VoidFloor, Rescues = function() return State.VoidRescues or 0 end, QuestForLevel = function(level) local q = GetQuestForLevel(level) if not q then return nil end return { level = q[1], id = q[2], tier = q[3], mob = q[4] } end, Sanitize = function(pos) return SanitizeDestination(pos) end, LastSafe = function() return State.LastGoodCF, State.LastGoodY end }
+env.NexusBF = { Unload = Unload, Settings = S, Version = "1.6", Sea = GetSeaName, VoidFloor = VoidFloor, Rescues = function() return State.VoidRescues or 0 end, QuestForLevel = function(level) local q = GetQuestForLevel(level) if not q then return nil end return { level = q[1], id = q[2], tier = q[3], mob = q[4] } end, Sanitize = function(pos) return SanitizeDestination(pos) end, IsVector = IsVector3, LastSafe = function() return State.LastGoodCF, State.LastGoodY end,
+	Travel = function(pos) return TweenTo(pos) end,
+	Instant = function(pos) InstantTeleport(pos) end,
+	Hold = function() return State.HoldCF, State.SnapTries end,
+	Floor = function() return VoidFloor() end,
+	Emotes = EMOTES,
+	Emote = function(name, loop)
+		for _, e in ipairs(EMOTES) do
+			if e[1] == name then return PlayEmoteID(e[2], e[1], loop) end
+		end
+		return PlayEmoteID(name, name, loop)
+	end,
+	StopEmote = StopEmote,
+	Vendors = function() return GetVendors() end,
+	GoToVendor = function(name) return GoToVendor(FindVendorByName(name)) end,
+	NearestVendor = function() return NearestVendor(GetRoot()) end,
+	SpeedLock = function() return S.PlayerMods, SpeedLock.Conn ~= nil end,
+	Energy = function() return EnergyInfo() end,
+	EnergyCount = function() return #EnergySources() end,
+	Fruits = function() return GetSpawnedFruits() end }
 
-Notify("Nexus BF", "Nexus Blox Fruits v1.3 loaded.")
-print("[Nexus BF] v1.3 loaded")
+Notify("Nexus BF", "Nexus Blox Fruits v1.6 loaded · speed + energy + vendors")
+print("[Nexus BF] v1.6 loaded")
 
 
 
@@ -72219,14 +76175,14 @@ end
 function Apex.BuildRegistry()
 	if #Apex.Registry > 0 then return end
 	local games = {
-		{Id = "game.tsb", Name = "TSB", Sub = "TSB · Speed/Jump/AntiStun/AutoBlock/ESP · Full Offline UI", Color = C.Purple, Category = "Games", SourceIndex = 1, Places = {10449761463}, GameName = "The Strongest Battlegrounds", Tags = {"Combat", "Animations", "Nexus GUI", "Auto Config"}},
+		{Id = "game.tsb", Name = "TSB", Sub = "TSB v5.2 · Speed/Jump off fix · Fly · ESP · BBot theme", Color = C.Purple, Category = "Games", SourceIndex = 1, Places = {10449761463}, GameName = "The Strongest Battlegrounds", Tags = {"Combat", "Animations", "Nexus GUI", "Auto Config"}},
 		{Id = "game.rivals.legit", Name = "RIVALS LEGIT", Sub = "NEXUS AIM CORE · auto config · silent/ESP · 46 skins", Color = C.Cyan, Category = "Games", SourceIndex = 2, Places = {17625359962}, GameName = "Rivals", Tags = {"FPS", "Legit", "Aimbot", "Ultra ESP", "Skin Search"}},
-		{Id = "game.rivals.ultrarage", Name = "RIVALS ULTRA RAGE", Sub = "NEXUS AIM CORE · ESP on · Rage Bot burst · team check", Color = C.Orange, Category = "Games", SourceIndex = 4, Places = {17625359962}, GameName = "Rivals", Tags = {"FPS", "UltraRage", "Rage Bot", "Hitbox Silent", "Skin Engine v8"}},
-		{Id = "game.mm2", Name = "MM2", Sub = "Murder Mystery 2 · Round HUD + Role ESP + Coin Farm", Color = C.Purple, Category = "Games", SourceIndex = 5, Places = {142823291}, GameName = "Murder Mystery 2", Tags = {"ESP", "Farm", "Nexus GUI", "Auto Config"}},
-		{Id = "game.doors", Name = "DOORS", Sub = "DOORS · ESP + Entity alerts (Nexus GUI) · Auto Config", Color = C.Green, Category = "Games", SourceIndex = 6, Places = {6516141723, 6839171747}, GameName = "DOORS", Tags = {"Horror", "ESP", "Nexus GUI", "Auto Config"}},
+		{Id = "game.rivals.ultrarage", Name = "RIVALS ULTRA RAGE", Sub = "AIM CORE · Rage Bot burst · team check · FLY", Color = C.Orange, Category = "Games", SourceIndex = 4, Places = {17625359962}, GameName = "Rivals", Tags = {"FPS", "UltraRage", "Rage Bot", "Hitbox Silent", "Skin Engine v8"}},
+		{Id = "game.mm2", Name = "MM2", Sub = "MM2 v2.6 · skins fixed · fly · drop ESP · round HUD", Color = C.Purple, Category = "Games", SourceIndex = 5, Places = {142823291}, GameName = "Murder Mystery 2", Tags = {"ESP", "Farm", "Nexus GUI", "Auto Config"}},
+		{Id = "game.doors", Name = "DOORS", Sub = "DOORS · ESP + Entity alerts · BBot theme", Color = C.Green, Category = "Games", SourceIndex = 6, Places = {6516141723, 6839171747}, GameName = "DOORS", Tags = {"Horror", "ESP", "Nexus GUI", "Auto Config"}},
 		{Id = "game.brookhaven", Name = "BROOKHAVEN", Sub = "Brookhaven RP · 5 tabs · Troll + Vehicle + Server", Color = C.Amber, Category = "Games", SourceIndex = 7, Places = {4924922222}, GameName = "Brookhaven RP", Tags = {"Roleplay", "Tools"}},
-				{Id = "game.nds", Name = "NDS SURVIVAL", Sub = "NDS · one GOD MODE switch + void-safe fly + drawing ESP · Nexus GUI v4", Color = C.Amber, Category = "Games", SourceIndex = 3, Places = {189707}, GameName = "Natural Disaster Survival", Tags = {"Survival", "Embedded"}},
-		{Id = "game.bloxfruits", Name = "BLOX FRUITS", Sub = "Blox Fruits · v1.3 Sea 3 fix · auto quest + ESP", Color = C.Purple, Category = "Games", SourceIndex = 8, Places = {2753915549, 4442272183, 7449423635}, GameName = "Blox Fruits", Tags = {"Farm", "ESP", "Nexus GUI", "Auto Config"}},
+				{Id = "game.nds", Name = "NDS SURVIVAL", Sub = "NDS v6.2 · FE parts · real fling · UGC emotes", Color = C.Amber, Category = "Games", SourceIndex = 3, Places = {189707}, GameName = "Natural Disaster Survival", Tags = {"Survival", "Embedded"}},
+		{Id = "game.bloxfruits", Name = "BLOX FRUITS", Sub = "Blox Fruits · travel fix · emotes · speed/energy · vendors", Color = C.Purple, Category = "Games", SourceIndex = 8, Places = {2753915549, 4442272183, 7449423635}, GameName = "Blox Fruits", Tags = {"Farm", "ESP", "Nexus GUI", "Auto Config"}},
 	}
 	for _, item in ipairs(games) do Apex.AddItem(item) end
 	local base = "https://raw.githubusercontent.com/NexusPremiumDev/Scripting/refs/heads/main/"
@@ -72236,7 +76192,7 @@ function Apex.BuildRegistry()
 		{Id = "util.wrdaimbot", Name = "WRD AIMBOT", Sub = "WRD aimbot (online)", Color = C.Red, Url = base .. "wrd%20aimbot", Tags = {"Aim", "WRD"}},
 		{Id = "util.wrdesp", Name = "WRD ESP", Sub = "WRD ESP (online)", Color = C.Green, Url = base .. "wrd%20esp", Tags = {"ESP", "WRD", "Universal"}},
 		{Id = "util.wrdclicktp", Name = "WRD CLICK TP", Sub = "Click teleport (online)", Color = C.Cyan, Url = base .. "wrd%20click%20tp", Tags = {"Teleport", "WRD"}},
-		{Id = "util.nds", Name = "NDS SURVIVAL", Sub = "Natural Disaster · GOD MODE + fly + ESP (embedded)", Color = C.Amber, SourceIndex = 3, Tags = {"Game", "Survival", "Embedded"}},
+		{Id = "util.nds", Name = "NDS SURVIVAL", Sub = "Natural Disaster · no damage + emotes + fling (embedded)", Color = C.Amber, SourceIndex = 3, Tags = {"Game", "Survival", "Embedded"}},
 		{Id = "util.esp", Name = "ESP", Sub = "Visual awareness (online)", Color = C.Green, Url = base .. "esp", Tags = {"ESP", "Universal"}},
 		{Id = "util.fling", Name = "NEXUS FLING", Sub = "Physics fling GUI (online)", Color = C.Orange, Url = base .. "nexus%20fling", Tags = {"Physics", "Nexus"}},
 		{Id = "util.animations", Name = "NEXUS ANIMATIONS", Sub = "Animation collection (online)", Color = C.Purple, Url = base .. "animation%20gui", Tags = {"Animations", "GUI", "Universal"}},
@@ -74006,4 +77962,4 @@ function Apex.Boot()
 		Apex.WarmupDetected()
 	end)
 end
-Apex.Boot()			
+Apex.Boot()
